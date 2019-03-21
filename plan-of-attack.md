@@ -1,16 +1,18 @@
 Plan of Attack:
 ---------------
 
-- [ ]  Locate all the ISODAT result files and copy to lab laptop
+- [ ]  Locate all the ISODAT result files and copy to my laptop
 
-- [ ]  Identify and weed out unecessary results from misc tests or failed runs
+- [ ]  Catalog files by core
+
+- [ ] Identify and weed out unecessary results from misc tests or failed runs
     - Use file size?
     - Do in code instead?
     
 - [ ]  Design an export template
     - Think about how I am going to sort samples and their blocks into the correct order
     
-- [ ]  Reprocess all files into one large excel file using ISODAT on lab laptop
+- [ ]  Reprocess all files from each core into one large excel file using ISODAT on lab laptop
         
 - [ ]  Write code that imports the raw delta values and as much sample metadata as possible from the reprocessed excel file
     - Include checks that identify potentially bad samples, maybe by checking the voltages, number of rows per block and blocks per sample?
