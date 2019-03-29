@@ -2,6 +2,7 @@ Plan of Attack:
 ---------------
 
 - [x] Locate & Copy Files: Locate all the ISODAT result files and copy to my laptop
+- Done: Copied XP Results folder as of 2019-03-20
 
 - [ ] Catalog Files: Catalog files by core
 
