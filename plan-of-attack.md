@@ -2,13 +2,20 @@ Plan of Attack:
 ---------------
 
 - [x] Locate & Copy Files: Locate all the ISODAT result files and copy to my laptop
-    - Done: Copied XP Results folder as of 2019-03-20
-
+    - Done: 2019-03-20
+    - Copied XP Results folder to my laptop
+    
 - [ ] Catalog Files: Catalog files by core
+    - Done: 2019-03-20
+    - Rearranged files into new folders for each core.
+    - Kept the original folders intact within the folder for each core
+    - Some folders such as '/Sarah/' or '/ACQ-Results/' contain files from multiple cores, in this case I tried to copy files into a '/from Sarah/' or '/from ACQ-Results/' folder within the appropriate core folder but it is unclear if I will get all of the necessary PIS, CS and LJA files also. We will have to see.
+    
 
 - [ ] Clean-Up Files: Identify and weed out unecessary results from misc tests or failed runs
     - Use file size?
     - Do in code instead?
+    - Look at file naming conventions
     
 - [ ] Design export template: Make an export template that is as versatile as possible.
     - Think about how I am going to sort samples and their blocks into the correct order
