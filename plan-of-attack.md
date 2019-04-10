@@ -5,7 +5,7 @@ Plan of Attack:
     - Done: 2019-03-20
         - Copied XP Results folder to my laptop
     
-- [ ] Catalog Files: Catalog files by core
+- [x] Catalog Files: Catalog files by core
     - Done: 2019-03-20
         - Rearranged files into new folders for each core.
         - Kept the original folders intact within the folder for each core
