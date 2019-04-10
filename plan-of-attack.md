@@ -9,8 +9,10 @@ Plan of Attack:
     - Done: 2019-03-20
         - Rearranged files into new folders for each core.
         - Kept the original folders intact within the folder for each core
-        - Some folders such as '/Sarah/' or '/ACQ-Results/' contain files from multiple cores, in this case I tried to copy files into a '/from Sarah/' or '/from ACQ-Results/' folder within the appropriate core folder but it is unclear if I will get all of the necessary PIS, CS and LJA files also. We will have to see.
-    
+        
+- [ ] Catalog files with multiple cores in one folder:
+    - Some folders such as '/Sarah/' or '/ACQ-Results/' contain files from multiple cores, in some cases I tried to copy files into a '/from ACQ-Results/' folder within the appropriate core folder but it is unclear if I will get all of the necessary PIS, CS and LJA files also.
+    - Some folders I have just ignored for now as it is nog clear if I will need the data in the future (mostly Vostok and Greenland data) and I am worried I will just complicate things more.
 
 - [ ] Clean-Up Files: Identify and weed out unecessary results from misc tests or failed runs
     - Use file size?
