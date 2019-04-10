@@ -14,6 +14,11 @@ Plan of Attack:
     - Some folders such as '/Sarah/' or '/ACQ-Results/' contain files from multiple cores, in some cases I tried to copy files into a '/from ACQ-Results/' folder within the appropriate core folder but it is unclear if I will get all of the necessary PIS, CS and LJA files also.
     - Some folders I have just ignored for now as it is nog clear if I will need the data in the future (mostly Vostok and Greenland data) and I am worried I will just complicate things more.
 
+- [ ] Pick Easy Starter Cores: Choose a few cores that should be relatively simple and copy their files to the lab laptop
+    - SPICE and WDC06A for sure.
+    - What others? SDMA? RICE? NEEM?
+    - Pick ones with complete, available spreadsheets.
+
 - [ ] Clean-Up Files: Identify and weed out unecessary results from misc tests or failed runs
     - Use file size?
     - Do in code instead?
