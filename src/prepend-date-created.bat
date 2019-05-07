@@ -4,37 +4,41 @@
 @rem Prepends the date that they were created, and the name of the sub-directory they are in.
 
 cls
+echo "File Dates" >fileDates.txt
 
 @echo off
 setlocal enableDelayedExpansion
-rem dir /tc "%filename%"
 
-set "filename=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Alan\ADRS_UZB2_57A_rep1-0115.did"
+set "dirToUse=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Test Folder\Another Test Folder\Kenji 15 N"
 
 set "getdate="
-for /f "tokens=1-4delims=/:" %%a in ('dir /TC C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Alan\*.did') do (
-	if "%%c" neq "" (
+
+for %%F in ("%dirToUse%\*.did") do (
+	
+	set "filename=%%F"
+	echo "File Name:">>fileDates.txt
+	echo !filename!>>fileDates.txt
+	
+	echo "Output of 'dir'":>>fileDates.txt
+	dir /TC "!filename!" >> fileDates.txt
+	
+	for /f "tokens=1-4delims=/:" %%a in ('dir /TC "!filename!"') do (
+		if "%%c" neq "" (
+			
+			set "day=%%a"
+			set "month=%%b"
+			set "stringToParse=%%c"
+			set "stringToParseAlso=%%d"
 		
-		rem echo %%a
-		rem echo %%b
-		rem echo %%c
-		rem echo %%d
-		rem echo.
+			set "year=!stringToParse:~0,4!"
+			set "hour=!stringToParse:~6,2!"
+			set "min=!stringToParseAlso:~0,2!"
+			set "getdate=!year!-!month!-!day!_!hour!!min!"
+			
+			echo "File Creation Date:">>fileDates.txt
+			echo !getdate!>>fileDates.txt
+			echo.>>fileDates.txt))
 
-		set "day=%%a"
-		set "month=%%b"
-		set "stringToParse=%%c"
-		set "stringToParseAlso=%%d"
+echo "Working...")
 
-		rem echo !stringToParse!
-		
-		set "year=!stringToParse:~0,4!"
-		set "hour=!stringToParse:~6,2!"
-		set "min=!stringToParseAlso:~0,2!"
-		set "getdate=!year!-!month!-!day!_!hour!!min!" )
-
-		echo.
-		echo !getdate! )
-
-
-rem echo "!getdate!"
+echo "Completed"
