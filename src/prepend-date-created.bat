@@ -18,7 +18,7 @@ echo "File Dates" >fileDates.txt
 rem Define Working Directory
 rem ========================
 
-set "dirToUse=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Test Folder\Another Test Folder\Kenji 15 N"
+set "dirToUse=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Test Folder\"
 
 set "getdate="
 
@@ -26,7 +26,7 @@ set "getdate="
 rem Loop Through Files
 rem ==================
 
-for %%F in ("%dirToUse%\*.did") do (
+for /r "%dirToUse%" %%F in ("*.did") do (
 	
 	rem Get Date File Created
 	rem =====================
