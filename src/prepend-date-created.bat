@@ -31,12 +31,16 @@ for /r "%rootDir%" %%F in ("*.did") do (
 	rem Get Relative Path to File
 	rem =========================
 	
-	set "absPath=%%~dpF
+	set "absPath=%%~dpF"
 
 	for /l %%n in (1,1,500) do (if "!rootDir:~%%n,1!" neq "" (set /a "lenRootDir=%%n+1"))
 	for /l %%N in (1,1,500) do (if "!absPath:~%%N,1!" neq "" (set /a "lenAbsPath=%%N"))
 	for %%L in (!lenAbsPath!) do set "absPath=!absPath:~0,%%L!"
 	for %%l in (!lenRootDir!) do set "relPath=!absPath:~%%l!"
+
+	echo File Name: %%F
+	echo Abs Path: !absPath!
+	echo Rel Path: !relPath!
 
 	rem Get Date File Created
 	rem =====================
@@ -54,20 +58,21 @@ for /r "%rootDir%" %%F in ("*.did") do (
 			set "hour=!stringToParse:~6,2!"
 			set "min=!stringToParseAlso:~0,2!"
 			set "getdate=!year!-!month!-!day!_!hour!!min!"
-			))
+			)
+		)
 
 
 	rem Generate New File Name and Copy to New Destination
 	rem ==================================================
 
-	set "folderNames=!relPath:\=--!"
-	set "folderNames=!folderNames: =-!"
+	set "folderNames="
+	if "!relPath!" neq "" (
+		set "folderNames=!relPath:\=--!"
+		set "folderNames=!folderNames: =-!" 
+		)
+
 	set "newName=!getdate!_!folderNames!_%%~nxF"
 	
-	echo !folderNames!
-	echo !newName!
-	
-	pause
 	copy "%%F" "!rootdir!..\Processed-Files-from-!rootDirName!\!newName!"
 
 	echo Working: Copying files from !relPath!...
