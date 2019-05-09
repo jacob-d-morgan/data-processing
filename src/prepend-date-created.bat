@@ -12,37 +12,31 @@ rem ========
 setlocal enableDelayedExpansion
 
 cls
-echo "File Dates" >fileDates.txt
 
 
 rem Define Working Directory and Create Destination Directory
 rem =========================================================
 
-set "rootDir=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Test Folder\"
-cd %rootDir%\
+set "rootDir=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\"
+cd %rootDir%
+
 for %%i in (.) do set "rootDirName=%%~nxi"
-
 mkdir "%rootDir%..\Processed-Files-from-%rootDirName%"
-
-pause
 
 rem Loop Through Files
 rem ==================
 
 for /r "%rootDir%" %%F in ("*.did") do (
-	
+
 	rem Get Relative Path to File
 	rem =========================
 	
 	set "absPath=%%~dpF
+
 	for /l %%n in (1,1,500) do (if "!rootDir:~%%n,1!" neq "" (set /a "lenRootDir=%%n+1"))
 	for /l %%N in (1,1,500) do (if "!absPath:~%%N,1!" neq "" (set /a "lenAbsPath=%%N"))
 	for %%L in (!lenAbsPath!) do set "absPath=!absPath:~0,%%L!"
 	for %%l in (!lenRootDir!) do set "relPath=!absPath:~%%l!"
-
-	echo Root Dir: !rootDir! >>fileDates.txt
-	echo Abs Path: !absPath! >>fileDates.txt
-	echo Rel Path: !relPath! >>fileDates.txt
 
 	rem Get Date File Created
 	rem =====================
@@ -60,22 +54,23 @@ for /r "%rootDir%" %%F in ("*.did") do (
 			set "hour=!stringToParse:~6,2!"
 			set "min=!stringToParseAlso:~0,2!"
 			set "getdate=!year!-!month!-!day!_!hour!!min!"
-			
-			echo File Creation Date: !getdate! >>fileDates.txt
-			echo.>>fileDates.txt
-			echo.>>fileDates.txt))
+			))
 
 
 	rem Generate New File Name and Copy to New Destination
 	rem ==================================================
+
+	set "folderNames=!relPath:\=--!"
+	set "folderNames=!folderNames: =-!"
+	set "newName=!getdate!_!folderNames!_%%~nxF"
 	
-	set "folderNames=!relPath:\=--!
-	set "folderNames=!folderNames: =-!
-	set "newName=!getdate!_!folderNames!_%%~nxF
+	echo !folderNames!
+	echo !newName!
 	
+	pause
 	copy "%%F" "!rootdir!..\Processed-Files-from-!rootDirName!\!newName!"
 
-	echo Working in !relPath!...
+	echo Working: Copying files from !relPath!...
 	)
 
 echo "Completed"
