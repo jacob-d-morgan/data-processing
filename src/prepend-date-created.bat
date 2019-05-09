@@ -15,20 +15,16 @@ cls
 echo "File Dates" >fileDates.txt
 
 
-rem Define Working Directory
-rem ========================
+rem Define Working Directory and Create Destination Directory
+rem =========================================================
 
 set "rootDir=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Test Folder\"
+cd %rootDir%\
+for %%i in (.) do set "rootDirName=%%~nxi"
+
+mkdir "%rootDir%..\Processed-Files-from-%rootDirName%"
 
 pause
-cd %rootDir%
-
-pause
-mkdir "%rootDir%Processed-Files"
-
-pause
-set "getdate="
-
 
 rem Loop Through Files
 rem ==================
@@ -75,16 +71,11 @@ for /r "%rootDir%" %%F in ("*.did") do (
 	
 	set "folderNames=!relPath:\=--!
 	set "folderNames=!folderNames: =-!
-
 	set "newName=!getdate!_!folderNames!_%%~nxF
 	
-	
-	copy "%%F" "!rootdir!Processed-Files\!newName!"
+	copy "%%F" "!rootdir!..\Processed-Files-from-!rootDirName!\!newName!"
 
-pause
-	
-
-
-echo Working in !relPath!...)
+	echo Working in !relPath!...
+	)
 
 echo "Completed"
