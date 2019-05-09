@@ -17,7 +17,7 @@ cls
 rem Define Working Directory and Create Destination Directory
 rem =========================================================
 
-set "rootDir=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results"
+set "rootDir=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Test Folder"
 cd %rootDir%
 
 for %%i in (.) do set "rootDirName=%%~nxi"
@@ -26,7 +26,7 @@ mkdir "%rootDir%\..\Processed-Files-from-%rootDirName%"
 rem Loop Through Files
 rem ==================
 
-for /r "%rootDir%\" %%F in ("*.did") do (
+for /r "%rootDir%\" %%F in (*.caf *.did) do (
 
 	rem Get Relative Path to File
 	rem =========================
