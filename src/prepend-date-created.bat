@@ -17,7 +17,12 @@ cls
 rem Define Working Directory and Create Destination Directory
 rem =========================================================
 
+rem =========================================================
+rem Hard Code Root Directory Here:
+
 set "rootDir=C:\Users\Jacob\Documents\projects\data-processing\data\xp\copy-of-results\Results\Test Folder"
+rem =========================================================
+
 cd %rootDir%
 
 for %%i in (.) do set "rootDirName=%%~nxi"
