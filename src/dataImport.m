@@ -1,7 +1,7 @@
 %% dataImport %%
 
 %% Import Data and Fix Variable Types
-xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv');
+%xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv');
 xp2018.TimeCode = datetime(datenum(xp2018.TimeCode),'ConvertFrom','Datenum'); %This is probably redundant...
 xp2018.Date = datestr(datenum(xp2018.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
 xp2018.IsRef__ = logical(xp2018.IsRef__);
@@ -77,6 +77,24 @@ end
 % Keep One Line of Metadata Per Block, Rather than One Per Cycle
 metadata = metadata(idx_blocks,:);
 
+% Define Methods that Are Run at the Start of Each New Sample
+sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
+
+idx_working = false(size(metadata,1),1);
+for ii=1:length(sampleStartMethods)
+    idx_working = idx_working + (metadata.method==sampleStartMethods(ii));
+end
+idx_SampleAliquots = find(idx_working);
+% idx_SampleAliquots = find((metadata.method==sampleStartMethods(1))...
+%                      + (metadata.method==sampleStartMethods(2))...
+%                      + (metadata.method==sampleStartMethods(3)));
+numberOfAliquots = length(idx_SampleAliquots);
+aliquotLengths = diff(idx_SampleAliquots);
+longestAliquot = max(aliquotLengths);
 
 
+figure
+plot(aliquotLengths)
+xlabel('Aliquot Number'); ylabel('Number of Blocks in Aliquot'); title('Aliquot Lengths (by method)')
+ylim([0 10])
 
