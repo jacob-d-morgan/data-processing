@@ -50,20 +50,20 @@ cycle_deltas = table2array(cycle_deltas);
 %% Compile Useful Metadata
 % NOTE: The current approach of subsampling the colums for the ~isRef rows
 % excludes the CO2 check rows. I must remember to add these back in later.
-metadata = table();
-metadata.datetime = xp2018.TimeCode(~xp2018.IsRef__);
-metadata.filename = xp2018.FileHeader_Filename(~xp2018.IsRef__);
-metadata.sequenceRow = xp2018.Row(~xp2018.IsRef__);
-metadata.ASInlet = xp2018.AS_SIOInlet(~xp2018.IsRef__);
-metadata.ID1 = xp2018.Identifier1(~xp2018.IsRef__);
-metadata.method = xp2018.Method(~xp2018.IsRef__);
-metadata.scriptName = xp2018.ScriptName(~xp2018.IsRef__);
-metadata.gasConfig = xp2018.GasConfiguration(~xp2018.IsRef__);
-metadata.gasName = xp2018.GasName(~xp2018.IsRef__);
+cycle_metadata = table();
+cycle_metadata.datetime = xp2018.TimeCode(~xp2018.IsRef__);
+cycle_metadata.filename = xp2018.FileHeader_Filename(~xp2018.IsRef__);
+cycle_metadata.sequenceRow = xp2018.Row(~xp2018.IsRef__);
+cycle_metadata.ASInlet = xp2018.AS_SIOInlet(~xp2018.IsRef__);
+cycle_metadata.ID1 = xp2018.Identifier1(~xp2018.IsRef__);
+cycle_metadata.method = xp2018.Method(~xp2018.IsRef__);
+cycle_metadata.scriptName = xp2018.ScriptName(~xp2018.IsRef__);
+cycle_metadata.gasConfig = xp2018.GasConfiguration(~xp2018.IsRef__);
+cycle_metadata.gasName = xp2018.GasName(~xp2018.IsRef__);
 
 %% Reshape into Cycles-x-Isotope Ratio-x-Block
 % Identify the different blocks by the unique filenames
-[~,idx_blocks,~] = unique(metadata.filename,'stable');
+[~,idx_blocks,~] = unique(cycle_metadata.filename,'stable');
 numberOfBlocks = length(idx_blocks);
 blockLengths = diff(idx_blocks);
 longestBlock = max(blockLengths);
@@ -75,26 +75,32 @@ for ii = 1:length(idx_blocks)-1
 end
 
 % Keep One Line of Metadata Per Block, Rather than One Per Cycle
-metadata = metadata(idx_blocks,:);
+block_metadata = cycle_metadata(idx_blocks,:);
 
 % Define Methods that Are Run at the Start of Each New Sample
 sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
 
-idx_working = false(size(metadata,1),1);
+idx_working = false(size(block_metadata,1),1);
 for ii=1:length(sampleStartMethods)
-    idx_working = idx_working | (metadata.method==sampleStartMethods(ii));
+    idx_working = idx_working | (block_metadata.method==sampleStartMethods(ii));
 end
-idx_SampleAliquots = find(idx_working | ([0; diff(metadata.sequenceRow)]<0));
-% idx_SampleAliquots = find((metadata.method==sampleStartMethods(1))...
-%                      + (metadata.method==sampleStartMethods(2))...
-%                      + (metadata.method==sampleStartMethods(3)));
+idx_SampleAliquots = find(idx_working | ([0; diff(block_metadata.sequenceRow)]<0));
+
 numberOfAliquots = length(idx_SampleAliquots);
 aliquotLengths = diff(idx_SampleAliquots);
 longestAliquot = max(aliquotLengths);
-
 
 figure
 plot(aliquotLengths)
 xlabel('Aliquot Number'); ylabel('Number of Blocks in Aliquot'); title('Aliquot Lengths (by method)')
 ylim([0 10])
 
+% Reshape
+aliquot_deltas = nan(longestBlock,size(cycle_deltas,2),longestAliquot,numberOfAliquots);
+for ii = 1:length(idx_SampleAliquots)-1
+    aliquot_deltas(:,:,1:aliquotLengths(ii),ii) = block_deltas(:,:,idx_SampleAliquots(ii):idx_SampleAliquots(ii+1)-1);
+end
+
+
+
+disp('>> Script Complete')
