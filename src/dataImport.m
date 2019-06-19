@@ -82,9 +82,9 @@ sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
 
 idx_working = false(size(metadata,1),1);
 for ii=1:length(sampleStartMethods)
-    idx_working = idx_working + (metadata.method==sampleStartMethods(ii));
+    idx_working = idx_working | (metadata.method==sampleStartMethods(ii));
 end
-idx_SampleAliquots = find(idx_working);
+idx_SampleAliquots = find(idx_working | ([0; diff(metadata.sequenceRow)]<0));
 % idx_SampleAliquots = find((metadata.method==sampleStartMethods(1))...
 %                      + (metadata.method==sampleStartMethods(2))...
 %                      + (metadata.method==sampleStartMethods(3)));
