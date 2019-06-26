@@ -1,7 +1,7 @@
 %% dataImport %%
 
 %% Import Data and Fix Variable Types
-%xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv');
+xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv');
 xp2018.TimeCode = datetime(datenum(xp2018.TimeCode),'ConvertFrom','Datenum'); %This is probably redundant...
 xp2018.Date = datestr(datenum(xp2018.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
 xp2018.IsRef__ = logical(xp2018.IsRef__);
@@ -91,9 +91,14 @@ aliquotLengths = diff(idx_SampleAliquots);
 longestAliquot = max(aliquotLengths);
 
 figure
+subplot(211)
+plot(blockLengths)
+xlabel('Block Number'); ylabel('Number of Cycles in Block'); title('Block Length (by filename)');
+xlim([-inf inf]); ylim([0 20])
+subplot(212)
 plot(aliquotLengths)
 xlabel('Aliquot Number'); ylabel('Number of Blocks in Aliquot'); title('Aliquot Lengths (by method)')
-ylim([0 10])
+xlim([-inf inf]);ylim([0 10])
 
 % Reshape
 aliquot_deltas = nan(longestBlock,size(cycle_deltas,2),longestAliquot,numberOfAliquots);
