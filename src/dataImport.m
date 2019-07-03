@@ -1,13 +1,14 @@
 %% dataImport %%
 
 %% Import Data and Fix Variable Types
-%xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-%disp({'Loading file 1...'})
-%xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-%disp({'Loading file 2...'})
-%xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-%disp({'Loading file 3...'})
-%%xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 1...'})
+xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 2...'})
+xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 3...'})
+xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 4...'})
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
