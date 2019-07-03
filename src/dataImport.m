@@ -78,7 +78,7 @@ cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
 % Identify the different blocks by the unique filenames
 [~,idx_blocks,~] = unique(cycle_metadata.filename,'stable');
 numberOfBlocks = length(idx_blocks);
-blockLengths = diff(idx_blocks);
+blockLengths = diff(idx_blocks); blockLengths(end+1)=length(cycle_deltas)-(idx_blocks(end)-1);
 longestBlock = max(blockLengths);
 
 % Fill the Array of Delta Values
@@ -100,18 +100,18 @@ end
 idx_SampleAliquots = find(idx_working | ([0; diff(block_metadata.sequenceRow)]<0));
 
 numberOfAliquots = length(idx_SampleAliquots);
-aliquotLengths = diff(idx_SampleAliquots);
+aliquotLengths = diff(idx_SampleAliquots); aliquotLengths(end+1)=length(block_deltas)-(idx_SampleAliquots(end)-1);
 longestAliquot = max(aliquotLengths);
 
 figure
 subplot(211)
-plot(block_metadata.datetime(1:end-1),blockLengths)
+plot(block_metadata.datetime,blockLengths)
 xlabel('Block Number'); ylabel('Number of Cycles in Block'); 
 title('Block Length (by method)');
 ylim([0 20])
 
 subplot(212)
-plot(block_metadata.datetime(idx_SampleAliquots(1:end-1)),aliquotLengths)
+plot(block_metadata.datetime(idx_SampleAliquots),aliquotLengths)
 xlabel('Aliquot Number'); ylabel('Number of Blocks in Aliquot'); 
 title('Aliquot Lengths (by method)')
 ylim([0 10])
