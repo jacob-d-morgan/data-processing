@@ -13,7 +13,8 @@
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
-importedData = [xp2018; xp2017; xp2016];
+xp2015.MeasurmentErrors = num2cell(xp2015.MeasurmentErrors);
+importedData = [xp2018; xp2017; xp2016; xp2015];
 
 importedData.TimeCode = datetime(datenum(importedData.TimeCode),'ConvertFrom','Datenum'); %This is probably redundant...
 importedData.Date = datestr(datenum(importedData.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
