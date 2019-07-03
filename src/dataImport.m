@@ -91,6 +91,7 @@ end
 % Keep One Line of Metadata Per Block, Rather than One Per Cycle
 block_metadata = cycle_metadata(idx_blocks,:);
 
+%% Reshape into Cycles-x-Isotope Ratio-x-Block-x-Sample Aliquot
 % Define Methods that Are Run at the Start of Each New Sample
 sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
 
