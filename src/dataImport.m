@@ -31,7 +31,12 @@ importedData = sortrows(importedData,idxTimeCode);
 %
 % Could do something similar here with folder names etc.
 
+% 1. Only Use Data from the "SPICE" Folders
 % importedData = importedData(contains(importedData.FileHeader_Filename,'SPICE'),:);
+
+% 2. Remove Cycles with No ID1 (Sample ID/Bottom Depth)
+% disp(['Removing ' num2str(sum(ismissing(importedData.Identifier1))) ' cycles with no ID1']);
+% importedData = importedData(~ismissing(importedData.Identifier1),:);
 
 %% Interpolate ST Voltages and Calculate Delta Values
 % NOTE: The current method of interpolating onto the ~isRef indices
