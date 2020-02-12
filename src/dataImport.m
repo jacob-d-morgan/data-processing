@@ -1,15 +1,15 @@
 %% dataImport %%
 
 %% Import Data and Fix Variable Types
-% disp({'Loading file 1: Working...'})
-% xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
-% xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-% xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 4: Complete'})
+disp({'Loading file 1: Working...'})
+xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
+xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
+xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
+xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 4: Complete'})
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
@@ -83,14 +83,19 @@ cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
 %% Reshape into Cycles-x-Isotope Ratio-x-Block
 % Identify the different blocks by the unique filenames
 [~,idx_blocks,~] = unique(cycle_metadata.filename,'stable');
-numberOfBlocks = length(idx_blocks);
 blockLengths = diff(idx_blocks); blockLengths(end+1)=length(cycle_deltas)-(idx_blocks(end)-1);
+
+% TAKE ONLY THE BLOCKS WITH 16 CYCLES!
+idx_blocks = idx_blocks(blockLengths==16); 
+blockLengths = blockLengths(blockLengths==16);
+
+numberOfBlocks = length(idx_blocks);
 longestBlock = max(blockLengths);
 
 % Fill the Array of Delta Values
 block_deltas = nan(longestBlock,size(cycle_deltas,2),numberOfBlocks);
 for ii = 1:length(idx_blocks)-1
-    block_deltas(1:blockLengths(ii),:,ii) = cycle_deltas(idx_blocks(ii):idx_blocks(ii+1)-1,:);
+    block_deltas(1:blockLengths(ii),:,ii) = cycle_deltas(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
 end
 
 % Keep One Line of Metadata Per Block, Rather than One Per Cycle
@@ -104,10 +109,17 @@ idx_working = false(size(block_metadata,1),1);
 for ii=1:length(sampleStartMethods)
     idx_working = idx_working | (block_metadata.method==sampleStartMethods(ii));
 end
+
+% Find new aliquots by finding above methods or by finding the start of a
+% new sequence (sequence row decreases from N to 1).
 idx_SampleAliquots = find(idx_working | ([0; diff(block_metadata.sequenceRow)]<0));
+aliquotLengths = diff(idx_SampleAliquots); aliquotLengths(end+1)=length(block_deltas)-(idx_SampleAliquots(end)-1);
+
+% TAKE ONLY THE ALIQUOTS WITH 4 OR 5 BLOCKS!
+idx_SampleAliquots = idx_SampleAliquots(aliquotLengths>3 & aliquotLengths<6);
+aliquotLengths = aliquotLengths(aliquotLengths>3 & aliquotLengths<6);
 
 numberOfAliquots = length(idx_SampleAliquots);
-aliquotLengths = diff(idx_SampleAliquots); aliquotLengths(end+1)=length(block_deltas)-(idx_SampleAliquots(end)-1);
 longestAliquot = max(aliquotLengths);
 
 figure
@@ -126,7 +138,7 @@ ylim([0 10])
 % Reshape
 aliquot_deltas = nan(longestBlock,size(cycle_deltas,2),longestAliquot,numberOfAliquots);
 for ii = 1:length(idx_SampleAliquots)-1
-    aliquot_deltas(:,:,1:aliquotLengths(ii),ii) = block_deltas(:,:,idx_SampleAliquots(ii):idx_SampleAliquots(ii+1)-1);
+    aliquot_deltas(:,:,1:aliquotLengths(ii),ii) = block_deltas(:,:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1);
 end
 
 
