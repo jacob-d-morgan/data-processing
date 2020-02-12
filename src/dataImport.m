@@ -64,6 +64,7 @@ cycle_deltas.d4038Ar = ((intSA.rIntensity40./intSA.rIntensity38)./(intST.rIntens
 cycle_deltas.dO2N2 = ((intSA.rIntensity32./intSA.rIntensity28)./(intST.rIntensity32./intST.rIntensity28) - 1)*1000;
 cycle_deltas.dArN2 = ((intSA.rIntensity40./intSA.rIntensity28)./(intST.rIntensity40./intST.rIntensity28) - 1)*1000;
 
+cycle_delta_cols = cycle_deltas.Properties.VariableNames
 cycle_deltas = table2array(cycle_deltas);
 
 %% Compile Useful Metadata
@@ -144,5 +145,20 @@ for ii = 1:length(idx_SampleAliquots)-1
 end
 
 
+%% Do Some Staistics on the Blocks
+% There are some weird looking blocks here that plot off the top of the
+% y-axis. I should take a closer look. Set a threshold for inclusion?
+
+figure
+subplot(211)
+semilogy(block_metadata.datetime,squeeze(std(block_deltas)),'.');
+ylabel('Std Dev of Cycles in a Block [per mil]');
+ylim([0 150]);
+legend('Int 28 SA','Int 28 ST','delta P','d15N','d17O','d18O','d4038Ar','d4036Ar','dArN2','dO2N2','Location','N','Orientation','Horizontal');
+
+subplot(212)
+semilogy(block_metadata.datetime(idx_SampleAliquots),squeeze(nanstd(mean(aliquot_deltas,1),0,3)),'.');
+ylabel('Std Dev of Blocks in an Aliquot [per mil]')
+ylim([0 1500])
 
 disp('>> Script Complete')
