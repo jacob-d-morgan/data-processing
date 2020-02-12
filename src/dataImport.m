@@ -1,15 +1,15 @@
 %% dataImport %%
 
 %% Import Data and Fix Variable Types
-disp({'Loading file 1: Working...'})
-xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
-xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 4: Complete'})
+% disp({'Loading file 1: Working...'})
+% xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
+% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
+% xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
+% xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 4: Complete'})
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
@@ -85,7 +85,8 @@ cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
 [~,idx_blocks,~] = unique(cycle_metadata.filename,'stable');
 blockLengths = diff(idx_blocks); blockLengths(end+1)=length(cycle_deltas)-(idx_blocks(end)-1);
 
-% TAKE ONLY THE BLOCKS WITH 16 CYCLES!
+% TAKE ONLY THE BLOCKS WITH 16 CYCLES! - This causes me to lose 156 blocks
+% (17672 -> 17516, <1%), mostly with <5 cycles in them.
 idx_blocks = idx_blocks(blockLengths==16); 
 blockLengths = blockLengths(blockLengths==16);
 
@@ -115,7 +116,8 @@ end
 idx_SampleAliquots = find(idx_working | ([0; diff(block_metadata.sequenceRow)]<0));
 aliquotLengths = diff(idx_SampleAliquots); aliquotLengths(end+1)=length(block_deltas)-(idx_SampleAliquots(end)-1);
 
-% TAKE ONLY THE ALIQUOTS WITH 4 OR 5 BLOCKS!
+% TAKE ONLY THE ALIQUOTS WITH 4 OR 5 BLOCKS! - This causes me to lose 56
+% aliquots (4360 -> 4304, ~1%), mostly with only 1 or 2 blocks in them.
 idx_SampleAliquots = idx_SampleAliquots(aliquotLengths>3 & aliquotLengths<6);
 aliquotLengths = aliquotLengths(aliquotLengths>3 & aliquotLengths<6);
 
