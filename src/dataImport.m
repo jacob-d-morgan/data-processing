@@ -143,7 +143,10 @@ aliquot_deltas = nan(longestBlock,size(cycle_deltas,2),longestAliquot,numberOfAl
 for ii = 1:length(idx_SampleAliquots)-1
     aliquot_deltas(:,:,1:aliquotLengths(ii),ii) = block_deltas(:,:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1);
 end
-
+% Could pull out metadata into a separate variable but it would have to be
+% a cell array. It can't be a table as aliquot_deltas is 4D so the metadata
+% would have to be 3D unless I just took one for each aliquot and excluded
+% information about the different blocks within the aliquot.
 
 %% Do Some Staistics on the Blocks
 % There are some weird looking blocks here that plot off the top of the
@@ -161,4 +164,6 @@ semilogy(block_metadata.datetime(idx_SampleAliquots),squeeze(nanstd(mean(aliquot
 ylabel('Std Dev of Blocks in an Aliquot [per mil]')
 ylim([0 1500])
 
+
+%% PIS Correction
 disp('>> Script Complete')
