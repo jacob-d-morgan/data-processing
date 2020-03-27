@@ -1,20 +1,22 @@
 %% dataImport %%
 
 %% Import Data and Fix Variable Types
+% clearvars; clc;
 % disp({'Loading file 1: Working...'})
 % xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
 % disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
- xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+%  xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
 % disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
 % xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
 % disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-% xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 4: Complete'})
+% % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+% % disp({'Loading file 4: Complete'})
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
+xp2017.MeasurmentErrors = num2cell(xp2017.MeasurmentErrors);
 xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
-xp2015.MeasurmentErrors = num2cell(xp2015.MeasurmentErrors);
-importedData = [xp2018; xp2017; xp2016; xp2015];
+%xp2015.MeasurmentErrors = num2cell(xp2015.MeasurmentErrors);
+importedData = [xp2018; xp2017; xp2016]; % ; xp2015];
 
 importedData.TimeCode = datetime(datenum(importedData.TimeCode),'ConvertFrom','Datenum'); %This is probably redundant...
 importedData.Date = datestr(datenum(importedData.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
@@ -70,6 +72,9 @@ cycle_deltas = table2array(cycle_deltas);
 %% Compile Useful Metadata
 % NOTE: The current approach of subsampling the colums for the ~isRef rows
 % excludes the CO2 check rows. I must remember to add these back in later.
+% Also, the cycles all have exactly the same metadata so this step is
+% somewhat pointless.
+
 cycle_metadata = table();
 cycle_metadata.datetime = importedData.TimeCode(~importedData.IsRef__);
 cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
