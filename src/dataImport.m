@@ -179,12 +179,17 @@ if length(unique(allDeltasPisCheck)) > 1
     warning('CAUTION: Some delta values are missing a PIS value')
 end
 
-pisAliquots = block_means(:,:,:,iPisBlocks(:,1,:,:));
+pisAliquots = block_means(:,:,:,iPisBlocks(:,1,:,:)); 
+% This line takes all of the aliquots that have non-NaN values for the
+% fifth block, as indicated by iPisBlocks. It doesn't matter that we only
+% use the first column of iPisBlocks because all the columns should be the
+% same - if one of the delta values has a value for the fifth block then
+% they all should have a value.
 
-for ii=1:size(pisAliquots,4) % loop through PIS aliquots
-    for jj=4:size(pisAliquots,2) % loop through delta values
-        d = squeeze(pisAliquots(:,jj,:,ii));
-        G = [ones(size(d)) squeeze(pisAliquots(:,3,:,ii))];
+for ii=1:size(pisAliquots,4) % loop through all the PIS aliquots
+    for jj=4:size(pisAliquots,2) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
+        d = squeeze(pisAliquots(:,jj,:,ii)); % response variable = the looped delta value from the looped aliquot
+        G = [ones(size(d)) squeeze(pisAliquots(:,3,:,ii))]; % predictor variable = the pressure imbalance (col 3) from the looped variable
         
         m = (G'*G)\G'*d;
         pisValues(ii,jj-3)=m(2);
