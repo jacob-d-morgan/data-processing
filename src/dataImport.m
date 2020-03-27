@@ -4,7 +4,7 @@
 % disp({'Loading file 1: Working...'})
 % xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
 % disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+ xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
 % disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
 % xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
 % disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
@@ -64,7 +64,7 @@ cycle_deltas.d4038Ar = ((intSA.rIntensity40./intSA.rIntensity38)./(intST.rIntens
 cycle_deltas.dO2N2 = ((intSA.rIntensity32./intSA.rIntensity28)./(intST.rIntensity32./intST.rIntensity28) - 1)*1000;
 cycle_deltas.dArN2 = ((intSA.rIntensity40./intSA.rIntensity28)./(intST.rIntensity40./intST.rIntensity28) - 1)*1000;
 
-cycle_delta_cols = cycle_deltas.Properties.VariableNames
+cycle_delta_cols = cycle_deltas.Properties.VariableNames;
 cycle_deltas = table2array(cycle_deltas);
 
 %% Compile Useful Metadata
@@ -157,7 +157,7 @@ subplot(211)
 semilogy(block_metadata.datetime,squeeze(std(block_deltas)),'.');
 ylabel('Std Dev of Cycles in a Block [per mil]');
 ylim([0 150]);
-legend('Int 28 SA','Int 28 ST','delta P','d15N','d17O','d18O','d4038Ar','d4036Ar','dArN2','dO2N2','Location','N','Orientation','Horizontal');
+legend(cycle_delta_cols,'Location','N','Orientation','Horizontal');
 
 subplot(212)
 semilogy(block_metadata.datetime(idx_SampleAliquots),squeeze(nanstd(mean(aliquot_deltas,1),0,3)),'.');
@@ -166,4 +166,30 @@ ylim([0 1500])
 
 
 %% PIS Correction
+block_means = nanmean(aliquot_deltas,1);
+iPisBlocks = ~isnan(block_means(:,:,5,:));
+
+allDeltasPisCheck = sum(squeeze(iPisBlocks),2);
+if length(unique(allDeltasPisCheck)) > 1
+    warning('CAUTION: Some delta values are missing a PIS value')
+end
+
+pisAliquots = block_means(:,:,:,iPisBlocks(:,1,:,:));
+
+for ii=1:size(pisAliquots,4) % loop through PIS aliquots
+    for jj=4:size(pisAliquots,2) % loop through delta values
+        d = squeeze(pisAliquots(:,jj,:,ii));
+        G = [ones(size(d)) squeeze(pisAliquots(:,3,:,ii))];
+        
+        m = (G'*G)\G'*d;
+        pisValues(ii,jj-3)=m(2);
+    end
+end
+
+
+
+
+
+
+%%
 disp('>> Script Complete')
