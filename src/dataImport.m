@@ -21,6 +21,7 @@ importedData = [xp2018; xp2017; xp2016]; % ; xp2015];
 importedData.TimeCode = datetime(datenum(importedData.TimeCode),'ConvertFrom','Datenum'); %This is probably redundant...
 importedData.Date = datestr(datenum(importedData.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
 importedData.IsRef__ = logical(importedData.IsRef__);
+importedData.Method = string(importedData.Method);
 
 idxTimeCode = find(cellfun(@(varName) strcmp('TimeCode',varName),importedData.Properties.VariableNames)==1);
 importedData = sortrows(importedData,idxTimeCode);
@@ -66,7 +67,7 @@ cycle_deltas.d4038Ar = ((intSA.rIntensity40./intSA.rIntensity38)./(intST.rIntens
 cycle_deltas.dO2N2 = ((intSA.rIntensity32./intSA.rIntensity28)./(intST.rIntensity32./intST.rIntensity28) - 1)*1000;
 cycle_deltas.dArN2 = ((intSA.rIntensity40./intSA.rIntensity28)./(intST.rIntensity40./intST.rIntensity28) - 1)*1000;
 
-cycle_delta_cols = cycle_deltas.Properties.VariableNames;
+delta_cols = cycle_deltas.Properties.VariableNames;
 cycle_deltas = table2array(cycle_deltas);
 
 %% Compile Useful Metadata
@@ -86,9 +87,13 @@ cycle_metadata.scriptName = importedData.ScriptName(~importedData.IsRef__);
 cycle_metadata.gasConfig = importedData.GasConfiguration(~importedData.IsRef__);
 cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
 
+metadata_cols = cycle_metadata.Properties.VariableNames;
+cycle_metadata = table2cell(cycle_metadata);
+
 %% Reshape into Cycles-x-Isotope Ratio-x-Block
 % Identify the different blocks by the unique filenames
-[~,idx_blocks,~] = unique(cycle_metadata.filename,'stable');
+iColName = string(metadata_cols)=='filename';
+[~,idx_blocks,~] = unique(cycle_metadata(:,iColName),'stable');
 blockLengths = diff(idx_blocks); blockLengths(end+1)=length(cycle_deltas)-(idx_blocks(end)-1);
 
 % TAKE ONLY THE BLOCKS WITH 16 CYCLES! - This causes me to lose 156 blocks
@@ -101,25 +106,34 @@ longestBlock = max(blockLengths);
 
 % Fill the Array of Delta Values
 block_deltas = nan(longestBlock,size(cycle_deltas,2),numberOfBlocks);
-for ii = 1:length(idx_blocks)-1
+block_metadata = cell(longestBlock,size(cycle_metadata,2),numberOfBlocks);
+
+for ii = 1:length(idx_blocks)
     block_deltas(1:blockLengths(ii),:,ii) = cycle_deltas(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    block_metadata(1:blockLengths(ii),:,ii) = cycle_metadata(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
 end
 
 % Keep One Line of Metadata Per Block, Rather than One Per Cycle
-block_metadata = cycle_metadata(idx_blocks,:);
+% block_metadata = cycle_metadata(idx_blocks,:);
 
 %% Reshape into Cycles-x-Isotope Ratio-x-Block-x-Sample Aliquot
 % Define Methods that Are Run at the Start of Each New Sample
 sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
+iColName=string(metadata_cols)=='method';
 
-idx_working = false(size(block_metadata,1),1);
+idx_working = false(size(block_metadata,3),1);
+method_names = vertcat(block_metadata{1,iColName,:});
+
 for ii=1:length(sampleStartMethods)
-    idx_working = idx_working | (block_metadata.method==sampleStartMethods(ii));
+    idx_working = idx_working | method_names==sampleStartMethods(ii);
 end
 
 % Find new aliquots by finding above methods or by finding the start of a
 % new sequence (sequence row decreases from N to 1).
-idx_SampleAliquots = find(idx_working | ([0; diff(block_metadata.sequenceRow)]<0));
+iColName = string(metadata_cols)=='sequenceRow';
+sequence_rows = vertcat(block_metadata{1,iColName,:});
+
+idx_SampleAliquots = find(idx_working | ([0; diff(sequence_rows)]<0));
 aliquotLengths = diff(idx_SampleAliquots); aliquotLengths(end+1)=length(block_deltas)-(idx_SampleAliquots(end)-1);
 
 % TAKE ONLY THE ALIQUOTS WITH 4 OR 5 BLOCKS! - This causes me to lose 56
@@ -130,23 +144,13 @@ aliquotLengths = aliquotLengths(aliquotLengths>3 & aliquotLengths<6);
 numberOfAliquots = length(idx_SampleAliquots);
 longestAliquot = max(aliquotLengths);
 
-figure
-subplot(211)
-plot(block_metadata.datetime,blockLengths)
-xlabel('Block Number'); ylabel('Number of Cycles in Block'); 
-title('Block Length (by method)');
-ylim([0 20])
-
-subplot(212)
-plot(block_metadata.datetime(idx_SampleAliquots),aliquotLengths)
-xlabel('Aliquot Number'); ylabel('Number of Blocks in Aliquot'); 
-title('Aliquot Lengths (by method)')
-ylim([0 10])
 
 % Reshape
 aliquot_deltas = nan(longestBlock,size(cycle_deltas,2),longestAliquot,numberOfAliquots);
-for ii = 1:length(idx_SampleAliquots)-1
+aliquot_metadata = cell(longestBlock,size(cycle_metadata,2),longestAliquot,numberOfAliquots);
+for ii = 1:length(idx_SampleAliquots)
     aliquot_deltas(:,:,1:aliquotLengths(ii),ii) = block_deltas(:,:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1);
+    aliquot_metadata(:,:,1:aliquotLengths(ii),ii) = block_metadata(:,:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1);
 end
 % Could pull out metadata into a separate variable but it would have to be
 % a cell array. It can't be a table as aliquot_deltas is 4D so the metadata
@@ -156,16 +160,31 @@ end
 %% Do Some Staistics on the Blocks
 % There are some weird looking blocks here that plot off the top of the
 % y-axis. I should take a closer look. Set a threshold for inclusion?
+iColName = string(metadata_cols)=='datetime';
 
 figure
 subplot(211)
-semilogy(block_metadata.datetime,squeeze(std(block_deltas)),'.');
-ylabel('Std Dev of Cycles in a Block [per mil]');
-ylim([0 150]);
-legend(cycle_delta_cols,'Location','N','Orientation','Horizontal');
+plot(vertcat(block_metadata{1,iColName,:}),blockLengths)
+xlabel('Block Number'); ylabel('Number of Cycles in Block'); 
+title('Block Length (by method)');
+ylim([0 20])
 
 subplot(212)
-semilogy(block_metadata.datetime(idx_SampleAliquots),squeeze(nanstd(mean(aliquot_deltas,1),0,3)),'.');
+plot(vertcat(aliquot_metadata{1,iColName,1,:}),aliquotLengths)
+xlabel('Aliquot Number'); ylabel('Number of Blocks in Aliquot'); 
+title('Aliquot Lengths (by method)')
+ylim([0 10])
+
+
+figure
+subplot(211)
+semilogy(vertcat(block_metadata{1,iColName,:}),squeeze(std(block_deltas)),'.');
+ylabel('Std Dev of Cycles in a Block [per mil]');
+ylim([0 150]);
+legend(delta_cols,'Location','N','Orientation','Horizontal');
+
+subplot(212)
+semilogy(vertcat(aliquot_metadata{1,iColName,1,:}),squeeze(nanstd(mean(aliquot_deltas,1),0,3)),'.');
 ylabel('Std Dev of Blocks in an Aliquot [per mil]')
 ylim([0 1500])
 
