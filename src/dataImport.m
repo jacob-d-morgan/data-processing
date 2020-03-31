@@ -77,7 +77,7 @@ cycle_deltas = table2array(cycle_deltas);
 % somewhat pointless.
 
 cycle_metadata = table();
-cycle_metadata.datetime = importedData.TimeCode(~importedData.IsRef__);
+cycle_metadata.msDatetime = importedData.TimeCode(~importedData.IsRef__);
 cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
 cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
 cycle_metadata.ASInlet = importedData.AS_SIOInlet(~importedData.IsRef__);
@@ -160,7 +160,7 @@ end
 %% Do Some Staistics on the Blocks
 % There are some weird looking blocks here that plot off the top of the
 % y-axis. I should take a closer look. Set a threshold for inclusion?
-iColName = string(metadata_cols)=='datetime';
+iColName = string(metadata_cols)=='msDatetime';
 
 figure
 subplot(211)
@@ -219,24 +219,31 @@ for ii=find(iPIS(1,1,5,:))' % find the indices of the PIS aliquots and loop thro
 end
 
 %%
-iColName = string(metadata_cols)=='datetime';
-datetime = aliquot_metadata(1,iColName,1,:);
+iColName = string(metadata_cols)=='msDatetime';
+msDatetime = vertcat(aliquot_metadata{1,iColName,1,:});
 
-stackedFig(3,'RelSize',[0.2 1.8 1],'Overlap',[0 90]);
+stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
 
 stackedFigAx(1)
 plot(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisRsq,'s')
+set(gca,'ColorOrderIndex',1)
+plot(msDatetime(~isnan(calcPisImbal)),calcPisRsq(~isnan(calcPisImbal),:),'-');
 ylabel('r^2');
-ylim([0.8 1]);
+ylim([0.7 1]);
 
 stackedFigAx(2)
 plot(vertcat(aliquot_metadata{1,iColName,1,:}),squeeze(calcPis),'o')
+set(gca,'ColorOrderIndex',1)
+plot(msDatetime(~isnan(calcPisImbal)),squeeze(calcPis(:,:,:,~isnan(calcPisImbal))),'-')
 ylabel('PIS [per mil/per mil]');
 ylim([-0.1 0.1]);
 
 stackedFigAx(3)
 plot(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisImbal,'^')
+set(gca,'ColorOrderIndex',1)
+plot(msDatetime(~isnan(calcPisImbal)),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
 ylabel('Pressure Imbalance [per mil]')
+ylim([-10 100])
 
 stackedFigAx();
 % Have to do some workaround stuff here because stackedFig doesn;t play
