@@ -198,7 +198,9 @@ if length(unique(allDeltasPisCheck(:,5))) > 1 % if there is more than one unique
     warning('CAUTION: Some delta values are missing a PIS value')
 end
 
-calcPisValues = nan(size(block_means,1),size(block_means,2)-3,1,size(block_means,4));
+calcPis = nan(size(block_means,1),size(block_means,2)-3,1,size(block_means,4));
+calcPisRsq = nan(size(block_means,4),size(block_means,2)-3);
+calcPisImbal = nan(size(block_means,4),1);
 
 for ii=find(iPIS(1,1,5,:))' % find the indices of the PIS aliquots and loop through them, just look at the first cycle, delta value, and the fifth block for each aliquot
     for jj=4:size(block_means,2) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
@@ -207,12 +209,43 @@ for ii=find(iPIS(1,1,5,:))' % find the indices of the PIS aliquots and loop thro
         G = [ones(size(d)) squeeze(block_means(:,3,:,ii))]; % predictor variable = the pressure imbalance (col 3) from the looped variable
         
         m = (G'*G)\G'*d;
-
-        calcPisValues(1,jj-3,1,ii)=m(2);
-
+        r_sq = corrcoef(G(:,2),d).^2; % Find the r-squared correlation coefficient for the PIS test
+        
+        calcPis(1,jj-3,1,ii)=m(2);
+        calcPisRsq(ii,jj-3) = r_sq(1,2);
+        calcPisImbal(ii) = max(G(:,2)); % Find the pressure imbalance for the PIS block
+        
     end
 end
 
+%%
+iColName = string(metadata_cols)=='datetime';
+datetime = aliquot_metadata(1,iColName,1,:);
+
+stackedFig(3,'RelSize',[0.2 1.8 1],'Overlap',[0 90]);
+
+stackedFigAx(1)
+plot(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisRsq,'s')
+ylabel('r^2');
+ylim([0.8 1]);
+
+stackedFigAx(2)
+plot(vertcat(aliquot_metadata{1,iColName,1,:}),squeeze(calcPis),'o')
+ylabel('PIS [per mil/per mil]');
+ylim([-0.1 0.1]);
+
+stackedFigAx(3)
+plot(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisImbal,'^')
+ylabel('Pressure Imbalance [per mil]')
+
+stackedFigAx();
+% Have to do some workaround stuff here because stackedFig doesn;t play
+% nicely with datetime axes rulers. It won't automatically change the
+% masterAx ruler to datetime
+set(stackedFigAx(),'XRuler',matlab.graphics.axis.decorator.DatetimeRuler);
+set(stackedFigAx(),'XLim',get(stackedFigAx(1),'XLim'));
+
+stackedFigReset
 
 
 
