@@ -1,6 +1,10 @@
 %% dataImport %%
 
 %% Import Data and Fix Variable Types
+% Uncomment this section when running the script for the first time in a
+% session. It's easiest to then comment these lines back out and not clear
+% the xp2018 etc. variables as they take a long time to load in.
+
 % clearvars; clc;
 % disp({'Loading file 1: Working...'})
 % xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
@@ -11,6 +15,7 @@
 % disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
 % % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
 % % disp({'Loading file 4: Complete'})
+
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2017.MeasurmentErrors = num2cell(xp2017.MeasurmentErrors);
