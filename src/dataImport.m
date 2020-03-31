@@ -245,14 +245,15 @@ stackedFigAx(2)
 plot(vertcat(aliquot_metadata{1,iColName,1,:}),squeeze(calcPis),'o')
 set(gca,'ColorOrderIndex',1)
 plot(msDatetime(~isnan(calcPisImbal)),squeeze(calcPis(:,:,:,~isnan(calcPisImbal))),'-')
+legend(delta_cols(4:end),'Orientation','Horizontal','Location','North')
 ylabel('PIS [per mil/per mil]');
-ylim([-0.1 0.1]);
+ylim([-0.03 0.03]);
 
 stackedFigAx(3)
 plot(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisImbal,'^')
 set(gca,'ColorOrderIndex',1)
 plot(msDatetime(~isnan(calcPisImbal)),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
-text(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisImbal,id1)
+text(msDatetime,calcPisImbal,id1)
 ylabel('Pressure Imbalance [per mil]')
 ylim([-600 600])
 
