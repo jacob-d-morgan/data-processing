@@ -62,7 +62,8 @@ intST.Properties.VariableNames = intSA.Properties.VariableNames;
 cycle_deltas = table();
 cycle_deltas.int28SA = intSA.rIntensity28;
 cycle_deltas.intST28 = intST.rIntensity28;
-cycle_deltas.pressure = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000; % N.B. - Ross typically calculates this just as a raw SA - ST rather than a delta value. Does this make a difference?
+%cycle_deltas.pressure = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000; % N.B. - Ross typically calculates this just as a raw SA - ST rather than a delta value. Does this make a difference?
+cycle_deltas.pressure = (intSA.rIntensity28 - intST.rIntensity28);
 
 cycle_deltas.d15N = ((intSA.rIntensity29./intSA.rIntensity28)./(intST.rIntensity29./intST.rIntensity28) - 1)*1000;
 cycle_deltas.d18O = ((intSA.rIntensity34./intSA.rIntensity32)./(intST.rIntensity34./intST.rIntensity32) - 1)*1000;
@@ -215,17 +216,21 @@ for ii=find(iPIS(1,1,5,:))' % find the indices of the PIS aliquots and loop thro
         
         m = (G'*G)\G'*d;
         r_sq = corrcoef(G(:,2),d).^2; % Find the r-squared correlation coefficient for the PIS test
+        [pImbal, idx] = max(abs(G(:,2)));
         
         calcPis(1,jj-3,1,ii)=m(2);
         calcPisRsq(ii,jj-3) = r_sq(1,2);
-        calcPisImbal(ii) = max(G(:,2)); % Find the pressure imbalance for the PIS block
-        
+        calcPisImbal(ii) = pImbal * sign(G(idx,2)); % Find the pressure imbalance for the PIS block
     end
 end
 
 %%
+iColName = string(metadata_cols)=='ID1';
+id1 = squeeze(aliquot_metadata(1,iColName,5,:));
+
 iColName = string(metadata_cols)=='msDatetime';
 msDatetime = vertcat(aliquot_metadata{1,iColName,1,:});
+
 
 stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
 
@@ -247,8 +252,9 @@ stackedFigAx(3)
 plot(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisImbal,'^')
 set(gca,'ColorOrderIndex',1)
 plot(msDatetime(~isnan(calcPisImbal)),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
+text(vertcat(aliquot_metadata{1,iColName,1,:}),calcPisImbal,id1)
 ylabel('Pressure Imbalance [per mil]')
-ylim([-10 100])
+ylim([-600 600])
 
 stackedFigAx();
 % Have to do some workaround stuff here because stackedFig doesn;t play
