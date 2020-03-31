@@ -57,7 +57,7 @@ intST.Properties.VariableNames = intSA.Properties.VariableNames;
 cycle_deltas = table();
 cycle_deltas.int28SA = intSA.rIntensity28;
 cycle_deltas.intST28 = intST.rIntensity28;
-cycle_deltas.pressure = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000;
+cycle_deltas.pressure = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000; % N.B. - Ross typically calculates this just as a raw SA - ST rather than a delta value. Does this make a difference?
 
 cycle_deltas.d15N = ((intSA.rIntensity29./intSA.rIntensity28)./(intST.rIntensity29./intST.rIntensity28) - 1)*1000;
 cycle_deltas.d18O = ((intSA.rIntensity34./intSA.rIntensity32)./(intST.rIntensity34./intST.rIntensity32) - 1)*1000;
@@ -191,27 +191,25 @@ ylim([0 1500])
 
 %% PIS Correction
 block_means = nanmean(aliquot_deltas,1);
-iPisBlocks = ~isnan(block_means(:,:,5,:));
+iPIS = ~isnan(block_means(:,:,:,:));
 
-allDeltasPisCheck = sum(squeeze(iPisBlocks),2);
-if length(unique(allDeltasPisCheck)) > 1
+allDeltasPisCheck = sum(squeeze(iPIS),3); % sums the number of PIS blocks for each delta value
+if length(unique(allDeltasPisCheck(:,5))) > 1 % if there is more than one unique value in the fifth column then some deltas are missing a PIS value
     warning('CAUTION: Some delta values are missing a PIS value')
 end
 
-pisAliquots = block_means(:,:,:,iPisBlocks(:,1,:,:)); 
-% This line takes all of the aliquots that have non-NaN values for the
-% fifth block, as indicated by iPisBlocks. It doesn't matter that we only
-% use the first column of iPisBlocks because all the columns should be the
-% same - if one of the delta values has a value for the fifth block then
-% they all should have a value.
+calcPisValues = nan(size(block_means,1),size(block_means,2)-3,1,size(block_means,4));
 
-for ii=1:size(pisAliquots,4) % loop through all the PIS aliquots
-    for jj=4:size(pisAliquots,2) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
-        d = squeeze(pisAliquots(:,jj,:,ii)); % response variable = the looped delta value from the looped aliquot
-        G = [ones(size(d)) squeeze(pisAliquots(:,3,:,ii))]; % predictor variable = the pressure imbalance (col 3) from the looped variable
+for ii=find(iPIS(1,1,5,:))' % find the indices of the PIS aliquots and loop through them, just look at the first cycle, delta value, and the fifth block for each aliquot
+    for jj=4:size(block_means,2) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
+
+        d = squeeze(block_means(:,jj,:,ii)); % response variable = the looped delta value from the looped aliquot
+        G = [ones(size(d)) squeeze(block_means(:,3,:,ii))]; % predictor variable = the pressure imbalance (col 3) from the looped variable
         
         m = (G'*G)\G'*d;
-        pisValues(ii,jj-3)=m(2);
+
+        calcPisValues(1,jj-3,1,ii)=m(2);
+
     end
 end
 
