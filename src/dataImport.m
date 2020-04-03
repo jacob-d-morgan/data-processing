@@ -185,7 +185,7 @@ ylabel('Std Dev of Blocks in an Aliquot [per mil]')
 ylim([0 1500])
 
 
-%% PIS Correction
+%% Calculate the PIS for each PIS experiment
 block_means = nanmean(aliquot_deltas,1);
 
 iPIS = ~isnan(block_means(:,:,:,:)); % PIS aliquots are the aliquots with no nans for any of the blocks
@@ -219,6 +219,20 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them,
         calcPisImbal(ii) = pImbal * sign(G(idx,2));
     end
 end
+
+
+%% Filter the PIS values
+% Some of the PIS values are likely to be erroneous, here they get weeded
+% out.
+
+% Remove those with a P Imbalance smaller than 100 mV
+iSmallImbal = abs(calcPisImbal)<100;
+calcPis(1,:,1,iSmallImbal) = nan;
+calcPisRsq(iSmallImbal,:) = nan;
+calcPisImbal(iSmallImbal) = nan;
+
+%Remove those with an r-squared of less than 
+
 
 %% Plot a time-series of the PIS and related parameters
 % This is useful to identify aliquots where the PIS block did no run
@@ -258,6 +272,8 @@ set(stackedFigAx(),'XRuler',matlab.graphics.axis.decorator.DatetimeRuler);
 set(stackedFigAx(),'XLim',get(stackedFigAx(1),'XLim'));
 
 stackedFigReset
+
+
 
 
 
