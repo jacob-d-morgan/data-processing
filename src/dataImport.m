@@ -300,5 +300,110 @@ block_means_pisCorr = block_means;
 block_means_pisCorr(1,4:end,:,:) = block_means(1,4:end,:,:) - block_means(1,3,:,:).*PIS;
 
 
+%% Chem Slope
+
+aliquot_means = nanmean(block_means_pisCorr,3);
+
+iCS_15N = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'CS') ...
+          & (contains(squeeze(aliquot_metadata.ID1(1,1,:)),'15') ...
+          | contains(squeeze(aliquot_metadata.ID1(1,1,:)),'N'));
+iCS_18O = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'CS') ...
+          & (contains(squeeze(aliquot_metadata.ID1(1,1,:)),'18') ...
+          | contains(squeeze(aliquot_metadata.ID1(1,1,:)),'O'));
+
+check = {squeeze(aliquot_metadata.msDatetime(1,1,iCS_15N)) squeeze(aliquot_metadata.msDatetime(1,1,iCS_18O))};
+
+aliquot_metadataCS_15N = aliquot_metadata.msDatetime(:,:,iCS_15N);
+aliquot_means_CS15N = aliquot_means(:,:,:,iCS_15N);
+
+aliquot_metadataCS_18O = aliquot_metadata.msDatetime(:,:,iCS_18O);
+aliquot_means_CS18O = aliquot_means(:,:,:,iCS_18O);
+
+% Find the different CS experiments by finding the CS aliquots separated by more than 10 hours
+% N.B. It's important to not use too bug a number here. Using 24 hours
+% fails to resolve a re-do of the 18O CS in Feb-2016 as it was run the
+% morning after the previous attempt was run in the afternoon w/ diff=15 hr
+newCS_15N = [find(diff(squeeze(aliquot_metadataCS_15N(1,1,:)))>10/24); length(squeeze(aliquot_metadataCS_15N(1,1,:)))];
+newCS_18O = [find(diff(squeeze(aliquot_metadataCS_18O(1,1,:)))>10/24); length(squeeze(aliquot_metadataCS_18O(1,1,:)))];
+
+figure;
+idxStart=1;
+for ii=1:length(newCS_15N)
+    idxEnd = newCS_15N(ii);
+    
+    d = squeeze(aliquot_means_CS15N(1,4,1,idxStart:idxEnd)); % response variable = d15N
+    G = [ones(size(d)) squeeze(aliquot_means_CS15N(1,9,1,idxStart:idxEnd))]; % predictor variable = dO2N2
+    
+    m = (G'*G)\G'*d; % Calculate the 15N CS
+    r_sq = corrcoef(G(:,2),d).^2;
+    
+    CS_15N(ii) = m(2);
+    
+    subplot(1,length(newCS_15N),ii); hold on;
+    plot(G(:,2),d,'xk')
+    plot(G(:,2),G*m,'-r')
+    text(50,0.015,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
+    text(50,0.005,['r^2 = ' num2str(r_sq(2,1))])
+    xlabel('\deltaO_2/N_2 [per mil]')
+    ylabel('\delta^{15}N [per mil]')
+    axis([-10 350 -0.01 0.25]);
+    
+%     title()
+    
+    idxStart=idxEnd+1;
+end
+
+figure;
+idxStart=1;
+for ii=1:length(newCS_15N)
+    idxEnd = newCS_15N(ii);
+    
+    d = squeeze(aliquot_means_CS15N(1,10,1,idxStart:idxEnd)); % response variable = dArN2
+    G = [ones(size(d)) squeeze(aliquot_means_CS15N(1,9,1,idxStart:idxEnd))]; % predictor variable = dO2N2
+    
+    m = (G'*G)\G'*d; % Calculate the ArN2 CS
+    r_sq = corrcoef(G(:,2),d).^2;
+    
+    CS_ArN2(ii) = m(2);
+    
+    subplot(1,length(newCS_15N),ii); hold on;
+    plot(G(:,2),d,'xk')
+    plot(G(:,2),G*m,'-r')
+    text(50,0,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
+    text(50,-0.05,['r^2 = ' num2str(r_sq(2,1))])
+    xlabel('\deltaO_2/N_2 [per mil]')
+    ylabel('\deltaAr/N_2 [per mil]')
+    axis([-10 350 -0.1 1.2]);
+    
+    idxStart=idxEnd+1;
+end
+    
+figure;
+idxStart=1;
+for ii=1:length(newCS_18O)
+    idxEnd = newCS_18O(ii);
+    
+    d = squeeze(aliquot_means_CS18O(1,5,1,idxStart:idxEnd)); % response variable = d18O
+    G = [ones(size(d)) ((squeeze(aliquot_means_CS18O(1,9,1,idxStart:idxEnd))./1000+1).^-1-1)*1000]; % predictor variable = dN2O2
+    
+    m = (G'*G)\G'*d; % Calculate the 18O CS
+    r_sq = corrcoef(G(:,2),d).^2;
+    
+    CS_18O(ii) = m(2);
+    
+    subplot(1,length(newCS_18O),ii); hold on;
+    plot(G(:,2),d,'xk')
+    plot(G(:,2),G*m,'-r')
+    text(50,-0.08,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
+    text(50,-0.09,['r^2 = ' num2str(r_sq(2,1))])
+    xlabel('\deltaN_2/O_2 [per mil]')
+    ylabel('\delta^{18}O [per mil]')
+    axis([-10 350 -0.1 0.1]);
+    
+    idxStart=idxEnd+1;
+end
+
+
+
 %%
 disp('>> Script Complete')
