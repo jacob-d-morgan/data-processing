@@ -286,9 +286,18 @@ set(stackedFigAx(),'XLim',get(stackedFigAx(1),'XLim'));
 stackedFigReset
 
 
+%% Make PIS Correction
+PIS = calcPis;
+PIS = fillmissing(PIS,'previous',4);
+
+figure; hold on;
+plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),squeeze(calcPis(1,:,1,:)),'o')
+set(gca,'ColorOrderIndex',1);
+plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),squeeze(PIS(1,:,1,:)),'.')
 
 
-
+block_means_pisCorr = block_means;
+block_means_pisCorr(1,4:end,:,:) = block_means(1,4:end,:,:) - block_means(1,3,:,:).*PIS;
 
 
 %%
