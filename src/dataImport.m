@@ -238,7 +238,8 @@ calcPisRsq(iBadRsq) = nan;
 calcPisImbal(iBadRsq(1,1,1,:)) = nan;
 
 % Manual Removal
-% Remove two spurious looking d4038 values
+% Remove two spurious looking d4038 values where the sign of the PIS
+% changes back and forth and the magnitude jumps by two orders.
 toRemove = find(aliquot_metadata.msDatetime(1,1,:)==datetime(2017,12,12,10,22,33));
 calcPis(:,5,:,toRemove)=nan;
 
@@ -300,7 +301,7 @@ block_means_pisCorr = block_means;
 block_means_pisCorr(1,4:end,:,:) = block_means(1,4:end,:,:) - block_means(1,3,:,:).*PIS;
 
 
-%% Chem Slope
+%% Calculate the Chemical Slopes
 
 aliquot_means = nanmean(block_means_pisCorr,3);
 
@@ -311,35 +312,40 @@ iCS_18O = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'CS') ...
           & (contains(squeeze(aliquot_metadata.ID1(1,1,:)),'18') ...
           | contains(squeeze(aliquot_metadata.ID1(1,1,:)),'O'));
 
-check = {squeeze(aliquot_metadata.msDatetime(1,1,iCS_15N)) squeeze(aliquot_metadata.msDatetime(1,1,iCS_18O))};
-
-aliquot_metadataCS_15N = aliquot_metadata.msDatetime(:,:,iCS_15N);
-aliquot_means_CS15N = aliquot_means(:,:,:,iCS_15N);
-
-aliquot_metadataCS_18O = aliquot_metadata.msDatetime(:,:,iCS_18O);
-aliquot_means_CS18O = aliquot_means(:,:,:,iCS_18O);
+dates = {squeeze(aliquot_metadata.msDatetime(1,1,iCS_15N)) squeeze(aliquot_metadata.msDatetime(1,1,iCS_18O))}; % just for reference
 
 % Find the different CS experiments by finding the CS aliquots separated by more than 10 hours
-% N.B. It's important to not use too bug a number here. Using 24 hours
+diffsCS_15N = duration(nan(3223,3)); diffsCS_18O = duration(nan(3223,3));
+diffsCS_15N(iCS_15N) = [diff(squeeze(aliquot_metadata.msDatetime(1,1,iCS_15N))); hours(999)+minutes(59)+seconds(59)];
+diffsCS_18O(iCS_18O) = [diff(squeeze(aliquot_metadata.msDatetime(1,1,iCS_18O))); hours(999)+minutes(59)+seconds(59)];
+
+% N.B. It's important to not use too big a number here. Using 24 hours
 % fails to resolve a re-do of the 18O CS in Feb-2016 as it was run the
 % morning after the previous attempt was run in the afternoon w/ diff=15 hr
-newCS_15N = [find(diff(squeeze(aliquot_metadataCS_15N(1,1,:)))>10/24); length(squeeze(aliquot_metadataCS_15N(1,1,:)))];
-newCS_18O = [find(diff(squeeze(aliquot_metadataCS_18O(1,1,:)))>10/24); length(squeeze(aliquot_metadataCS_18O(1,1,:)))];
+endCS_15N = diffsCS_15N > 10/24; endCS_18O = diffsCS_18O > 10/24;
+
+
+% dO2/N2 Effect on d15N
+% Create logical indices to update within the loop as I "check off" the
+% different sets of aliquots that make up the different CS experiments
+iCS_15Nloop = iCS_15N;
+endCS_15Nloop = endCS_15N;
 
 figure;
-idxStart=1;
-for ii=1:length(newCS_15N)
-    idxEnd = newCS_15N(ii);
+CS_15N = nan(size(aliquot_means,4),1);
+for ii=1:sum(endCS_15N)
+    idxFinalAliquot = find(endCS_15Nloop,1);
+    iAliquotsToUse = iCS_15Nloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
     
-    d = squeeze(aliquot_means_CS15N(1,4,1,idxStart:idxEnd)); % response variable = d15N
-    G = [ones(size(d)) squeeze(aliquot_means_CS15N(1,9,1,idxStart:idxEnd))]; % predictor variable = dO2N2
+    d = squeeze(aliquot_means(1,4,1,iAliquotsToUse)); % response variable = d15N
+    G = [ones(size(d)) squeeze(aliquot_means(1,9,1,iAliquotsToUse))]; % predictor variable = dO2N2
     
     m = (G'*G)\G'*d; % Calculate the 15N CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_15N(ii) = m(2);
+    CS_15N(idxFinalAliquot) = m(2);
     
-    subplot(1,length(newCS_15N),ii); hold on;
+    subplot(1,sum(endCS_15N),ii); hold on;
     plot(G(:,2),d,'xk')
     plot(G(:,2),G*m,'-r')
     text(50,0.015,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
@@ -348,25 +354,33 @@ for ii=1:length(newCS_15N)
     ylabel('\delta^{15}N [per mil]')
     axis([-10 350 -0.01 0.25]);
     
-%     title()
+    title(['\delta^{15}N CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
     
-    idxStart=idxEnd+1;
+    iCS_15Nloop(1:idxFinalAliquot)=false;
+    endCS_15Nloop(idxFinalAliquot)=false;
 end
 
+% dO2/N2 effect on dArN2
+% Reset logical indices to update within the loop as I "check off" the
+% different sets of aliquots that make up the different CS experiments
+iCS_15Nloop = iCS_15N;
+endCS_15Nloop = endCS_15N;
+
 figure;
-idxStart=1;
-for ii=1:length(newCS_15N)
-    idxEnd = newCS_15N(ii);
+CS_ArN2 = nan(size(aliquot_means,4),1);
+for ii=1:sum(endCS_15N)
+    idxFinalAliquot = find(endCS_15Nloop,1);
+    iAliquotsToUse = iCS_15Nloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
     
-    d = squeeze(aliquot_means_CS15N(1,10,1,idxStart:idxEnd)); % response variable = dArN2
-    G = [ones(size(d)) squeeze(aliquot_means_CS15N(1,9,1,idxStart:idxEnd))]; % predictor variable = dO2N2
+    d = squeeze(aliquot_means(1,10,1,iAliquotsToUse)); % response variable = dArN2
+    G = [ones(size(d)) squeeze(aliquot_means(1,9,1,iAliquotsToUse))]; % predictor variable = dO2N2
     
     m = (G'*G)\G'*d; % Calculate the ArN2 CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_ArN2(ii) = m(2);
+    CS_ArN2(idxFinalAliquot) = m(2);
     
-    subplot(1,length(newCS_15N),ii); hold on;
+    subplot(1,sum(endCS_15N),ii); hold on;
     plot(G(:,2),d,'xk')
     plot(G(:,2),G*m,'-r')
     text(50,0,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
@@ -375,23 +389,33 @@ for ii=1:length(newCS_15N)
     ylabel('\deltaAr/N_2 [per mil]')
     axis([-10 350 -0.1 1.2]);
     
-    idxStart=idxEnd+1;
+    title(['\deltaAr/N_2 CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    
+    iCS_15Nloop(1:idxFinalAliquot)=false;
+    endCS_15Nloop(idxFinalAliquot)=false;
 end
-    
+
+% dN2/O2 effect on d18O
+% Create logical indices to update within the loop as I "check off" the
+% different sets of aliquots that make up the different CS experiments
+iCS_18Oloop = iCS_18O;
+endCS_18Oloop = endCS_18O;
+
 figure;
-idxStart=1;
-for ii=1:length(newCS_18O)
-    idxEnd = newCS_18O(ii);
+CS_18O = nan(size(aliquot_means,4),1);
+for ii=1:sum(endCS_18O)
+    idxFinalAliquot = find(endCS_18Oloop,1);
+    iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
     
-    d = squeeze(aliquot_means_CS18O(1,5,1,idxStart:idxEnd)); % response variable = d18O
-    G = [ones(size(d)) ((squeeze(aliquot_means_CS18O(1,9,1,idxStart:idxEnd))./1000+1).^-1-1)*1000]; % predictor variable = dN2O2
+    d = squeeze(aliquot_means(1,5,1,iAliquotsToUse)); % response variable = d18O
+    G = [ones(size(d)) ((squeeze(aliquot_means(1,9,1,iAliquotsToUse))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
     
     m = (G'*G)\G'*d; % Calculate the 18O CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_18O(ii) = m(2);
+    CS_18O(idxFinalAliquot) = m(2);
     
-    subplot(1,length(newCS_18O),ii); hold on;
+    subplot(1,sum(endCS_18O),ii); hold on;
     plot(G(:,2),d,'xk')
     plot(G(:,2),G*m,'-r')
     text(50,-0.08,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
@@ -400,7 +424,45 @@ for ii=1:length(newCS_18O)
     ylabel('\delta^{18}O [per mil]')
     axis([-10 350 -0.1 0.1]);
     
-    idxStart=idxEnd+1;
+    title(['\delta^{18}O CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    
+    iCS_18Oloop(1:idxFinalAliquot)=false;
+    endCS_18Oloop(idxFinalAliquot)=false;
+end
+
+% dN2/O2 effect on d17O
+% Create logical indices to update within the loop as I "check off" the
+% different sets of aliquots that make up the different CS experiments
+iCS_18Oloop = iCS_18O;
+endCS_18Oloop = endCS_18O;
+
+figure;
+CS_17O = nan(size(aliquot_means,4),1);
+for ii=1:sum(endCS_18O)
+    idxFinalAliquot = find(endCS_18Oloop,1);
+    iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    
+    d = squeeze(aliquot_means(1,6,1,iAliquotsToUse)); % response variable = d17O
+    G = [ones(size(d)) ((squeeze(aliquot_means(1,9,1,iAliquotsToUse))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
+    
+    m = (G'*G)\G'*d; % Calculate the 18O CS
+    r_sq = corrcoef(G(:,2),d).^2;
+    
+    CS_17O(idxFinalAliquot) = m(2);
+    
+    subplot(1,sum(endCS_18O),ii); hold on;
+    plot(G(:,2),d,'xk')
+    plot(G(:,2),G*m,'-r')
+    text(50,0,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
+    text(50,-0.05,['r^2 = ' num2str(r_sq(2,1))])
+    xlabel('\deltaN_2/O_2 [per mil]')
+    ylabel('\delta^{17}O [per mil]')
+    axis([-10 350 -0.1 1]);
+    
+    title(['\delta^{17}O CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    
+    iCS_18Oloop(1:idxFinalAliquot)=false;
+    endCS_18Oloop(idxFinalAliquot)=false;
 end
 
 
