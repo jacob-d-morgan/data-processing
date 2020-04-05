@@ -332,7 +332,7 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_15N = nan(size(aliquot_means,4),1);
+CS_15N = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
 for ii=1:sum(endCS_15N)
     idxFinalAliquot = find(endCS_15Nloop,1);
     iAliquotsToUse = iCS_15Nloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
@@ -343,7 +343,7 @@ for ii=1:sum(endCS_15N)
     m = (G'*G)\G'*d; % Calculate the 15N CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_15N(idxFinalAliquot) = m(2);
+    CS_15N(:,:,:,idxFinalAliquot) = m(2);
     
     subplot(1,sum(endCS_15N),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -367,7 +367,7 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_ArN2 = nan(size(aliquot_means,4),1);
+CS_ArN2 = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
 for ii=1:sum(endCS_15N)
     idxFinalAliquot = find(endCS_15Nloop,1);
     iAliquotsToUse = iCS_15Nloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
@@ -378,7 +378,7 @@ for ii=1:sum(endCS_15N)
     m = (G'*G)\G'*d; % Calculate the ArN2 CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_ArN2(idxFinalAliquot) = m(2);
+    CS_ArN2(:,:,:,idxFinalAliquot) = m(2);
     
     subplot(1,sum(endCS_15N),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -402,7 +402,7 @@ iCS_18Oloop = iCS_18O;
 endCS_18Oloop = endCS_18O;
 
 figure;
-CS_18O = nan(size(aliquot_means,4),1);
+CS_18O = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
 for ii=1:sum(endCS_18O)
     idxFinalAliquot = find(endCS_18Oloop,1);
     iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
@@ -413,7 +413,7 @@ for ii=1:sum(endCS_18O)
     m = (G'*G)\G'*d; % Calculate the 18O CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_18O(idxFinalAliquot) = m(2);
+    CS_18O(:,:,:,idxFinalAliquot) = m(2);
     
     subplot(1,sum(endCS_18O),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -437,7 +437,7 @@ iCS_18Oloop = iCS_18O;
 endCS_18Oloop = endCS_18O;
 
 figure;
-CS_17O = nan(size(aliquot_means,4),1);
+CS_17O = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
 for ii=1:sum(endCS_18O)
     idxFinalAliquot = find(endCS_18Oloop,1);
     iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
@@ -448,7 +448,7 @@ for ii=1:sum(endCS_18O)
     m = (G'*G)\G'*d; % Calculate the 18O CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_17O(idxFinalAliquot) = m(2);
+    CS_17O(:,:,:,idxFinalAliquot) = m(2);
     
     subplot(1,sum(endCS_18O),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -464,6 +464,25 @@ for ii=1:sum(endCS_18O)
     iCS_18Oloop(1:idxFinalAliquot)=false;
     endCS_18Oloop(idxFinalAliquot)=false;
 end
+
+
+%% Make the CS Corrections
+
+CS = nan(size(block_means_pisCorr,1),7,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS(:,:,:,:) = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
+CS = fillmissing(CS,'previous',4);
+
+CS_predictors = [block_means_pisCorr(:,9,:,:) ...
+                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ...
+                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ...
+                 zeros(size(block_means_pisCorr(:,9,:,:))) ...
+                 zeros(size(block_means_pisCorr(:,9,:,:))) ...
+                 zeros(size(block_means_pisCorr(:,9,:,:))) ...
+                 block_means_pisCorr(:,9,:,:)];
+
+block_means_pisCorr_csCorr = block_means_pisCorr;
+block_means_pisCorr_csCorr(:,4:end,:,:) = block_means_pisCorr_csCorr(:,4:end,:,:) - CS.*CS_predictors;
+
 
 
 
