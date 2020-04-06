@@ -5,16 +5,16 @@
 % session. It's easiest to then comment these lines back out and not clear
 % the xp2018 etc. variables as they take a long time to load in.
 
-% clearvars; clc;
-% disp({'Loading file 1: Working...'})
-% xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
-% xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-% % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-% % disp({'Loading file 4: Complete'})
+clearvars; clc;
+disp({'Loading file 1: Working...'})
+xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
+xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
+xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
+% xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 4: Complete'})
 
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
@@ -302,6 +302,10 @@ block_means_pisCorr(1,4:end,:,:) = block_means(1,4:end,:,:) - block_means(1,3,:,
 
 
 %% Calculate the Chemical Slopes
+% Still need to:
+%   1) Weed out the questionable blocks/aliquots that mess up some of the
+%      chem slope experiments
+%   2) Figure out how I'm going to do the CS Correction for Ar isotopes
 
 aliquot_means = nanmean(block_means_pisCorr,3);
 
@@ -483,8 +487,49 @@ CS_predictors = [block_means_pisCorr(:,9,:,:) ...
 block_means_pisCorr_csCorr = block_means_pisCorr;
 block_means_pisCorr_csCorr(:,4:end,:,:) = block_means_pisCorr_csCorr(:,4:end,:,:) - CS.*CS_predictors;
 
+aliquot_means_pisCorr_csCorr = nanmean(block_means_pisCorr_csCorr,3);
 
+%% Calculate the LJA Normalization Values
 
+iLJA = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'LJA');
+
+diffsLJA = duration(nan(3223,3));
+diffsLJA(iLJA) = [diff(squeeze(aliquot_metadata.msDatetime(1,1,iLJA))); hours(999)+minutes(59)+seconds(59)];
+
+endLJA = diffsLJA > 5;
+
+iLJAloop = iLJA;
+endLJAloop = endLJA;
+
+figure; figNum = get(gcf,'Number');
+LJA = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
+LJAstd  = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
+for ii = 1:sum(endLJA)
+    idxFinalAliquot = find(endLJAloop,1);
+    iAliquotsToUse = iLJAloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    
+    LJA(:,:,:,idxFinalAliquot) = repmat(nanmean(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),4),[1 1 5]);
+    LJAstd(:,:,:,idxFinalAliquot) = repmat(nanstd(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),0,4),[1 1 5]);
+    
+    for jj = 1:7
+        figure(figNum)
+        subplot(7,1,jj); hold on;
+        plot(squeeze(aliquot_metadata.msDatetime(1,1,iAliquotsToUse)),squeeze(block_means_pisCorr_csCorr(1,jj+3,:,iAliquotsToUse)),'.','Color',lineCol(jj));
+        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(LJA(1,jj,1,idxFinalAliquot)),'x-k');
+        %errorbar(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(LJA(1,jj,1,idxFinalAliquot)),squeeze(LJAstd(1,jj,1,idxFinalAliquot)),'x-k');
+        ylabel([delta_cols{jj+3} '[per mil]'])
+        
+        figure(figNum+1)
+        subplot(7,1,jj); hold on;
+        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(LJAstd(1,jj,1,idxFinalAliquot)),'x-k');
+        ylabel([delta_cols{jj+3} '[per mil]'])
+        
+    end
+    
+    iLJAloop(1:idxFinalAliquot)=false;
+    endLJAloop(idxFinalAliquot)=false;
+    
+end
 
 %%
 disp('>> Script Complete')
