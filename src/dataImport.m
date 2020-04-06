@@ -490,6 +490,10 @@ block_means_pisCorr_csCorr(:,4:end,:,:) = block_means_pisCorr_csCorr(:,4:end,:,:
 aliquot_means_pisCorr_csCorr = nanmean(block_means_pisCorr_csCorr,3);
 
 %% Calculate the LJA Normalization Values
+% Still need to:
+%   1) Plot the std dev as an error bar on top of the mean values, it won't
+%      work right now because errorbar won't accept datetime values...
+
 
 iLJA = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'LJA');
 
@@ -502,26 +506,26 @@ iLJAloop = iLJA;
 endLJAloop = endLJA;
 
 figure; figNum = get(gcf,'Number');
-LJA = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
-LJAstd  = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
+ljaValues = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
+ljaStd  = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
 for ii = 1:sum(endLJA)
     idxFinalAliquot = find(endLJAloop,1);
     iAliquotsToUse = iLJAloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
     
-    LJA(:,:,:,idxFinalAliquot) = repmat(nanmean(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),4),[1 1 5]);
-    LJAstd(:,:,:,idxFinalAliquot) = repmat(nanstd(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),0,4),[1 1 5]);
+    ljaValues(:,:,:,idxFinalAliquot) = repmat(nanmean(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),4),[1 1 5]);
+    ljaStd(:,:,:,idxFinalAliquot) = repmat(nanstd(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),0,4),[1 1 5]);
     
     for jj = 1:7
         figure(figNum)
         subplot(7,1,jj); hold on;
         plot(squeeze(aliquot_metadata.msDatetime(1,1,iAliquotsToUse)),squeeze(block_means_pisCorr_csCorr(1,jj+3,:,iAliquotsToUse)),'.','Color',lineCol(jj));
-        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(LJA(1,jj,1,idxFinalAliquot)),'x-k');
+        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(ljaValues(1,jj,1,idxFinalAliquot)),'x-k');
         %errorbar(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(LJA(1,jj,1,idxFinalAliquot)),squeeze(LJAstd(1,jj,1,idxFinalAliquot)),'x-k');
         ylabel([delta_cols{jj+3} '[per mil]'])
         
         figure(figNum+1)
         subplot(7,1,jj); hold on;
-        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(LJAstd(1,jj,1,idxFinalAliquot)),'x-k');
+        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(ljaStd(1,jj,1,idxFinalAliquot)),'x-k');
         ylabel([delta_cols{jj+3} '[per mil]'])
         
     end
@@ -530,6 +534,18 @@ for ii = 1:sum(endLJA)
     endLJAloop(idxFinalAliquot)=false;
     
 end
+
+
+%% Make the LJA Correction
+
+LJA = nan(size(block_means_pisCorr_csCorr,1),7,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr_csCorr,4));
+LJA(:,:,:,:) = ljaValues;
+LJA = fillmissing(LJA,'previous',4);
+
+block_means_pisCorr_csCorr_ljaCorr = block_means_pisCorr_csCorr;
+block_means_pisCorr_csCorr_ljaCorr(1,4:end,:,:) = ((block_means_pisCorr_csCorr_ljaCorr(1,4:end,:,:)/1000+1)./(LJA/1000+1)-1)*1000;
+
+aliquot_means_pisCorr_csCorr_ljaCorr = nanmean(block_means_pisCorr_csCorr_ljaCorr,3);
 
 %%
 disp('>> Script Complete')
