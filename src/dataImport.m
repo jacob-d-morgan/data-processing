@@ -5,16 +5,16 @@
 % session. It's easiest to then comment these lines back out and not clear
 % the xp2018 etc. variables as they take a long time to load in.
 
-clearvars; clc;
-disp({'Loading file 1: Working...'})
-xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
-xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-% xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 4: Complete'})
+% clearvars; clc;
+% disp({'Loading file 1: Working...'})
+% xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
+% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
+% xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
+% % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+% % disp({'Loading file 4: Complete'})
 
 %%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
