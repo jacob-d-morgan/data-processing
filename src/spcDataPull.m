@@ -146,3 +146,46 @@ spc.d36Ar = nanmean(spc_replicates{:,idxVars+3},2);
 spc.d38Ar = nanmean(spc_replicates{:,idxVars+4},2);
 spc.dO2N2 = nanmean(spc_replicates{:,idxVars+5},2);
 spc.dArN2 = nanmean(spc_replicates{:,idxVars+6},2);
+
+
+%% Plot everything against depth
+stackedFig(7,'XDir','reverse','Overlap',[0 20 0 20 0 20]);
+stackedFigAx(); xlim([0 1800]);
+
+stackedFigAx(1)
+plot(spc_replicates.bottomDepth,[spc_replicates.d15N_repA spc_replicates.d15N_repB spc_replicates.d15N_repC spc_replicates.d15N_repD],'.','Color',lineCol(9));
+plot(spc.bottomDepth,spc.d15N,'o','Color','none','MarkerFaceColor',lineCol(1))
+ylabel('SPC \delta^{15}N [per mil]');
+
+stackedFigAx(2)
+plot(spc_replicates.bottomDepth,[spc_replicates.d18O_repA spc_replicates.d18O_repB spc_replicates.d18O_repC spc_replicates.d18O_repD],'.','Color',lineCol(9));
+plot(spc.bottomDepth,spc.d18O,'o','Color','none','MarkerFaceColor',lineCol(2))
+ylabel('SPC \delta^{18}O [per mil]');
+
+stackedFigAx(3)
+plot(spc_replicates.bottomDepth,[spc_replicates.d17O_repA spc_replicates.d17O_repB spc_replicates.d17O_repC spc_replicates.d17O_repD],'.','Color',lineCol(9));
+plot(spc.bottomDepth,spc.d17O,'o','Color','none','MarkerFaceColor',lineCol(2)*0.7)
+ylabel('SPC \delta^{17}O [per mil]');
+
+stackedFigAx(4)
+plot(spc_replicates.bottomDepth,[spc_replicates.d36Ar_repA spc_replicates.d36Ar_repB spc_replicates.d36Ar_repC spc_replicates.d36Ar_repD],'.','Color',lineCol(9));
+plot(spc.bottomDepth,spc.d36Ar,'o','Color','none','MarkerFaceColor',lineCol(5))
+ylabel('SPC \delta^{40/36}Ar [per mil]');
+
+stackedFigAx(5)
+plot(spc_replicates.bottomDepth,[spc_replicates.d38Ar_repA spc_replicates.d38Ar_repB spc_replicates.d38Ar_repC spc_replicates.d38Ar_repD],'.','Color',lineCol(9));
+plot(spc.bottomDepth,spc.d38Ar,'o','Color','none','MarkerFaceColor',lineCol(5)*0.7)
+ylabel('SPC \delta^{40/38}Ar [per mil]');
+
+stackedFigAx(6)
+plot(spc_replicates.bottomDepth,[spc_replicates.dO2N2_repA spc_replicates.dO2N2_repB spc_replicates.dO2N2_repC spc_replicates.dO2N2_repD],'.','Color',lineCol(9));
+plot(spc.bottomDepth,spc.dO2N2,'o','Color','none','MarkerFaceColor',lineCol(7))
+ylabel('SPC \delta^O_2/N_2 [per mil]');
+
+stackedFigAx(7)
+plot(spc_replicates.bottomDepth,[spc_replicates.dArN2_repA spc_replicates.dArN2_repB spc_replicates.dArN2_repC spc_replicates.dArN2_repD],'.','Color',lineCol(9));
+plot(spc.bottomDepth,spc.dArN2,'o','Color','none','MarkerFaceColor',lineCol(4))
+ylabel('SPC \delta^Ar/N_2 [per mil]');
+
+stackedFigAx();
+xlabel('Bottom Depth [m]')
