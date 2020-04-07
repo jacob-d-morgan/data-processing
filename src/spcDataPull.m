@@ -1,6 +1,6 @@
-%% SPC Plotting
-% Identifies the data from the South Pole Ice Core and plots various parts
-% of the dataset.
+%% SPC Data Pull
+% Identifies the data from the South Pole Ice Core from within the XP
+% master dataset.
 
 %% Identify the relevant aliquots and their replicates
 % Use only the aliquots that have 'SPICE' in the filename and than have a
