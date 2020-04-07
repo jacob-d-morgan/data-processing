@@ -77,7 +77,7 @@ end
 
 
 
-%%
+%% Assemble the replicates and replicate means into tables
 
 repA = table();
 repA.bottomDepth = bottomDepth(iRepA);
@@ -134,4 +134,15 @@ repE.d38Ar_repE = spc_aliquots(iRepE,8);
 repE.dO2N2_repE = spc_aliquots(iRepE,9);
 repE.dArN2_repE = spc_aliquots(iRepE,10);
 
-spc = outerjoin(outerjoin(outerjoin(outerjoin(repA,repB,'MergeKeys',1),repC,'MergeKeys',1),repD,'MergeKeys',1),repE,'MergeKeys',1);
+spc_replicates = outerjoin(outerjoin(outerjoin(outerjoin(repA,repB,'MergeKeys',1),repC,'MergeKeys',1),repD,'MergeKeys',1),repE,'MergeKeys',1);
+
+idxVars = find(contains(spc_replicates.Properties.VariableNames,'d15N'));
+spc = table;
+spc.bottomDepth = spc_replicates.bottomDepth;
+spc.d15N = nanmean(spc_replicates{:,idxVars},2);
+spc.d18O = nanmean(spc_replicates{:,idxVars+1},2);
+spc.d17O = nanmean(spc_replicates{:,idxVars+2},2);
+spc.d36Ar = nanmean(spc_replicates{:,idxVars+3},2);
+spc.d38Ar = nanmean(spc_replicates{:,idxVars+4},2);
+spc.dO2N2 = nanmean(spc_replicates{:,idxVars+5},2);
+spc.dArN2 = nanmean(spc_replicates{:,idxVars+6},2);
