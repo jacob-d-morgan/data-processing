@@ -157,6 +157,7 @@ load spice_ageModel.mat
 spc.gasAge = interp1(spice_ageModel.depth,spice_ageModel.gasAge,spc.bottomDepth,'linear','extrap');
 [iOutlier,low,upp,center]=isoutlier(spc.d15N(2:end),'movmed',1000,'SamplePoints',spc.gasAge(2:end)); iOutlier = [false; iOutlier];
 
+% Identify and plot outlying replicate means using the built-in isoutlier functionality
 figure; hold on;
 H=shadedErrorBar(spc.gasAge(2:end),center,[upp-center center-low]','-r'); delete(H.edge);
 h1=plot(spc.gasAge,[spc_replicates.d15N_repA spc_replicates.d15N_repB spc_replicates.d15N_repC spc_replicates.d15N_repD spc_replicates.d15N_repE],'.','Color',lineCol(1));
@@ -165,7 +166,7 @@ h3=plot(spc.gasAge(iOutlier),spc.d15N(iOutlier),'s','Color','none','markerFaceCo
 legend([h1(1) h2 H.mainLine h3],{'Replicates','Replicate Means','Moving Median','Outliers'})
 axis([0 56000 0.45 0.65]);
 
-
+% Identify outlying replicates manually using the thresholds from isoutlier
 replicateOutliersRepA = [spc_replicates.d15N_repA(2:end) < low | spc_replicates.d15N_repA(2:end) > upp]; replicateOutliersRepA = [false; replicateOutliersRepA];
 replicateOutliersRepB = [spc_replicates.d15N_repB(2:end) < low | spc_replicates.d15N_repB(2:end) > upp]; replicateOutliersRepB = [false; replicateOutliersRepB];
 replicateOutliersRepC = [spc_replicates.d15N_repC(2:end) < low | spc_replicates.d15N_repC(2:end) > upp]; replicateOutliersRepC = [false; replicateOutliersRepC];
