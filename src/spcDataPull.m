@@ -81,6 +81,7 @@ end
 
 repA = table();
 repA.bottomDepth = bottomDepth(iRepA);
+repA.bottomDepth_repA = bottomDepth(iRepA);
 repA.rep_repA = rep(iRepA);
 repA.d15N_repA = spc_aliquots(iRepA,4);
 repA.d18O_repA = spc_aliquots(iRepA,5);
@@ -92,6 +93,7 @@ repA.dArN2_repA = spc_aliquots(iRepA,10);
 
 repB = table();
 repB.bottomDepth = bottomDepth(iRepB);
+repB.bottomDepth_repB = bottomDepth(iRepB);
 repB.rep_repB = rep(iRepB);
 repB.d15N_repB = spc_aliquots(iRepB,4);
 repB.d18O_repB = spc_aliquots(iRepB,5);
@@ -103,6 +105,7 @@ repB.dArN2_repB = spc_aliquots(iRepB,10);
 
 repC = table();
 repC.bottomDepth = bottomDepth(iRepC);
+repC.bottomDepth_repC = bottomDepth(iRepC);
 repC.rep_repC = rep(iRepC);
 repC.d15N_repC = spc_aliquots(iRepC,4);
 repC.d18O_repC = spc_aliquots(iRepC,5);
@@ -114,6 +117,7 @@ repC.dArN2_repC = spc_aliquots(iRepC,10);
 
 repD = table();
 repD.bottomDepth = bottomDepth(iRepD);
+repD.bottomDepth_repD = bottomDepth(iRepD);
 repD.rep_repD = rep(iRepD);
 repD.d15N_repD = spc_aliquots(iRepD,4);
 repD.d18O_repD = spc_aliquots(iRepD,5);
@@ -125,6 +129,7 @@ repD.dArN2_repD = spc_aliquots(iRepD,10);
 
 repE = table();
 repE.bottomDepth = bottomDepth(iRepE);
+repE.bottomDepth_repE = bottomDepth(iRepE);
 repE.rep_repE = rep(iRepE);
 repE.d15N_repE = spc_aliquots(iRepE,4);
 repE.d18O_repE = spc_aliquots(iRepE,5);
@@ -146,6 +151,38 @@ spc.d36Ar = nanmean(spc_replicates{:,idxVars+3},2);
 spc.d38Ar = nanmean(spc_replicates{:,idxVars+4},2);
 spc.dO2N2 = nanmean(spc_replicates{:,idxVars+5},2);
 spc.dArN2 = nanmean(spc_replicates{:,idxVars+6},2);
+
+%% Outlier Detection
+load spice_ageModel.mat
+spc.gasAge = interp1(spice_ageModel.depth,spice_ageModel.gasAge,spc.bottomDepth,'linear','extrap');
+[iOutlier,low,upp,center]=isoutlier(spc.d15N(2:end),'movmed',1000,'SamplePoints',spc.gasAge(2:end)); iOutlier = [false; iOutlier];
+
+figure; hold on;
+H=shadedErrorBar(spc.gasAge(2:end),center,[upp-center center-low]','-r'); delete(H.edge);
+h1=plot(spc.gasAge,[spc_replicates.d15N_repA spc_replicates.d15N_repB spc_replicates.d15N_repC spc_replicates.d15N_repD spc_replicates.d15N_repE],'.','Color',lineCol(1));
+h2=plot(spc.gasAge,spc.d15N,'-','Color',lineCol(1)*0.7,'LineWidth',0.5);
+h3=plot(spc.gasAge(iOutlier),spc.d15N(iOutlier),'s','Color','none','markerFaceColor',lineCol(10));
+legend([h1(1) h2 H.mainLine h3],{'Replicates','Replicate Means','Moving Median','Outliers'})
+axis([0 56000 0.45 0.65]);
+
+
+replicateOutliersRepA = [spc_replicates.d15N_repA(2:end) < low | spc_replicates.d15N_repA(2:end) > upp]; replicateOutliersRepA = [false; replicateOutliersRepA];
+replicateOutliersRepB = [spc_replicates.d15N_repB(2:end) < low | spc_replicates.d15N_repB(2:end) > upp]; replicateOutliersRepB = [false; replicateOutliersRepB];
+replicateOutliersRepC = [spc_replicates.d15N_repC(2:end) < low | spc_replicates.d15N_repC(2:end) > upp]; replicateOutliersRepC = [false; replicateOutliersRepC];
+replicateOutliersRepD = [spc_replicates.d15N_repD(2:end) < low | spc_replicates.d15N_repD(2:end) > upp]; replicateOutliersRepD = [false; replicateOutliersRepD];
+replicateOutliersRepE = [spc_replicates.d15N_repE(2:end) < low | spc_replicates.d15N_repE(2:end) > upp]; replicateOutliersRepE = [false; replicateOutliersRepE];
+
+figure; hold on;
+H=shadedErrorBar(spc.gasAge(2:end),center,[upp-center center-low]','-r'); delete(H.edge);
+h1=plot(spc.gasAge,[spc_replicates.d15N_repA spc_replicates.d15N_repB spc_replicates.d15N_repC spc_replicates.d15N_repD spc_replicates.d15N_repE],'.','Color',lineCol(1));
+h2=plot(spc.gasAge,spc.d15N,'-','Color',lineCol(1)*0.7,'LineWidth',0.5);
+h3= plot(spc.gasAge(replicateOutliersRepA),spc_replicates.d15N_repA(replicateOutliersRepA),'o','Color','none','MarkerFaceColor',lineCol(10));
+plot(spc.gasAge(replicateOutliersRepB),spc_replicates.d15N_repB(replicateOutliersRepB),'o','Color','none','MarkerFaceColor',lineCol(10));
+plot(spc.gasAge(replicateOutliersRepC),spc_replicates.d15N_repC(replicateOutliersRepC),'o','Color','none','MarkerFaceColor',lineCol(10));
+plot(spc.gasAge(replicateOutliersRepD),spc_replicates.d15N_repD(replicateOutliersRepD),'o','Color','none','MarkerFaceColor',lineCol(10));
+plot(spc.gasAge(replicateOutliersRepE),spc_replicates.d15N_repE(replicateOutliersRepE),'o','Color','none','MarkerFaceColor',lineCol(10));
+legend([h1(1) h2 H.mainLine h3],{'Replicates','Replicate Means','Moving Median','Outliers'})
+axis([0 56000 0.45 0.65]);
 
 
 %% Plot everything against depth
