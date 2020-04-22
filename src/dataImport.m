@@ -5,7 +5,11 @@
 % session. It's easiest to then comment these lines back out and not clear
 % the xp2018 etc. variables as they take a long time to load in.
 
-% clearvars; clc;
+% clc;
+disp('Run dataImport: Turning Figures Off');
+set(0,'defaultFigureVisible','off');
+
+% clearvars;
 % disp({'Loading file 1: Working...'})
 % xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
 % disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
@@ -548,4 +552,5 @@ block_means_pisCorr_csCorr_ljaCorr(1,4:end,:,:) = ((block_means_pisCorr_csCorr_l
 aliquot_means_pisCorr_csCorr_ljaCorr = nanmean(block_means_pisCorr_csCorr_ljaCorr,3);
 
 %%
-disp('>> Script Complete')
+set(0,'defaultFigureVisible','on');
+disp('>> Script Complete: Turning Figures Back On');
