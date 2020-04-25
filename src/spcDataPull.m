@@ -268,12 +268,12 @@ stackedFigReset;
 % Set outliers to nan and recalculate depth means.
 
 spc_replicates.d15N(spc_replicateOutliers.d15N)=nan;
-spc_replicates.d18O(spc_replicateOutliers.d15N)=nan;
-spc_replicates.d17O(spc_replicateOutliers.d15N)=nan;
-spc_replicates.d36Ar(spc_replicateOutliers.d15N)=nan;
-spc_replicates.d38Ar(spc_replicateOutliers.d15N)=nan;
-spc_replicates.dO2N2(spc_replicateOutliers.d15N)=nan;
-spc_replicates.dArN2(spc_replicateOutliers.d15N)=nan;
+spc_replicates.d18O(spc_replicateOutliers.d18O)=nan;
+spc_replicates.d17O(spc_replicateOutliers.d17O)=nan;
+spc_replicates.d36Ar(spc_replicateOutliers.d36Ar)=nan;
+spc_replicates.d38Ar(spc_replicateOutliers.d38Ar)=nan;
+spc_replicates.dO2N2(spc_replicateOutliers.dO2N2)=nan;
+spc_replicates.dArN2(spc_replicateOutliers.dArN2)=nan;
 
 spc.d15N = nanmean(spc_replicates.d15N,2);
 spc.d18O = nanmean(spc_replicates.d18O,2);
@@ -295,12 +295,12 @@ ylabel('SPC \delta^{15}N [per mil]');
 
 stackedFigAx(2)
 plot(spc_replicates.bottomDepth,spc_replicates.d18O,'.','Color',lineCol(9));
-plot(spc.bottomDepth,spc.d18O,'o','Color','none','MarkerFaceColor',lineCol(2))
+plot(spc.bottomDepth,spc.d18O,'o','Color','none','MarkerFaceColor',lineCol(3))
 ylabel('SPC \delta^{18}O [per mil]');
 
 stackedFigAx(3)
 plot(spc_replicates.bottomDepth,spc_replicates.d17O,'.','Color',lineCol(9));
-plot(spc.bottomDepth,spc.d17O,'o','Color','none','MarkerFaceColor',lineCol(2)*0.7)
+plot(spc.bottomDepth,spc.d17O,'o','Color','none','MarkerFaceColor',lineCol(3)*0.7)
 ylabel('SPC \delta^{17}O [per mil]');
 
 stackedFigAx(4)
