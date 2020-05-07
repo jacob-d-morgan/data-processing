@@ -5,7 +5,7 @@
 % session. It's easiest to then comment these lines back out and not clear
 % the xp2018 etc. variables as they take a long time to load in.
 
-% clc;
+clc;
 disp('Run dataImport: Turning Figures Off');
 set(0,'defaultFigureVisible','off');
 
@@ -473,7 +473,49 @@ for ii=1:sum(endCS_18O)
     endCS_18Oloop(idxFinalAliquot)=false;
 end
 
+% N.B. - These ones are a little different as there are two effects to correct for for d40/36Ar and d40/38Ar
+% dN2Ar and dO2Ar effect on d4036
+% Create logical indices to update within the loop as I "check off" the
+% different sets of aliquots that make up the different CS experiments
+iCS_18Oloop = iCS_18O;
+endCS_18Oloop = endCS_18O;
+iCS_15Nloop = iCS_15N;
+endCS_15Nloop = endCS_15N;
 
+figure;
+CS_4036 = nan(size(block_means_pisCorr,1),2,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+for ii=1:max([sum(endCS_15N) sum(endCS_18O)])
+    idxFinalAliquot = max([find(endCS_18Oloop,1),find(endCS_15Nloop,1)]); % Use the index of whichever CS experiment was done latest
+    iAliquotsToUse = (iCS_18Oloop | iCS_15Nloop) & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    
+    d = squeeze(aliquot_means(1,7,1,iAliquotsToUse)); % response variable = d4036Ar
+    G = [ones(size(d)) ((squeeze(aliquot_means(1,10,1,iAliquotsToUse))./1000+1).^-1-1)*1000 ((squeeze(aliquot_means(1,9,1,iAliquotsToUse))/1000+1)./((squeeze(aliquot_means(1,10,1,iAliquotsToUse))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/qarn2 -1]*1000)
+    
+    m = (G'*G)\G'*d; % Calculate the 4036Ar CS
+    r_sq = corrcoef([G(:,2:3),d]).^2;
+    
+    CS_4036(:,2,:,idxFinalAliquot) = m(2);
+    CS_4036(:,3,:,idxFinalAliquot) = m(3);
+    
+    subplot(1,sum(endCS_18O),ii); hold on;
+    [X,Y]=meshgrid(G(:,2),G(:,3));
+    plot3(G(:,2),G(:,3),d,'xk');
+    surf(X,Y,m(1)+X.*m(2)+Y*m(3));
+    %text(50,0.05,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
+    %text(50,0,['CS = ' num2str(m(3)*1000) ' per meg/per mil'])
+    %text(50,-0.05,['r^2 = ' num2str(r_sq(2,1))])
+    xlabel('\deltaN_2/Ar [per mil]')
+    ylabel('\deltaO_2/Ar [per mil]')
+    zlabel('\delta^{40}/_{36}Ar [per mil]')
+    %axis([-10 350 -10 350 -0.1 10]);
+    
+    title(['\delta^{40}/{36}Ar CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    
+    iCS_18Oloop(1:idxFinalAliquot)=false;
+    endCS_18Oloop(1:idxFinalAliquot)=false;
+    iCS_15Nloop(1:idxFinalAliquot)=false;
+    endCS_15Nloop(1:idxFinalAliquot)=false;
+end
 %% Make the CS Corrections
 
 CS = nan(size(block_means_pisCorr,1),7,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
