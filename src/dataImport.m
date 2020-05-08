@@ -7,7 +7,7 @@
 
 clc;
 disp('Run dataImport: Turning Figures Off');
-set(0,'defaultFigureVisible','off');
+%set(0,'defaultFigureVisible','off');
 
 % clearvars;
 % disp({'Loading file 1: Working...'})
@@ -483,7 +483,7 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_4036 = nan(size(block_means_pisCorr,1),2,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS_36Ar = nan(size(block_means_pisCorr,1),2,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
 for ii=1:max([sum(endCS_15N) sum(endCS_18O)])
     idxFinalAliquot = max([find(endCS_18Oloop,1),find(endCS_15Nloop,1)]); % Use the index of whichever CS experiment was done latest
     iAliquotsToUse = (iCS_18Oloop | iCS_15Nloop) & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
@@ -494,8 +494,8 @@ for ii=1:max([sum(endCS_15N) sum(endCS_18O)])
     m = (G'*G)\G'*d; % Calculate the 4036Ar CS
     r_sq = corrcoef([G(:,2:3),d]).^2;
     
-    CS_4036(:,2,:,idxFinalAliquot) = m(2);
-    CS_4036(:,3,:,idxFinalAliquot) = m(3);
+    CS_36Ar(:,1,:,idxFinalAliquot) = m(2);
+    CS_36Ar(:,2,:,idxFinalAliquot) = m(3);
     
     subplot(1,sum(endCS_18O),ii); hold on;
     [X,Y]=meshgrid(G(:,2),G(:,3));
@@ -522,16 +522,19 @@ CS = nan(size(block_means_pisCorr,1),7,size(block_means_pisCorr,3),size(block_me
 CS(:,:,:,:) = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
 CS = fillmissing(CS,'previous',4);
 
-CS_predictors = [block_means_pisCorr(:,9,:,:) ...
-                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ...
-                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ...
-                 zeros(size(block_means_pisCorr(:,9,:,:))) ...
-                 zeros(size(block_means_pisCorr(:,9,:,:))) ...
-                 zeros(size(block_means_pisCorr(:,9,:,:))) ...
-                 block_means_pisCorr(:,9,:,:)];
+CS_predictors = [block_means_pisCorr(:,9,:,:) ... % O2N2 CS on d15N
+                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
+                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
+                 zeros(size(block_means_pisCorr(:,9,:,:))) ... % d4036Ar CS Below
+                 zeros(size(block_means_pisCorr(:,9,:,:))) ... % d4038Ar CS Below
+                 zeros(size(block_means_pisCorr(:,9,:,:))) ... % No CS Corr for dO2N2 
+                 block_means_pisCorr(:,9,:,:)]; % O2N2 CS on dArN2
 
 block_means_pisCorr_csCorr = block_means_pisCorr;
 block_means_pisCorr_csCorr(:,4:end,:,:) = block_means_pisCorr_csCorr(:,4:end,:,:) - CS.*CS_predictors;
+
+CS_36Ar = fillmissing(CS_36Ar,'previous',4);
+block_means_pisCorr_csCorr(:,7,:,:) = block_means_pisCorr_csCorr(:,7,:,:) - (CS_36Ar(:,1,:,:).*((block_means_pisCorr(:,10,:,:)/1000+1).^-1-1)*1000) - (CS_36Ar(:,2,:,:).*((block_means_pisCorr(:,9,:,:)/1000+1)./(block_means_pisCorr(:,10,:,:)/1000+1)-1)*1000);
 
 aliquot_means_pisCorr_csCorr = nanmean(block_means_pisCorr_csCorr,3);
 
