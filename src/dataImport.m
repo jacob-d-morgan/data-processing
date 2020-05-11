@@ -484,7 +484,7 @@ endCS_15Nloop = endCS_15N;
 
 figure;
 CS_36Ar = nan(size(block_means_pisCorr,1),2,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
-for ii=1:max([sum(endCS_15N) sum(endCS_18O)])
+for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
     idxFinalAliquot = max([find(endCS_18Oloop,1),find(endCS_15Nloop,1)]); % Use the index of whichever CS experiment was done latest
     iAliquotsToUse = (iCS_18Oloop | iCS_15Nloop) & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
     
