@@ -174,6 +174,27 @@ ylabel('Number of Blocks in Aliquot');
 title('Aliquot Lengths (by method)')
 ylim([0 10])
 
+figure
+subplot(121); hold on;
+histogram(blockLengthsAll(blockLengthsAll~=16))
+text(15,75,{['No. Rejected ' num2str(length(blockLengthsAll(blockLengthsAll~=16)))]; ...
+            ['No. Included: ' num2str(numberOfBlocks)]; ...
+            ['Rejected: ' num2str(length(blockLengthsAll(blockLengthsAll~=16))/length(blockLengthsAll)*100) '%']}, ...
+            'HorizontalAlignment','right','VerticalAlignment','Top');
+xlabel('Block Length (# cycles)');
+ylabel('Counts')
+
+subplot(122); hold on;
+histogram(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5))
+text(9,17,{['No. Rejected ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5)))]; ...
+            ['No. Included: ' num2str(numberOfAliquots)]; ...
+            ['Rejected: ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5))/length(aliquotLengthsAll)*100) '%']}, ...
+            'HorizontalAlignment','right','VerticalAlignment','Top');
+xlabel('Aliquot Length (# blocks)');
+ylabel('Counts');
+
+suptitle('Properties of Rejected Blocks and Aliquots')
+
 
 figure
 subplot(211)
