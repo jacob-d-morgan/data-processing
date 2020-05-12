@@ -6,8 +6,9 @@
 % the xp2018 etc. variables as they take a long time to load in.
 
 clc;
-disp('Run dataImport: Turning Figures Off');
 %set(0,'defaultFigureVisible','off');
+disp('Run dataImport: Turning Figures Off');
+clearvars -EXCEPT xp20*
 
 % clearvars;
 % disp({'Loading file 1: Working...'})
@@ -20,7 +21,6 @@ disp('Run dataImport: Turning Figures Off');
 % % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
 % % disp({'Loading file 4: Complete'})
 
-%%
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2017.MeasurmentErrors = num2cell(xp2017.MeasurmentErrors);
 xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
@@ -101,13 +101,13 @@ metadata_fields = fieldnames(cycle_metadata)'; % Transpose it to a row vector so
 
 %% Reshape into Cycles-x-Isotope Ratio-x-Block
 % Identify the different blocks by the unique filenames
-[~,idx_blocks,~] = unique(cycle_metadata.filename,'stable');
-blockLengths = diff(idx_blocks); blockLengths(end+1)=length(cycle_deltas)-(idx_blocks(end)-1);
+[~,idx_blocksAll,~] = unique(cycle_metadata.filename,'stable');
+blockLengthsAll = diff(idx_blocksAll); blockLengthsAll(end+1)=length(cycle_deltas)-(idx_blocksAll(end)-1);
 
 % TAKE ONLY THE BLOCKS WITH 16 CYCLES! - This causes me to lose 156 blocks
 % (17672 -> 17516, <1%), mostly with <5 cycles in them.
-idx_blocks = idx_blocks(blockLengths==16); 
-blockLengths = blockLengths(blockLengths==16);
+idx_blocks = idx_blocksAll(blockLengthsAll==16); 
+blockLengths = blockLengthsAll(blockLengthsAll==16);
 
 numberOfBlocks = length(idx_blocks);
 longestBlock = max(blockLengths);
@@ -122,7 +122,6 @@ for ii = 1:length(idx_blocks)
     end
 end
 
-
 %% Reshape into Cycles-x-Isotope Ratio-x-Block-x-Sample Aliquot
 % Define Methods that Are Run at the Start of Each New Sample
 sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
@@ -135,17 +134,16 @@ end
 
 % Find new aliquots by finding above methods or by finding the start of a
 % new sequence (sequence row decreases from N to 1).
-idx_SampleAliquots = find(idx_working | ([0; diff(block_metadata.sequenceRow(1,:)')]<0));
-aliquotLengths = diff(idx_SampleAliquots); aliquotLengths(end+1)=length(block_deltas)-(idx_SampleAliquots(end)-1);
+idx_SampleAliquotsAll = find(idx_working | ([0; diff(block_metadata.sequenceRow(1,:)')]<0));
+aliquotLengthsAll = diff(idx_SampleAliquotsAll); aliquotLengthsAll(end+1)=length(block_deltas)-(idx_SampleAliquotsAll(end)-1);
 
 % TAKE ONLY THE ALIQUOTS WITH 4 OR 5 BLOCKS! - This causes me to lose 56
 % aliquots (4360 -> 4304, ~1%), mostly with only 1 or 2 blocks in them.
-idx_SampleAliquots = idx_SampleAliquots(aliquotLengths>3 & aliquotLengths<6);
-aliquotLengths = aliquotLengths(aliquotLengths>3 & aliquotLengths<6);
+idx_SampleAliquots = idx_SampleAliquotsAll(aliquotLengthsAll>3 & aliquotLengthsAll<6);
+aliquotLengths = aliquotLengthsAll(aliquotLengthsAll>3 & aliquotLengthsAll<6);
 
 numberOfAliquots = length(idx_SampleAliquots);
 longestAliquot = max(aliquotLengths);
-
 
 % Reshape
 aliquot_deltas = nan(longestBlock,size(cycle_deltas,2),longestAliquot,numberOfAliquots);
@@ -157,21 +155,22 @@ for ii = 1:length(idx_SampleAliquots)
     end
 end
 
-
 %% Do Some Staistics on the Blocks
 % There are some weird looking blocks here that plot off the top of the
 % y-axis. I should take a closer look. Set a threshold for inclusion?
 
-figure
-subplot(211)
-plot(block_metadata.msDatetime(1,:),blockLengths)
-xlabel('Block Number'); ylabel('Number of Cycles in Block'); 
+figure;
+subplot(211); hold on;
+plot(cycle_metadata.msDatetime(idx_blocksAll),blockLengthsAll,'-','Color',lineCol(9),'LineWidth',1)
+plot(block_metadata.msDatetime(1,:),blockLengths,'-','Color',lineCol(10),'LineWidth',3)
+ylabel('Number of Cycles in Block'); 
 title('Block Length (by method)');
 ylim([0 20])
 
-subplot(212)
-plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),aliquotLengths)
-xlabel('Aliquot Number'); ylabel('Number of Blocks in Aliquot'); 
+subplot(212); hold on;
+plot(squeeze(block_metadata.msDatetime(1,idx_SampleAliquotsAll)),aliquotLengthsAll,'-','Color',lineCol(9),'LineWidth',1);
+plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),aliquotLengths,'-','Color',lineCol(10),'LineWidth',3);
+ylabel('Number of Blocks in Aliquot'); 
 title('Aliquot Lengths (by method)')
 ylim([0 10])
 
