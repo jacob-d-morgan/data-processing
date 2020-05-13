@@ -115,12 +115,95 @@ longestBlock = max(blockLengths);
 % Fill the Array of Delta Values
 block_deltas = nan(longestBlock,size(cycle_deltas,2),numberOfBlocks);
 
+
+% Reshape Delta Values...
+
+% ...as an Array
+tic;
 for ii = 1:length(idx_blocks)
     block_deltas(1:blockLengths(ii),:,ii) = cycle_deltas(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+end
+reshape_deltaArr = toc
+
+% ...as a Cell Array of Arrays
+% Make a cell array of delta values to test vs the array
+cycle_deltasCell = cell(1,10);
+for ii = 1:length(cycle_deltasCell)
+    cycle_deltasCell{ii} = cycle_deltas(:,ii);
+end
+block_deltasCell = cell(size(cycle_deltas));
+
+tic;
+for ii = 1:length(idx_blocks)
+    for jj = 1:length(cycle_deltasCell)
+        block_deltasCell{jj}(1:blockLengths(ii),ii) = cycle_deltasCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_deltaCell = toc
+
+% ...as a Table
+cycle_deltasTable = array2table(cycle_deltas);
+cycle_deltasTable.Properties.VariableNames = delta_cols;
+
+tic;
+for ii = 1:length(idx_blocks)
+    for jj = 1:width(cycle_deltasTable)
+        block_deltasTable.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasTable.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_deltaTable = toc
+
+% ...as a Structure
+% Make a structure of delta values to test vs the array
+cycle_deltasStruct = table2struct(cycle_deltasTable,'ToScalar',true);
+
+tic;
+for ii = 1:length(idx_blocks)
+    for jj = 1:numel(cycle_deltasStruct)
+        block_deltasStruct.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasStruct.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_deltaStruct = toc
+
+% Reshape Metadata...
+
+% ...as a Cell Array of Arrays
+% Make a cell array to test for speed vs the struct
+cycle_metadataCell = cell(1,9);
+for ii=1:length(cycle_metadataCell)
+    cycle_metadataCell{ii} = cycle_metadata.(metadata_fields{ii});
+end
+block_metadataCell = cell(size(cycle_metadataCell));
+
+tic;
+for ii = 1:length(idx_blocks)
+    for jj = 1:length(cycle_metadataCell)
+        block_metadataCell{jj}(1:blockLengths(ii),ii) = cycle_metadataCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_metaCell = toc
+
+% ...as a Table
+% Make a table to test for speed vs struct & cell
+cycle_metadataTable = struct2table(cycle_metadata);
+
+tic;
+for ii = 1:length(idx_blocks)
+    for jj = 1:width(cycle_metadataTable)
+        block_metadataTable.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadataTable.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_metaTable = toc
+        
+% ...as a Structure
+tic;
+for ii = 1:length(idx_blocks)
     for jj = 1:numel(metadata_fields)
         block_metadata.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadata.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
+reshape_metaStruct = toc
+
 
 %% Reshape into Cycles-x-Isotope Ratio-x-Block-x-Sample Aliquot
 % Define Methods that Are Run at the Start of Each New Sample
