@@ -113,14 +113,12 @@ numberOfBlocks = length(idx_blocks);
 longestBlock = max(blockLengths);
 
 % Fill the Array of Delta Values
-block_deltas = nan(longestBlock,size(cycle_deltas,2),numberOfBlocks);
-
 
 % Reshape Delta Values...
-
 % ...as an Array
+block_deltas = nan(longestBlock,size(cycle_deltas,2),numberOfBlocks);
 tic;
-for ii = 1:length(idx_blocks)
+for ii = length(idx_blocks):-1:1
     block_deltas(1:blockLengths(ii),:,ii) = cycle_deltas(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
 end
 reshape_deltaArr = toc
@@ -131,27 +129,46 @@ cycle_deltasCell = cell(1,10);
 for ii = 1:length(cycle_deltasCell)
     cycle_deltasCell{ii} = cycle_deltas(:,ii);
 end
-block_deltasCell = cell(size(cycle_deltas));
 
+block_deltasCellFw = cell(1,size(cycle_deltas,2));
 tic;
 for ii = 1:length(idx_blocks)
     for jj = 1:length(cycle_deltasCell)
-        block_deltasCell{jj}(1:blockLengths(ii),ii) = cycle_deltasCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+        block_deltasCellFw{jj}(1:blockLengths(ii),ii) = cycle_deltasCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
-reshape_deltaCell = toc
+reshape_deltaCellFw = toc
+
+block_deltasCellBw = cell(1,size(cycle_deltas,2));
+tic;
+for ii = length(idx_blocks):-1:1
+    for jj = 1:length(cycle_deltasCell)
+        block_deltasCellBw{jj}(1:blockLengths(ii),ii) = cycle_deltasCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_deltaCellBw = toc
 
 % ...as a Table
 cycle_deltasTable = array2table(cycle_deltas);
 cycle_deltasTable.Properties.VariableNames = delta_cols;
 
+block_deltasTableFw = table();
 tic;
 for ii = 1:length(idx_blocks)
     for jj = 1:width(cycle_deltasTable)
-        block_deltasTable.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasTable.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+        block_deltasTableFw.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasTable.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
-reshape_deltaTable = toc
+reshape_deltaTableFw = toc
+
+block_deltasTableBw = table();
+tic;
+for ii = length(idx_blocks):-1:1
+    for jj = 1:width(cycle_deltasTable)
+        block_deltasTableBw.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasTable.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_deltaTableBw = toc
 
 % ...as a Structure
 % Make a structure of delta values to test vs the array
@@ -160,10 +177,18 @@ cycle_deltasStruct = table2struct(cycle_deltasTable,'ToScalar',true);
 tic;
 for ii = 1:length(idx_blocks)
     for jj = 1:numel(cycle_deltasStruct)
-        block_deltasStruct.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasStruct.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+        block_deltasStructFw.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasStruct.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
-reshape_deltaStruct = toc
+reshape_deltaStructFw = toc
+
+tic;
+for ii = length(idx_blocks):-1:1
+    for jj = 1:numel(cycle_deltasStruct)
+        block_deltasStructBw.(delta_cols{jj})(1:blockLengths(ii),ii) = cycle_deltasStruct.(delta_cols{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_deltaStructBw = toc
 
 % Reshape Metadata...
 
@@ -173,36 +198,63 @@ cycle_metadataCell = cell(1,9);
 for ii=1:length(cycle_metadataCell)
     cycle_metadataCell{ii} = cycle_metadata.(metadata_fields{ii});
 end
-block_metadataCell = cell(size(cycle_metadataCell));
 
+block_metadataCellFw = cell(size(cycle_metadataCell));
 tic;
 for ii = 1:length(idx_blocks)
     for jj = 1:length(cycle_metadataCell)
-        block_metadataCell{jj}(1:blockLengths(ii),ii) = cycle_metadataCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+        block_metadataCellFw{jj}(1:blockLengths(ii),ii) = cycle_metadataCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
-reshape_metaCell = toc
+reshape_metaCellFw = toc
+
+block_metadataCellBw = cell(size(cycle_metadataCell));
+tic;
+for ii = length(idx_blocks):-1:1
+    for jj = 1:length(cycle_metadataCell)
+        block_metadataCellBw{jj}(1:blockLengths(ii),ii) = cycle_metadataCell{jj}(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_metaCellBw = toc
 
 % ...as a Table
 % Make a table to test for speed vs struct & cell
 cycle_metadataTable = struct2table(cycle_metadata);
 
+block_metadataTableFw = table();
 tic;
 for ii = 1:length(idx_blocks)
     for jj = 1:width(cycle_metadataTable)
-        block_metadataTable.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadataTable.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+        block_metadataTableFw.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadataTable.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
-reshape_metaTable = toc
+reshape_metaTableFw = toc
+
+block_metadataTableBw = table();
+tic;
+for ii = length(idx_blocks):-1:1
+    for jj = 1:width(cycle_metadataTable)
+        block_metadataTableBw.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadataTable.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_metaTableBw = toc
         
 % ...as a Structure
 tic;
-for ii = 1:length(idx_blocks)
+for ii = length(idx_blocks):-1:1
     for jj = 1:numel(metadata_fields)
-        block_metadata.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadata.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+        block_metadataFw.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadata.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
-reshape_metaStruct = toc
+reshape_metaStructFw = toc
+
+tic;
+for ii = length(idx_blocks):-1:1
+    for jj = 1:numel(metadata_fields)
+        block_metadataBw.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadata.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    end
+end
+reshape_metaStructBw = toc
 
 
 %% Reshape into Cycles-x-Isotope Ratio-x-Block-x-Sample Aliquot
