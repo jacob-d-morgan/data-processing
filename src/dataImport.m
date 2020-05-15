@@ -99,7 +99,7 @@ cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
 
 metadata_fields = fieldnames(cycle_metadata)'; % Transpose it to a row vector so that it works as a loop index
 
-%% Reshape into Cycles-x-Isotope Ratio-x-Block
+%% Reshape into Isotope Ratio-x-Block-x-Cycle
 % Identify the different blocks by the unique filenames
 [~,idx_blocksAll,~] = unique(cycle_metadata.filename,'stable');
 blockLengthsAll = diff(idx_blocksAll); blockLengthsAll(end+1)=length(cycle_deltas)-(idx_blocksAll(end)-1);
@@ -113,12 +113,15 @@ numberOfBlocks = length(idx_blocks);
 longestBlock = max(blockLengths);
 
 % Fill the Array of Delta Values
-block_deltas = nan(longestBlock,size(cycle_deltas,2),numberOfBlocks);
+block_deltas = nan(numel(delta_cols),numberOfBlocks,longestBlock);
 
 for ii = 1:length(idx_blocks)
-    block_deltas(1:blockLengths(ii),:,ii) = cycle_deltas(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+    block_deltas(:,ii,1:blockLengths(ii)) = cycle_deltas(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:)';
+end
+
+for ii = 1:length(idx_blocks)
     for jj = 1:numel(metadata_fields)
-        block_metadata.(metadata_fields{jj})(1:blockLengths(ii),ii) = cycle_metadata.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
+        block_metadata.(metadata_fields{jj})(ii,1:blockLengths(ii)) = cycle_metadata.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
     end
 end
 
@@ -126,15 +129,15 @@ end
 % Define Methods that Are Run at the Start of Each New Sample
 sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
 
-idx_working = false(size(block_metadata.msDatetime,2),1);
+idx_working = false(size(block_metadata.msDatetime,1),1);
 
 for ii=1:length(sampleStartMethods)
-    idx_working = idx_working | block_metadata.method(1,:)'==sampleStartMethods(ii);
+    idx_working = idx_working | block_metadata.method(:,1)==sampleStartMethods(ii);
 end
 
 % Find new aliquots by finding above methods or by finding the start of a
 % new sequence (sequence row decreases from N to 1).
-idx_SampleAliquotsAll = find(idx_working | ([0; diff(block_metadata.sequenceRow(1,:)')]<0));
+idx_SampleAliquotsAll = find(idx_working | ([0; diff(block_metadata.sequenceRow(:,1))]<0));
 aliquotLengthsAll = diff(idx_SampleAliquotsAll); aliquotLengthsAll(end+1)=length(block_deltas)-(idx_SampleAliquotsAll(end)-1);
 
 % TAKE ONLY THE ALIQUOTS WITH 4 OR 5 BLOCKS! - This causes me to lose 56
@@ -146,12 +149,12 @@ numberOfAliquots = length(idx_SampleAliquots);
 longestAliquot = max(aliquotLengths);
 
 % Reshape
-aliquot_deltas = nan(longestBlock,size(cycle_deltas,2),longestAliquot,numberOfAliquots);
+aliquot_deltas = nan(numberOfAliquots,size(cycle_deltas,2),longestAliquot,longestBlock);
 
 for ii = 1:length(idx_SampleAliquots)
-    aliquot_deltas(:,:,1:aliquotLengths(ii),ii) = block_deltas(:,:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1);
+    aliquot_deltas(ii,:,1:aliquotLengths(ii),:) = block_deltas(:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1,:);
     for jj=1:numel(metadata_fields)
-        aliquot_metadata.(metadata_fields{jj})(:,1:aliquotLengths(ii),ii) = block_metadata.(metadata_fields{jj})(:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1);
+        aliquot_metadata.(metadata_fields{jj})(ii,1:aliquotLengths(ii),:) = block_metadata.(metadata_fields{jj})(idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1,:);
     end
 end
 
