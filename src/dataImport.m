@@ -165,14 +165,14 @@ end
 figure;
 subplot(211); hold on;
 plot(cycle_metadata.msDatetime(idx_blocksAll),blockLengthsAll,'-','Color',lineCol(9),'LineWidth',1)
-plot(block_metadata.msDatetime(1,:),blockLengths,'-','Color',lineCol(10),'LineWidth',3)
+plot(cycle_metadata.msDatetime(idx_blocks),blockLengths,'-','Color',lineCol(10),'LineWidth',3)
 ylabel('Number of Cycles in Block'); 
 title('Block Length (by method)');
 ylim([0 20])
 
 subplot(212); hold on;
-plot(squeeze(block_metadata.msDatetime(1,idx_SampleAliquotsAll)),aliquotLengthsAll,'-','Color',lineCol(9),'LineWidth',1);
-plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),aliquotLengths,'-','Color',lineCol(10),'LineWidth',3);
+plot(block_metadata.msDatetime(idx_SampleAliquotsAll,1),aliquotLengthsAll,'-','Color',lineCol(9),'LineWidth',1);
+plot(block_metadata.msDatetime(idx_SampleAliquots,1),aliquotLengths,'-','Color',lineCol(10),'LineWidth',3);
 ylabel('Number of Blocks in Aliquot'); 
 title('Aliquot Lengths (by method)')
 ylim([0 10])
@@ -203,13 +203,13 @@ suptitle('Properties of Rejected Blocks and Aliquots')
 
 figure
 subplot(211)
-semilogy(block_metadata.msDatetime(1,:),squeeze(std(block_deltas)),'.');
+semilogy(block_metadata.msDatetime(:,1),std(block_deltas(4:end,:,:),0,3),'.');
 ylabel('Std Dev of Cycles in a Block [per mil]');
 ylim([0 150]);
-legend(delta_cols,'Location','N','Orientation','Horizontal');
+legend(delta_cols(4:end),'Location','N','Orientation','Horizontal');
 
 subplot(212)
-semilogy(squeeze(aliquot_metadata.msDatetime(1,1,:)),squeeze(nanstd(mean(aliquot_deltas,1),0,3)),'.');
+semilogy(aliquot_metadata.msDatetime(:,1,1),nanstd(mean(aliquot_deltas(:,4:end,:,:),3),0,4),'.');
 ylabel('Std Dev of Blocks in an Aliquot [per mil]')
 ylim([0 1500])
 
