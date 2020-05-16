@@ -336,21 +336,21 @@ aliquot_deltas_pisCorr(:,4:end,:,:) = aliquot_deltas(:,4:end,:,:) - aliquot_delt
 %      chem slope experiments
 %   2) Figure out how I'm going to do the CS Correction for Ar isotopes
 
-aliquot_means = nanmean(block_means_pisCorr,3);
+%aliquot_means = nanmean(block_means_pisCorr,3);
 
-iCS_15N = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'CS') ...
-          & (contains(squeeze(aliquot_metadata.ID1(1,1,:)),'15') ...
-          | contains(squeeze(aliquot_metadata.ID1(1,1,:)),'N'));
-iCS_18O = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'CS') ...
-          & (contains(squeeze(aliquot_metadata.ID1(1,1,:)),'18') ...
-          | contains(squeeze(aliquot_metadata.ID1(1,1,:)),'O'));
+iCS_15N = contains(squeeze(aliquot_metadata.ID1(:,1,1)),'CS') ...
+          & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'15') ...
+          | contains(squeeze(aliquot_metadata.ID1(:,1,1)),'N'));
+iCS_18O = contains(squeeze(aliquot_metadata.ID1(:,1,1)),'CS') ...
+          & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'18') ...
+          | contains(squeeze(aliquot_metadata.ID1(:,1,1)),'O'));
 
-dates = {squeeze(aliquot_metadata.msDatetime(1,1,iCS_15N)) squeeze(aliquot_metadata.msDatetime(1,1,iCS_18O))}; % just for reference
+dates = {aliquot_metadata.msDatetime(iCS_15N,1,1) aliquot_metadata.msDatetime(iCS_18O,1,1)}; % just for reference
 
 % Find the different CS experiments by finding the CS aliquots separated by more than 10 hours
 diffsCS_15N = duration(nan(3223,3)); diffsCS_18O = duration(nan(3223,3));
-diffsCS_15N(iCS_15N) = [diff(squeeze(aliquot_metadata.msDatetime(1,1,iCS_15N))); hours(999)+minutes(59)+seconds(59)];
-diffsCS_18O(iCS_18O) = [diff(squeeze(aliquot_metadata.msDatetime(1,1,iCS_18O))); hours(999)+minutes(59)+seconds(59)];
+diffsCS_15N(iCS_15N) = [diff(aliquot_metadata.msDatetime(iCS_15N,1,1)); hours(999)+minutes(59)+seconds(59)];
+diffsCS_18O(iCS_18O) = [diff(aliquot_metadata.msDatetime(iCS_18O,1,1)); hours(999)+minutes(59)+seconds(59)];
 
 % N.B. It's important to not use too big a number here. Using 24 hours
 % fails to resolve a re-do of the 18O CS in Feb-2016 as it was run the
@@ -365,18 +365,18 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_15N = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS_15N = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
 for ii=1:sum(endCS_15N)
     idxFinalAliquot = find(endCS_15Nloop,1);
-    iAliquotsToUse = iCS_15Nloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    iAliquotsToUse = iCS_15Nloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(aliquot_means(1,4,1,iAliquotsToUse)); % response variable = d15N
-    G = [ones(size(d)) squeeze(aliquot_means(1,9,1,iAliquotsToUse))]; % predictor variable = dO2N2
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,4,:,:),4),3)); % response variable = d15N
+    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))]; % predictor variable = dO2N2
     
     m = (G'*G)\G'*d; % Calculate the 15N CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_15N(:,:,:,idxFinalAliquot) = m(2);
+    CS_15N(idxFinalAliquot,:,:,:) = m(2);
     
     subplot(1,sum(endCS_15N),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -387,7 +387,7 @@ for ii=1:sum(endCS_15N)
     ylabel('\delta^{15}N [per mil]')
     axis([-10 350 -0.01 0.25]);
     
-    title(['\delta^{15}N CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    title(['\delta^{15}N CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
     
     iCS_15Nloop(1:idxFinalAliquot)=false;
     endCS_15Nloop(idxFinalAliquot)=false;
@@ -400,18 +400,18 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_ArN2 = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS_ArN2 = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
 for ii=1:sum(endCS_15N)
     idxFinalAliquot = find(endCS_15Nloop,1);
-    iAliquotsToUse = iCS_15Nloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    iAliquotsToUse = iCS_15Nloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(aliquot_means(1,10,1,iAliquotsToUse)); % response variable = dArN2
-    G = [ones(size(d)) squeeze(aliquot_means(1,9,1,iAliquotsToUse))]; % predictor variable = dO2N2
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,10,:,:),4),3)); % response variable = dArN2
+    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))]; % predictor variable = dO2N2
     
     m = (G'*G)\G'*d; % Calculate the ArN2 CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_ArN2(:,:,:,idxFinalAliquot) = m(2);
+    CS_ArN2(idxFinalAliquot,:,:,:) = m(2);
     
     subplot(1,sum(endCS_15N),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -422,7 +422,7 @@ for ii=1:sum(endCS_15N)
     ylabel('\deltaAr/N_2 [per mil]')
     axis([-10 350 -0.1 1.2]);
     
-    title(['\deltaAr/N_2 CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    title(['\deltaAr/N_2 CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
     
     iCS_15Nloop(1:idxFinalAliquot)=false;
     endCS_15Nloop(idxFinalAliquot)=false;
@@ -435,18 +435,18 @@ iCS_18Oloop = iCS_18O;
 endCS_18Oloop = endCS_18O;
 
 figure;
-CS_18O = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS_18O = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
 for ii=1:sum(endCS_18O)
     idxFinalAliquot = find(endCS_18Oloop,1);
-    iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    iAliquotsToUse = iCS_18Oloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(aliquot_means(1,5,1,iAliquotsToUse)); % response variable = d18O
-    G = [ones(size(d)) ((squeeze(aliquot_means(1,9,1,iAliquotsToUse))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,5,:,:),4),3)); % response variable = d18O
+    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
     
     m = (G'*G)\G'*d; % Calculate the 18O CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_18O(:,:,:,idxFinalAliquot) = m(2);
+    CS_18O(idxFinalAliquot,:,:,:) = m(2);
     
     subplot(1,sum(endCS_18O),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -457,7 +457,7 @@ for ii=1:sum(endCS_18O)
     ylabel('\delta^{18}O [per mil]')
     axis([-10 350 -0.1 0.1]);
     
-    title(['\delta^{18}O CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    title(['\delta^{18}O CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
     
     iCS_18Oloop(1:idxFinalAliquot)=false;
     endCS_18Oloop(idxFinalAliquot)=false;
@@ -470,18 +470,18 @@ iCS_18Oloop = iCS_18O;
 endCS_18Oloop = endCS_18O;
 
 figure;
-CS_17O = nan(size(block_means_pisCorr,1),1,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS_17O = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
 for ii=1:sum(endCS_18O)
     idxFinalAliquot = find(endCS_18Oloop,1);
-    iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(:,1,1)) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(aliquot_means(1,6,1,iAliquotsToUse)); % response variable = d17O
-    G = [ones(size(d)) ((squeeze(aliquot_means(1,9,1,iAliquotsToUse))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,6,1,1),4),3)); % response variable = d17O
+    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
     
-    m = (G'*G)\G'*d; % Calculate the 18O CS
+    m = (G'*G)\G'*d; % Calculate the 17O CS
     r_sq = corrcoef(G(:,2),d).^2;
     
-    CS_17O(:,:,:,idxFinalAliquot) = m(2);
+    CS_17O(idxFinalAliquot,:,:,:) = m(2);
     
     subplot(1,sum(endCS_18O),ii); hold on;
     plot(G(:,2),d,'xk')
@@ -492,7 +492,7 @@ for ii=1:sum(endCS_18O)
     ylabel('\delta^{17}O [per mil]')
     axis([-10 350 -0.1 1]);
     
-    title(['\delta^{17}O CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    title(['\delta^{17}O CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
     
     iCS_18Oloop(1:idxFinalAliquot)=false;
     endCS_18Oloop(idxFinalAliquot)=false;
@@ -508,19 +508,19 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_36Ar = nan(size(block_means_pisCorr,1),2,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS_36Ar = nan(size(aliquot_deltas_pisCorr,1),2,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
 for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
     idxFinalAliquot = max([find(endCS_18Oloop,1),find(endCS_15Nloop,1)]); % Use the index of whichever CS experiment was done latest
-    iAliquotsToUse = (iCS_18Oloop | iCS_15Nloop) & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    iAliquotsToUse = (iCS_18Oloop | iCS_15Nloop) & squeeze(aliquot_metadata.msDatetime(:,1,1)) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(aliquot_means(1,7,1,iAliquotsToUse)); % response variable = d4036Ar
-    G = [ones(size(d)) ((squeeze(aliquot_means(1,10,1,iAliquotsToUse))./1000+1).^-1-1)*1000 ((squeeze(aliquot_means(1,9,1,iAliquotsToUse))/1000+1)./((squeeze(aliquot_means(1,10,1,iAliquotsToUse))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/qarn2 -1]*1000)
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,7,:,:),4),3)); % response variable = d4036Ar
+    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,10,:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,10,:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/qarn2 -1]*1000)
     
     m = (G'*G)\G'*d; % Calculate the 4036Ar CS
     r_sq = corrcoef([G(:,2:3),d]).^2;
     
-    CS_36Ar(:,1,:,idxFinalAliquot) = m(2);
-    CS_36Ar(:,2,:,idxFinalAliquot) = m(3);
+    CS_36Ar(idxFinalAliquot,1,:,:) = m(2);
+    CS_36Ar(idxFinalAliquot,2,:,:) = m(3);
     
     subplot(1,sum(endCS_18O),ii); hold on;
     [X,Y]=meshgrid(G(:,2),G(:,3));
@@ -534,7 +534,7 @@ for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
     zlabel('\delta^{40}/_{36}Ar [per mil]')
     %axis([-10 350 -10 350 -0.1 10]);
     
-    title(['\delta^{40}/{36}Ar CS: ' datestr(aliquot_metadata.msDatetime(1,1,idxFinalAliquot),'yyyy-mmm-dd')])    
+    title(['\delta^{40}/{36}Ar CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
     
     iCS_18Oloop(1:idxFinalAliquot)=false;
     endCS_18Oloop(1:idxFinalAliquot)=false;
@@ -543,25 +543,24 @@ for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
 end
 %% Make the CS Corrections
 
-CS = nan(size(block_means_pisCorr,1),7,size(block_means_pisCorr,3),size(block_means_pisCorr,4));
+CS = nan(size(aliquot_deltas_pisCorr,1),7,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
 CS(:,:,:,:) = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
-CS = fillmissing(CS,'previous',4);
+CS = fillmissing(CS,'previous',1);
 
-CS_predictors = [block_means_pisCorr(:,9,:,:) ... % O2N2 CS on d15N
-                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
-                 ((block_means_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
-                 zeros(size(block_means_pisCorr(:,9,:,:))) ... % d4036Ar CS Below
-                 zeros(size(block_means_pisCorr(:,9,:,:))) ... % d4038Ar CS Below
-                 zeros(size(block_means_pisCorr(:,9,:,:))) ... % No CS Corr for dO2N2 
-                 block_means_pisCorr(:,9,:,:)]; % O2N2 CS on dArN2
+CS_predictors = [aliquot_deltas_pisCorr(:,9,:,:) ... % O2N2 CS on d15N
+                 ((aliquot_deltas_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
+                 ((aliquot_deltas_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
+                 zeros(size(aliquot_deltas_pisCorr(:,9,:,:))) ... % d4036Ar CS Below
+                 zeros(size(aliquot_deltas_pisCorr(:,9,:,:))) ... % d4038Ar CS Below
+                 zeros(size(aliquot_deltas_pisCorr(:,9,:,:))) ... % No CS Corr for dO2N2 
+                 aliquot_deltas_pisCorr(:,9,:,:)]; % O2N2 CS on dArN2
 
-block_means_pisCorr_csCorr = block_means_pisCorr;
-block_means_pisCorr_csCorr(:,4:end,:,:) = block_means_pisCorr_csCorr(:,4:end,:,:) - CS.*CS_predictors;
+aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
+aliquot_deltas_pisCorr_csCorr(:,4:end,:,:) = aliquot_deltas_pisCorr_csCorr(:,4:end,:,:) - CS.*CS_predictors;
 
 CS_36Ar = fillmissing(CS_36Ar,'previous',4);
-block_means_pisCorr_csCorr(:,7,:,:) = block_means_pisCorr_csCorr(:,7,:,:) - (CS_36Ar(:,1,:,:).*((block_means_pisCorr(:,10,:,:)/1000+1).^-1-1)*1000) - (CS_36Ar(:,2,:,:).*((block_means_pisCorr(:,9,:,:)/1000+1)./(block_means_pisCorr(:,10,:,:)/1000+1)-1)*1000);
+aliquot_deltas_pisCorr_csCorr(:,7,:,:) = aliquot_deltas_pisCorr_csCorr(:,7,:,:) - (CS_36Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,10,:,:)/1000+1).^-1-1)*1000) - (CS_36Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,9,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,10,:,:)/1000+1)-1)*1000);
 
-aliquot_means_pisCorr_csCorr = nanmean(block_means_pisCorr_csCorr,3);
 
 %% Calculate the LJA Normalization Values
 % Still need to:
