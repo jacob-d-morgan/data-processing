@@ -215,36 +215,36 @@ ylim([0 1500])
 
 
 %% Calculate the PIS for each PIS experiment
-block_means = nanmean(aliquot_deltas,1);
+%block_means = nanmean(aliquot_deltas,1);
 
-iPIS = ~isnan(block_means(:,:,:,:)); % PIS aliquots are the aliquots with no nans for any of the blocks
+iPIS = ~isnan(mean(aliquot_deltas,4)); % PIS aliquots are the aliquots with no nans for any of the blocks
 
 % First, check that there is a delta value for each measured ratio
-allDeltasPisCheck = sum(squeeze(iPIS),3); % sums the number of non-nan blocks for each delta value
+allDeltasPisCheck = sum(iPIS,3); % sums the number of non-nan blocks for each delta value
 if length(unique(allDeltasPisCheck(:,5))) > 1 % if there is more than one unique value in the fifth column then some deltas are missing a PIS value
     warning('CAUTION: Some delta values are missing a PIS value')
 end
 
  % Now restrict PIS blocks to just those with PIS as an identifier to weed
  % out unusual aliquots where a fifth, non-PIS block was run
-iPIS = squeeze(iPIS(1,1,5,:)) & squeeze(aliquot_metadata.ID1(1,5,:))=='PIS';
+iPIS = iPIS(:,1,5) & aliquot_metadata.ID1(:,5,1)=='PIS';
 
-calcPis = nan(size(block_means,1),size(block_means,2)-3,5,size(block_means,4));
-calcPisRsq = nan(size(block_means,1),size(block_means,2)-3,5,size(block_means,4));
-calcPisImbal = nan(size(block_means,4),1);
+calcPis = nan(size(aliquot_deltas(:,4:end,:,:)));
+calcPisRsq = nan(size(aliquot_deltas(:,4:end,:,:)));
+calcPisImbal = nan(size(aliquot_deltas,1),1);
 
-for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them, just look at the first cycle, delta value, and the fifth block for each aliquot
-    for jj=4:size(block_means,2) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
+for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
+    for jj=4:numel(delta_cols) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
 
-        d = squeeze(block_means(:,jj,:,ii)); % response variable = the looped delta value from the looped aliquot
-        G = [ones(size(d)) squeeze(block_means(:,3,:,ii))]; % predictor variable = the pressure imbalance (col 3) from the looped variable
+        d = squeeze(nanmean(aliquot_deltas(ii,jj,:,:),4)); % response variable = the looped delta value from the looped aliquot
+        G = [ones(size(d)) squeeze(nanmean(aliquot_deltas(ii,3,:,:),4))]; % predictor variable = the pressure imbalance (col 3) from the looped variable
         m = (G'*G)\G'*d; % Calculate the PIS
         
         r_sq = corrcoef(G(:,2),d).^2; % Find the r-squared correlation coefficient for the PIS test
         [pImbal, idx] = max(abs(G(:,2))); % Find the block with the max P Imbalance
         
-        calcPis(1,jj-3,1:5,ii)=m(2);
-        calcPisRsq(1,jj-3,1:5,ii) = r_sq(1,2);
+        calcPis(ii,jj-3,:,:)=m(2);
+        calcPisRsq(ii,jj-3,:,:) = r_sq(1,2);
         calcPisImbal(ii) = pImbal * sign(G(idx,2));
     end
 end
@@ -256,8 +256,8 @@ end
 
 % Remove those with a P Imbalance smaller than 100 mV
 iSmallImbal = abs(calcPisImbal)<100;
-calcPis(1,:,1:5,iSmallImbal) = nan;
-calcPisRsq(1,:,1:5,iSmallImbal) = nan;
+calcPis(iSmallImbal,:,:,:) = nan;
+calcPisRsq(iSmallImbal,:,:,:) = nan;
 calcPisImbal(iSmallImbal) = nan;
 
 % Remove those with an r-squared of less than 0.7
@@ -269,11 +269,11 @@ calcPisImbal(iBadRsq(1,1,1,:)) = nan;
 % Manual Removal
 % Remove two spurious looking d4038 values where the sign of the PIS
 % changes back and forth and the magnitude jumps by two orders.
-toRemove = find(aliquot_metadata.msDatetime(1,1,:)==datetime(2017,12,12,10,22,33));
-calcPis(:,5,:,toRemove)=nan;
+toRemove = find(aliquot_metadata.msDatetime(:,1,1)==datetime(2017,12,12,10,22,33));
+calcPis(toRemove,5,:,:)=nan;
 
-toRemove = find(aliquot_metadata.msDatetime(1,1,:)==datetime(2016,04,26,02,38,05));
-calcPis(:,5,:,toRemove)=nan;
+toRemove = find(aliquot_metadata.msDatetime(:,1,1)==datetime(2016,04,26,02,38,05));
+calcPis(toRemove,5,:,:)=nan;
 
 
 %% Plot a time-series of the PIS and related parameters
@@ -284,25 +284,25 @@ calcPis(:,5,:,toRemove)=nan;
 stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
 
 stackedFigAx(1)
-plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),squeeze(calcPisRsq(1,:,1,:)),'s')
+plot(aliquot_metadata.msDatetime(:,1,1),calcPisRsq(:,:,1,1),'s')
 set(gca,'ColorOrderIndex',1)
-plot(squeeze(aliquot_metadata.msDatetime(1,1,~isnan(calcPisImbal))),squeeze(calcPisRsq(1,:,1,~isnan(calcPisImbal))),'-');
+plot(aliquot_metadata.msDatetime(~isnan(calcPisImbal),1,1),calcPisRsq(~isnan(calcPisImbal),:,1,1),'-');
+legend(delta_cols(4:end),'Orientation','Horizontal','Location','South')
 ylabel('r^2');
 ylim([0.7 1]);
 
 stackedFigAx(2)
-plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),squeeze(calcPis(1,:,1,:)),'o')
+plot(aliquot_metadata.msDatetime(:,1,1),calcPis(:,:,1,1),'o')
 set(gca,'ColorOrderIndex',1)
-plot(squeeze(aliquot_metadata.msDatetime(1,1,~isnan(calcPisImbal))),squeeze(calcPis(1,:,1,~isnan(calcPisImbal))),'-')
-legend(delta_cols(4:end),'Orientation','Horizontal','Location','North')
+plot(aliquot_metadata.msDatetime(~isnan(calcPisImbal),1,1),calcPis(~isnan(calcPisImbal),:,1,1),'-')
 ylabel('PIS [per mil/per mil]');
 ylim([-0.01 0.005]);
 
 stackedFigAx(3)
-plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),calcPisImbal,'^')
+plot(aliquot_metadata.msDatetime(:,1,1),calcPisImbal,'^')
 set(gca,'ColorOrderIndex',1)
-plot(squeeze(aliquot_metadata.msDatetime(1,1,~isnan(calcPisImbal))),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
-text(squeeze(aliquot_metadata.msDatetime(1,1,:)),calcPisImbal,aliquot_metadata.ID1(1,5,:))
+plot(aliquot_metadata.msDatetime(~isnan(calcPisImbal),1,1),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
+text(aliquot_metadata.msDatetime(:,1,1),calcPisImbal,aliquot_metadata.ID1(:,5,1))
 ylabel('Pressure Imbalance [per mil]')
 ylim([-600 600])
 
@@ -318,16 +318,16 @@ stackedFigReset
 
 %% Make PIS Correction
 PIS = calcPis;
-PIS = fillmissing(PIS,'previous',4);
+PIS = fillmissing(PIS,'previous',1);
 
 figure; hold on;
-plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),squeeze(calcPis(1,:,1,:)),'o')
+plot(aliquot_metadata.msDatetime(:,1,1),calcPis(:,:,1,1),'o')
 set(gca,'ColorOrderIndex',1);
-plot(squeeze(aliquot_metadata.msDatetime(1,1,:)),squeeze(PIS(1,:,1,:)),'.')
+plot(aliquot_metadata.msDatetime(:,1,1),PIS(:,:,1,1),'.')
 
 
-block_means_pisCorr = block_means;
-block_means_pisCorr(1,4:end,:,:) = block_means(1,4:end,:,:) - block_means(1,3,:,:).*PIS;
+aliquot_deltas_pisCorr = aliquot_deltas;
+aliquot_deltas_pisCorr(:,4:end,:,:) = aliquot_deltas(:,4:end,:,:) - aliquot_deltas(:,3,:,:).*PIS;
 
 
 %% Calculate the Chemical Slopes
