@@ -27,7 +27,6 @@ xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
 %xp2015.MeasurmentErrors = num2cell(xp2015.MeasurmentErrors);
 importedData = [xp2018; xp2017; xp2016]; % ; xp2015];
 
-importedData.TimeCode = datetime(datenum(importedData.TimeCode),'ConvertFrom','Datenum'); %This is probably redundant...
 importedData.Date = datestr(datenum(importedData.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
 importedData.IsRef__ = logical(importedData.IsRef__);
 importedData.Method = string(importedData.Method);
@@ -87,7 +86,8 @@ cycle_deltas = table2array(cycle_deltas);
 % Also, the cycles all have exactly the same metadata so this step is
 % somewhat pointless.
 
-cycle_metadata.msDatetime = importedData.TimeCode(~importedData.IsRef__);
+cycle_metadata.msDatetime = datetime(importedData.TimeCode(~importedData.IsRef__),'InputFormat','yyyy/MM/dd HH:mm:ss');
+cycle_metadata.msDatenum = datenum(importedData.TimeCode(~importedData.IsRef__),'yyyy/MM/dd HH:mm:ss');
 cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
 cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
 cycle_metadata.ASInlet = importedData.AS_SIOInlet(~importedData.IsRef__);
