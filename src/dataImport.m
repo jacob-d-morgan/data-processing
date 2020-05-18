@@ -10,16 +10,16 @@ set(0,'defaultFigureVisible','off');
 disp('Run dataImport: Turning Figures Off');
 clearvars -EXCEPT xp20*
 
-clearvars;
-disp({'Loading file 1: Working...'})
-xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
-xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-% xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 4: Complete'})
+% clearvars;
+% disp({'Loading file 1: Working...'})
+% xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
+% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
+% xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
+% % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+% % disp({'Loading file 4: Complete'})
 
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2017.MeasurmentErrors = num2cell(xp2017.MeasurmentErrors);
@@ -558,7 +558,7 @@ CS_predictors = [aliquot_deltas_pisCorr(:,9,:,:) ... % O2N2 CS on d15N
 aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
 aliquot_deltas_pisCorr_csCorr(:,4:end,:,:) = aliquot_deltas_pisCorr_csCorr(:,4:end,:,:) - CS.*CS_predictors;
 
-CS_36Ar = fillmissing(CS_36Ar,'previous',4);
+CS_36Ar = fillmissing(CS_36Ar,'previous',1);
 aliquot_deltas_pisCorr_csCorr(:,7,:,:) = aliquot_deltas_pisCorr_csCorr(:,7,:,:) - (CS_36Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,10,:,:)/1000+1).^-1-1)*1000) - (CS_36Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,9,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,10,:,:)/1000+1)-1)*1000);
 
 
