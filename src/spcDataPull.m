@@ -6,15 +6,15 @@
 % Use only the aliquots that have 'SPICE' in the filename and than have a
 % decimal point (indicating a bottom depth) in the ID1 string.
 
-iSPC = contains(aliquot_metadata.filename(1,1,:),'SPICE') & contains(aliquot_metadata.ID1(1,1,:),'.');
+iSPC = contains(aliquot_metadata.filename(:,1,1),'SPICE') & contains(aliquot_metadata.ID1(:,1,1),'.');
 
-spc_aliquots = squeeze(aliquot_means_pisCorr_csCorr_ljaCorr(:,:,:,iSPC))';
+spc_aliquot_means = nanmean(mean(aliquot_deltas_pisCorr_csCorr_ljaCorr(iSPC,:,:,:),4),3);
 
 % Split ID1 into bottom depth and replicate id
 % Here I have to do some messing around to remove trailing spaces from ID1
 % and to deal with samples that don't have a replicate id in ID1. I also
 % assume that there are no replicates beyond rep d in the dataset.
-workingStr = sprintf('%s_*',aliquot_metadata.ID1(1,1,iSPC));
+workingStr = sprintf('%s_*',aliquot_metadata.ID1(iSPC,1,1));
 workingStr(workingStr==' ') = '';
 workingStr = replace(workingStr,'a_*','a*');
 workingStr = replace(workingStr,'b_*','b*');
@@ -83,61 +83,61 @@ repA = table();
 repA.bottomDepth = bottomDepth(iRepA);
 repA.bottomDepth_repA = bottomDepth(iRepA);
 repA.rep_repA = rep(iRepA);
-repA.d15N_repA = spc_aliquots(iRepA,4);
-repA.d18O_repA = spc_aliquots(iRepA,5);
-repA.d17O_repA = spc_aliquots(iRepA,6);
-repA.d36Ar_repA = spc_aliquots(iRepA,7);
-repA.d38Ar_repA = spc_aliquots(iRepA,8);
-repA.dO2N2_repA = spc_aliquots(iRepA,9);
-repA.dArN2_repA = spc_aliquots(iRepA,10);
+repA.d15N_repA = spc_aliquot_means(iRepA,4);
+repA.d18O_repA = spc_aliquot_means(iRepA,5);
+repA.d17O_repA = spc_aliquot_means(iRepA,6);
+repA.d36Ar_repA = spc_aliquot_means(iRepA,7);
+repA.d38Ar_repA = spc_aliquot_means(iRepA,8);
+repA.dO2N2_repA = spc_aliquot_means(iRepA,9);
+repA.dArN2_repA = spc_aliquot_means(iRepA,10);
 
 repB = table();
 repB.bottomDepth = bottomDepth(iRepB);
 repB.bottomDepth_repB = bottomDepth(iRepB);
 repB.rep_repB = rep(iRepB);
-repB.d15N_repB = spc_aliquots(iRepB,4);
-repB.d18O_repB = spc_aliquots(iRepB,5);
-repB.d17O_repB = spc_aliquots(iRepB,6);
-repB.d36Ar_repB = spc_aliquots(iRepB,7);
-repB.d38Ar_repB = spc_aliquots(iRepB,8);
-repB.dO2N2_repB = spc_aliquots(iRepB,9);
-repB.dArN2_repB = spc_aliquots(iRepB,10);
+repB.d15N_repB = spc_aliquot_means(iRepB,4);
+repB.d18O_repB = spc_aliquot_means(iRepB,5);
+repB.d17O_repB = spc_aliquot_means(iRepB,6);
+repB.d36Ar_repB = spc_aliquot_means(iRepB,7);
+repB.d38Ar_repB = spc_aliquot_means(iRepB,8);
+repB.dO2N2_repB = spc_aliquot_means(iRepB,9);
+repB.dArN2_repB = spc_aliquot_means(iRepB,10);
 
 repC = table();
 repC.bottomDepth = bottomDepth(iRepC);
 repC.bottomDepth_repC = bottomDepth(iRepC);
 repC.rep_repC = rep(iRepC);
-repC.d15N_repC = spc_aliquots(iRepC,4);
-repC.d18O_repC = spc_aliquots(iRepC,5);
-repC.d17O_repC = spc_aliquots(iRepC,6);
-repC.d36Ar_repC = spc_aliquots(iRepC,7);
-repC.d38Ar_repC = spc_aliquots(iRepC,8);
-repC.dO2N2_repC = spc_aliquots(iRepC,9);
-repC.dArN2_repC = spc_aliquots(iRepC,10);
+repC.d15N_repC = spc_aliquot_means(iRepC,4);
+repC.d18O_repC = spc_aliquot_means(iRepC,5);
+repC.d17O_repC = spc_aliquot_means(iRepC,6);
+repC.d36Ar_repC = spc_aliquot_means(iRepC,7);
+repC.d38Ar_repC = spc_aliquot_means(iRepC,8);
+repC.dO2N2_repC = spc_aliquot_means(iRepC,9);
+repC.dArN2_repC = spc_aliquot_means(iRepC,10);
 
 repD = table();
 repD.bottomDepth = bottomDepth(iRepD);
 repD.bottomDepth_repD = bottomDepth(iRepD);
 repD.rep_repD = rep(iRepD);
-repD.d15N_repD = spc_aliquots(iRepD,4);
-repD.d18O_repD = spc_aliquots(iRepD,5);
-repD.d17O_repD = spc_aliquots(iRepD,6);
-repD.d36Ar_repD = spc_aliquots(iRepD,7);
-repD.d38Ar_repD = spc_aliquots(iRepD,8);
-repD.dO2N2_repD = spc_aliquots(iRepD,9);
-repD.dArN2_repD = spc_aliquots(iRepD,10);
+repD.d15N_repD = spc_aliquot_means(iRepD,4);
+repD.d18O_repD = spc_aliquot_means(iRepD,5);
+repD.d17O_repD = spc_aliquot_means(iRepD,6);
+repD.d36Ar_repD = spc_aliquot_means(iRepD,7);
+repD.d38Ar_repD = spc_aliquot_means(iRepD,8);
+repD.dO2N2_repD = spc_aliquot_means(iRepD,9);
+repD.dArN2_repD = spc_aliquot_means(iRepD,10);
 
 repE = table();
 repE.bottomDepth = bottomDepth(iRepE);
 repE.bottomDepth_repE = bottomDepth(iRepE);
 repE.rep_repE = rep(iRepE);
-repE.d15N_repE = spc_aliquots(iRepE,4);
-repE.d18O_repE = spc_aliquots(iRepE,5);
-repE.d17O_repE = spc_aliquots(iRepE,6);
-repE.d36Ar_repE = spc_aliquots(iRepE,7);
-repE.d38Ar_repE = spc_aliquots(iRepE,8);
-repE.dO2N2_repE = spc_aliquots(iRepE,9);
-repE.dArN2_repE = spc_aliquots(iRepE,10);
+repE.d15N_repE = spc_aliquot_means(iRepE,4);
+repE.d18O_repE = spc_aliquot_means(iRepE,5);
+repE.d17O_repE = spc_aliquot_means(iRepE,6);
+repE.d36Ar_repE = spc_aliquot_means(iRepE,7);
+repE.d38Ar_repE = spc_aliquot_means(iRepE,8);
+repE.dO2N2_repE = spc_aliquot_means(iRepE,9);
+repE.dArN2_repE = spc_aliquot_means(iRepE,10);
 
 spc_replicates = outerjoin(outerjoin(outerjoin(outerjoin(repA,repB,'MergeKeys',1),repC,'MergeKeys',1),repD,'MergeKeys',1),repE,'MergeKeys',1);
 spc_replicates = mergevars(spc_replicates,{'d15N_repA','d15N_repB','d15N_repC','d15N_repD','d15N_repE'},'NewVariableName','d15N');
@@ -325,3 +325,4 @@ ylabel('SPC \delta^Ar/N_2 [per mil]');
 
 stackedFigAx();
 xlabel('Bottom Depth [m]')
+stackedFigReset
