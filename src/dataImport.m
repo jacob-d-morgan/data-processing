@@ -215,20 +215,21 @@ ylim([0 1500])
 
 
 %% Calculate the PIS for each PIS experiment
-%block_means = nanmean(aliquot_deltas,1);
+% Identifies the aliquots containing PIS experiments and calculates the
+% pressure imbalance sensitivity of each delta vlaue for each experiment.
 
-iPIS = ~isnan(mean(aliquot_deltas,4)); % PIS aliquots are the aliquots with no nans for any of the blocks
+iPIS = all(~isnan(mean(aliquot_deltas,4)),3); % identify aliquots where the mean of ANY of the delta value is not NaN for ALL the blocks
+iPIS = iPIS & aliquot_metadata.ID1(:,5,1)=='PIS'; % limit the selection to just those identified as a PIS experiment by their Sample ID1
 
-% First, check that there is a delta value for each measured ratio
-allDeltasPisCheck = sum(iPIS,3); % sums the number of non-nan blocks for each delta value
-if length(unique(allDeltasPisCheck(:,5))) > 1 % if there is more than one unique value in the fifth column then some deltas are missing a PIS value
-    warning('CAUTION: Some delta values are missing a PIS value')
+if sum(any(iPIS,2)) ~= sum(all(iPIS,2)) % Check that all delta values identify each PIS experiment
+    warning('Warning: Some delta values are misisng a PIS block for one or more experiments')
+    iPIS = any(iPIS,2); % If some delta values are missing a PIS block somehow, calculate the PIS for the other delta values anyway
+else
+    iPIS = iPIS(:,1); % Otherwise, just make iPis a vector (from a metrix) by taking the first column.
 end
 
- % Now restrict PIS blocks to just those with PIS as an identifier to weed
- % out unusual aliquots where a fifth, non-PIS block was run
-iPIS = iPIS(:,1,5) & aliquot_metadata.ID1(:,5,1)=='PIS';
 
+% Calculate the PIS for each experiment for each of the delta values
 calcPis = nan(size(aliquot_deltas(:,4:end,:,:)));
 calcPisRsq = nan(size(aliquot_deltas(:,4:end,:,:)));
 calcPisImbal = nan(size(aliquot_deltas,1),1);
@@ -249,6 +250,15 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
     end
 end
 
+% Now remove the fifth blocks from the arrays of block and aliquot delta
+% values so they don't get mixed in with further analysis
+aliquot_deltasPisExp = aliquot_deltas(:,:,5,:); aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
+aliquot_deltas(:,:,5,:) = [];
+
+for ii = 1:numel(metadata_fields)
+        aliquot_metadataPisExp.(metadata_fields{ii})(iPIS,:,:) = aliquot_metadata.(metadata_fields{ii})(iPIS,5,:);
+        aliquot_metadata.(metadata_fields{ii})(:,:,5,:) = [];
+end
 
 %% Filter the PIS values
 % Some of the PIS values are likely to be erroneous, here they get weeded
