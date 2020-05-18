@@ -10,16 +10,16 @@ set(0,'defaultFigureVisible','off');
 disp('Run dataImport: Turning Figures Off');
 clearvars -EXCEPT xp20*
 
-% clearvars;
-% disp({'Loading file 1: Working...'})
-% xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
-% xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-% % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-% % disp({'Loading file 4: Complete'})
+clearvars;
+disp({'Loading file 1: Working...'})
+xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
+xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
+xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
+disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
+% xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
+% disp({'Loading file 4: Complete'})
 
 xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
 xp2017.MeasurmentErrors = num2cell(xp2017.MeasurmentErrors);
@@ -568,10 +568,10 @@ aliquot_deltas_pisCorr_csCorr(:,7,:,:) = aliquot_deltas_pisCorr_csCorr(:,7,:,:) 
 %      work right now because errorbar won't accept datetime values...
 
 
-iLJA = contains(squeeze(aliquot_metadata.ID1(1,1,:)),'LJA');
+iLJA = contains(aliquot_metadata.ID1(:,1,1),'LJA');
 
 diffsLJA = duration(nan(3223,3));
-diffsLJA(iLJA) = [diff(squeeze(aliquot_metadata.msDatetime(1,1,iLJA))); hours(999)+minutes(59)+seconds(59)];
+diffsLJA(iLJA) = [diff(aliquot_metadata.msDatetime(iLJA,1,1)); hours(999)+minutes(59)+seconds(59)];
 
 endLJA = diffsLJA > 5;
 
@@ -579,26 +579,26 @@ iLJAloop = iLJA;
 endLJAloop = endLJA;
 
 figure; figNum = get(gcf,'Number');
-ljaValues = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
-ljaStd  = nan(size(block_means_pisCorr_csCorr,1),size(block_means_pisCorr_csCorr,2)-3,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr,4));
+ljaValues = nan(size(aliquot_deltas_pisCorr_csCorr,1),size(aliquot_deltas_pisCorr_csCorr,2)-3,size(aliquot_deltas_pisCorr_csCorr,3),size(aliquot_deltas_pisCorr,4));
+ljaStd  = nan(size(aliquot_deltas_pisCorr_csCorr,1),size(aliquot_deltas_pisCorr_csCorr,2)-3,size(aliquot_deltas_pisCorr_csCorr,3),size(aliquot_deltas_pisCorr,4));
 for ii = 1:sum(endLJA)
     idxFinalAliquot = find(endLJAloop,1);
-    iAliquotsToUse = iLJAloop & squeeze(aliquot_metadata.msDatetime(1,1,:)) <= aliquot_metadata.msDatetime(1,1,idxFinalAliquot);
+    iAliquotsToUse = iLJAloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    ljaValues(:,:,:,idxFinalAliquot) = repmat(nanmean(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),4),[1 1 5]);
-    ljaStd(:,:,:,idxFinalAliquot) = repmat(nanstd(aliquot_means_pisCorr_csCorr(1,4:end,1,iAliquotsToUse),0,4),[1 1 5]);
+    ljaValues(idxFinalAliquot,:,:,:) = repmat(nanmean(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,4:end,:,:),4),3),1),[1 1 5 16]);
+    ljaStd(idxFinalAliquot,:,:,:) = repmat(nanstd(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,4:end,:,:),4),3)),[1 1 5 16]);
     
     for jj = 1:7
         figure(figNum)
         subplot(7,1,jj); hold on;
-        plot(squeeze(aliquot_metadata.msDatetime(1,1,iAliquotsToUse)),squeeze(block_means_pisCorr_csCorr(1,jj+3,:,iAliquotsToUse)),'.','Color',lineCol(jj));
-        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(ljaValues(1,jj,1,idxFinalAliquot)),'x-k');
-        %errorbar(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(LJA(1,jj,1,idxFinalAliquot)),squeeze(LJAstd(1,jj,1,idxFinalAliquot)),'x-k');
+        plot(aliquot_metadata.msDatetime(iAliquotsToUse,1,1),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,jj+3,:,:),4),3),'.','Color',lineCol(jj));
+        plot(aliquot_metadata.msDatetime(iAliquotsToUse,1,1),ljaValues(idxFinalAliquot,jj,1,1),'x-k');
+        %errorbar(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),ljaValues(idxFinalAliquot,jj,1,1),ljaStd(idxFinalAliquot,jj,1,1),'x-k');
         ylabel([delta_cols{jj+3} '[per mil]'])
         
         figure(figNum+1)
         subplot(7,1,jj); hold on;
-        plot(squeeze(aliquot_metadata.msDatetime(1,1,idxFinalAliquot)),squeeze(ljaStd(1,jj,1,idxFinalAliquot)),'x-k');
+        plot(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),ljaStd(idxFinalAliquot,jj,1,1),'x-k');
         ylabel([delta_cols{jj+3} '[per mil]'])
         
     end
@@ -611,14 +611,13 @@ end
 
 %% Make the LJA Correction
 
-LJA = nan(size(block_means_pisCorr_csCorr,1),7,size(block_means_pisCorr_csCorr,3),size(block_means_pisCorr_csCorr,4));
+LJA = nan(size(aliquot_deltas_pisCorr_csCorr,1),7,size(aliquot_deltas_pisCorr_csCorr,3),size(aliquot_deltas_pisCorr_csCorr,4));
 LJA(:,:,:,:) = ljaValues;
-LJA = fillmissing(LJA,'previous',4);
+LJA = fillmissing(LJA,'previous',1);
 
-block_means_pisCorr_csCorr_ljaCorr = block_means_pisCorr_csCorr;
-block_means_pisCorr_csCorr_ljaCorr(1,4:end,:,:) = ((block_means_pisCorr_csCorr_ljaCorr(1,4:end,:,:)/1000+1)./(LJA/1000+1)-1)*1000;
+aliquot_deltas_pisCorr_csCorr_ljaCorr = aliquot_deltas_pisCorr_csCorr;
+aliquot_deltas_pisCorr_csCorr_ljaCorr(:,4:end,:,:) = ((aliquot_deltas_pisCorr_csCorr_ljaCorr(:,4:end,:,:)/1000+1)./(LJA/1000+1)-1)*1000;
 
-aliquot_means_pisCorr_csCorr_ljaCorr = nanmean(block_means_pisCorr_csCorr_ljaCorr,3);
 
 %%
 set(0,'defaultFigureVisible','on');
