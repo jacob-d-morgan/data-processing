@@ -86,7 +86,7 @@ cycle_deltas = table2array(cycle_deltas);
 % Also, the cycles all have exactly the same metadata so this step is
 % somewhat pointless.
 
-cycle_metadata.msDatetime = datetime(importedData.TimeCode(~importedData.IsRef__),'InputFormat','yyyy/MM/dd HH:mm:Sss');
+cycle_metadata.msDatetime = datetime(importedData.TimeCode(~importedData.IsRef__),'InputFormat','yyyy/MM/dd HH:mm:ss');
 cycle_metadata.msDatenum = datenum(importedData.TimeCode(~importedData.IsRef__),'yyyy/mm/dd HH:MM:SS');
 cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
 cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
@@ -254,6 +254,7 @@ end
 % values so they don't get mixed in with further analysis
 aliquot_deltasPisExp = aliquot_deltas(:,:,5,:); aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
 aliquot_deltas(:,:,5,:) = [];
+calcPis(:,:,5,:) = [];
 
 for ii = 1:numel(metadata_fields)
         aliquot_metadataPisExp.(metadata_fields{ii})(iPIS,:,:) = aliquot_metadata.(metadata_fields{ii})(iPIS,5,:);
