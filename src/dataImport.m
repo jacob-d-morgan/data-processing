@@ -255,6 +255,7 @@ end
 aliquot_deltasPisExp = aliquot_deltas(:,:,5,:); aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
 aliquot_deltas(:,:,5,:) = [];
 calcPis(:,:,5,:) = [];
+calcPisRsq(:,:,5,:) = [];
 
 for ii = 1:numel(metadata_fields)
         aliquot_metadataPisExp.(metadata_fields{ii})(iPIS,:,:) = aliquot_metadata.(metadata_fields{ii})(iPIS,5,:);
@@ -275,7 +276,7 @@ calcPisImbal(iSmallImbal) = nan;
 iBadRsq = calcPisRsq < 0.7;
 calcPis(iBadRsq) = nan;
 calcPisRsq(iBadRsq) = nan;
-calcPisImbal(iBadRsq(1,1,1,:)) = nan;
+calcPisImbal(iBadRsq(:,1,1,1)) = nan;
 
 % Manual Removal
 % Remove two spurious looking d4038 values where the sign of the PIS
@@ -551,7 +552,7 @@ for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
 end
 %% Make the CS Corrections
 
-CS = nan(size(aliquot_deltas_pisCorr,1),7,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
+CS = nan(size(aliquot_deltas(:,4:end,:,:)));
 CS(:,:,:,:) = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
 CS = fillmissing(CS,'previous',1);
 
@@ -593,20 +594,21 @@ for ii = 1:sum(endLJA)
     idxFinalAliquot = find(endLJAloop,1);
     iAliquotsToUse = iLJAloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    ljaValues(idxFinalAliquot,:,:,:) = repmat(nanmean(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,4:end,:,:),4),3),1),[1 1 5 16]);
-    ljaStd(idxFinalAliquot,:,:,:) = repmat(nanstd(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,4:end,:,:),4),3)),[1 1 5 16]);
+    ljaValues(idxFinalAliquot,:,:,:) = repmat(nanmean(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,4:end,:,:),4),3),1),[1 1 4 16]);
+    ljaStd(idxFinalAliquot,:,:,:) = repmat(nanstd(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,4:end,:,:),4),3)),[1 1 4 16]);
     
     for jj = 1:7
         figure(figNum)
         subplot(7,1,jj); hold on;
-        plot(aliquot_metadata.msDatetime(iAliquotsToUse,1,1),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,jj+3,:,:),4),3),'.','Color',lineCol(jj));
-        plot(aliquot_metadata.msDatetime(iAliquotsToUse,1,1),ljaValues(idxFinalAliquot,jj,1,1),'x-k');
-        %errorbar(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),ljaValues(idxFinalAliquot,jj,1,1),ljaStd(idxFinalAliquot,jj,1,1),'x-k');
+        plot(aliquot_metadata.msDatenum(iAliquotsToUse,1,1),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iAliquotsToUse,jj+3,:,:),4),3),'.','Color',lineCol(jj));
+        plot(aliquot_metadata.msDatenum(iAliquotsToUse,1,1),ljaValues(idxFinalAliquot,jj,1,1),'x-k');
+        errorbar(aliquot_metadata.msDatenum(idxFinalAliquot,1,1),ljaValues(idxFinalAliquot,jj,1,1),ljaStd(idxFinalAliquot,jj,1,1),'x-k');
         ylabel([delta_cols{jj+3} '[per mil]'])
+        datetick('x')
         
         figure(figNum+1)
         subplot(7,1,jj); hold on;
-        plot(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),ljaStd(idxFinalAliquot,jj,1,1),'x-k');
+        plot(aliquot_metadata.msDatenum(idxFinalAliquot,1,1),ljaStd(idxFinalAliquot,jj,1,1),'x-k');
         ylabel([delta_cols{jj+3} '[per mil]'])
         
     end
