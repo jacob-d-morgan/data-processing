@@ -86,8 +86,8 @@ cycle_deltas = table2array(cycle_deltas);
 % Also, the cycles all have exactly the same metadata so this step is
 % somewhat pointless.
 
-cycle_metadata.msDatetime = datetime(importedData.TimeCode(~importedData.IsRef__),'InputFormat','yyyy/MM/dd HH:mm:ss');
-cycle_metadata.msDatenum = datenum(importedData.TimeCode(~importedData.IsRef__),'yyyy/MM/dd HH:mm:ss');
+cycle_metadata.msDatetime = datetime(importedData.TimeCode(~importedData.IsRef__),'InputFormat','yyyy/mm/dd HH:MM:SS');
+cycle_metadata.msDatenum = datenum(importedData.TimeCode(~importedData.IsRef__),'yyyy/mm/dd HH:MM:SS');
 cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
 cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
 cycle_metadata.ASInlet = importedData.AS_SIOInlet(~importedData.IsRef__);
