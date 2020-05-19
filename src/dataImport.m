@@ -294,34 +294,31 @@ calcPis(toRemove,5,:,:)=nan;
 stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
 
 stackedFigAx(1)
-plot(aliquot_metadata.msDatetime(:,1,1),calcPisRsq(:,:,1,1),'s')
+plot(aliquot_metadata.msDatenum(:,1,1),calcPisRsq(:,:,1,1),'s')
 set(gca,'ColorOrderIndex',1)
-plot(aliquot_metadata.msDatetime(~isnan(calcPisImbal),1,1),calcPisRsq(~isnan(calcPisImbal),:,1,1),'-');
+plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPisRsq(~isnan(calcPisImbal),:,1,1),'-');
 legend(delta_cols(4:end),'Orientation','Horizontal','Location','South')
 ylabel('r^2');
 ylim([0.7 1]);
 
 stackedFigAx(2)
-plot(aliquot_metadata.msDatetime(:,1,1),calcPis(:,:,1,1),'o')
+plot(aliquot_metadata.msDatenum(:,1,1),calcPis(:,:,1,1),'o')
 set(gca,'ColorOrderIndex',1)
-plot(aliquot_metadata.msDatetime(~isnan(calcPisImbal),1,1),calcPis(~isnan(calcPisImbal),:,1,1),'-')
+plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPis(~isnan(calcPisImbal),:,1,1),'-')
 ylabel('PIS [per mil/per mil]');
 ylim([-0.01 0.005]);
 
 stackedFigAx(3)
-plot(aliquot_metadata.msDatetime(:,1,1),calcPisImbal,'^')
+plot(aliquot_metadata.msDatenum(:,1,1),calcPisImbal,'^')
 set(gca,'ColorOrderIndex',1)
-plot(aliquot_metadata.msDatetime(~isnan(calcPisImbal),1,1),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
-text(aliquot_metadata.msDatetime(:,1,1),calcPisImbal,aliquot_metadata.ID1(:,5,1))
+plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
+text(aliquot_metadata.msDatenum(:,1,1),calcPisImbal,aliquot_metadata.ID1(:,5,1))
 ylabel('Pressure Imbalance [per mil]')
 ylim([-600 600])
 
 stackedFigAx();
-% Have to do some workaround stuff here because stackedFig doesn;t play
-% nicely with datetime axes rulers. It won't automatically change the
-% masterAx ruler to datetime
-set(stackedFigAx(),'XRuler',matlab.graphics.axis.decorator.DatetimeRuler);
-set(stackedFigAx(),'XLim',get(stackedFigAx(1),'XLim'));
+datetick('x');
+xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
 
 stackedFigReset
 
