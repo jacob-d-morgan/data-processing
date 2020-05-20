@@ -83,61 +83,61 @@ repA = table();
 repA.bottomDepth = bottomDepth(iRepA);
 repA.bottomDepth_repA = bottomDepth(iRepA);
 repA.rep_repA = rep(iRepA);
-repA.d15N_repA = spc_aliquot_means(iRepA,4);
-repA.d18O_repA = spc_aliquot_means(iRepA,5);
-repA.d17O_repA = spc_aliquot_means(iRepA,6);
-repA.d36Ar_repA = spc_aliquot_means(iRepA,7);
-repA.d38Ar_repA = spc_aliquot_means(iRepA,8);
-repA.dO2N2_repA = spc_aliquot_means(iRepA,9);
-repA.dArN2_repA = spc_aliquot_means(iRepA,10);
+repA.d15N_repA = spc_aliquot_means(iRepA,1);
+repA.d18O_repA = spc_aliquot_means(iRepA,2);
+repA.d17O_repA = spc_aliquot_means(iRepA,3);
+repA.d36Ar_repA = spc_aliquot_means(iRepA,4);
+repA.d38Ar_repA = spc_aliquot_means(iRepA,5);
+repA.dO2N2_repA = spc_aliquot_means(iRepA,6);
+repA.dArN2_repA = spc_aliquot_means(iRepA,7);
 
 repB = table();
 repB.bottomDepth = bottomDepth(iRepB);
 repB.bottomDepth_repB = bottomDepth(iRepB);
 repB.rep_repB = rep(iRepB);
-repB.d15N_repB = spc_aliquot_means(iRepB,4);
-repB.d18O_repB = spc_aliquot_means(iRepB,5);
-repB.d17O_repB = spc_aliquot_means(iRepB,6);
-repB.d36Ar_repB = spc_aliquot_means(iRepB,7);
-repB.d38Ar_repB = spc_aliquot_means(iRepB,8);
-repB.dO2N2_repB = spc_aliquot_means(iRepB,9);
-repB.dArN2_repB = spc_aliquot_means(iRepB,10);
+repB.d15N_repB = spc_aliquot_means(iRepB,1);
+repB.d18O_repB = spc_aliquot_means(iRepB,2);
+repB.d17O_repB = spc_aliquot_means(iRepB,3);
+repB.d36Ar_repB = spc_aliquot_means(iRepB,4);
+repB.d38Ar_repB = spc_aliquot_means(iRepB,5);
+repB.dO2N2_repB = spc_aliquot_means(iRepB,6);
+repB.dArN2_repB = spc_aliquot_means(iRepB,7);
 
 repC = table();
 repC.bottomDepth = bottomDepth(iRepC);
 repC.bottomDepth_repC = bottomDepth(iRepC);
 repC.rep_repC = rep(iRepC);
-repC.d15N_repC = spc_aliquot_means(iRepC,4);
-repC.d18O_repC = spc_aliquot_means(iRepC,5);
-repC.d17O_repC = spc_aliquot_means(iRepC,6);
-repC.d36Ar_repC = spc_aliquot_means(iRepC,7);
-repC.d38Ar_repC = spc_aliquot_means(iRepC,8);
-repC.dO2N2_repC = spc_aliquot_means(iRepC,9);
-repC.dArN2_repC = spc_aliquot_means(iRepC,10);
+repC.d15N_repC = spc_aliquot_means(iRepC,1);
+repC.d18O_repC = spc_aliquot_means(iRepC,2);
+repC.d17O_repC = spc_aliquot_means(iRepC,3);
+repC.d36Ar_repC = spc_aliquot_means(iRepC,4);
+repC.d38Ar_repC = spc_aliquot_means(iRepC,5);
+repC.dO2N2_repC = spc_aliquot_means(iRepC,6);
+repC.dArN2_repC = spc_aliquot_means(iRepC,7);
 
 repD = table();
 repD.bottomDepth = bottomDepth(iRepD);
 repD.bottomDepth_repD = bottomDepth(iRepD);
 repD.rep_repD = rep(iRepD);
-repD.d15N_repD = spc_aliquot_means(iRepD,4);
-repD.d18O_repD = spc_aliquot_means(iRepD,5);
-repD.d17O_repD = spc_aliquot_means(iRepD,6);
-repD.d36Ar_repD = spc_aliquot_means(iRepD,7);
-repD.d38Ar_repD = spc_aliquot_means(iRepD,8);
-repD.dO2N2_repD = spc_aliquot_means(iRepD,9);
-repD.dArN2_repD = spc_aliquot_means(iRepD,10);
+repD.d15N_repD = spc_aliquot_means(iRepD,1);
+repD.d18O_repD = spc_aliquot_means(iRepD,2);
+repD.d17O_repD = spc_aliquot_means(iRepD,3);
+repD.d36Ar_repD = spc_aliquot_means(iRepD,4);
+repD.d38Ar_repD = spc_aliquot_means(iRepD,5);
+repD.dO2N2_repD = spc_aliquot_means(iRepD,6);
+repD.dArN2_repD = spc_aliquot_means(iRepD,7);
 
 repE = table();
 repE.bottomDepth = bottomDepth(iRepE);
 repE.bottomDepth_repE = bottomDepth(iRepE);
 repE.rep_repE = rep(iRepE);
-repE.d15N_repE = spc_aliquot_means(iRepE,4);
-repE.d18O_repE = spc_aliquot_means(iRepE,5);
-repE.d17O_repE = spc_aliquot_means(iRepE,6);
-repE.d36Ar_repE = spc_aliquot_means(iRepE,7);
-repE.d38Ar_repE = spc_aliquot_means(iRepE,8);
-repE.dO2N2_repE = spc_aliquot_means(iRepE,9);
-repE.dArN2_repE = spc_aliquot_means(iRepE,10);
+repE.d15N_repE = spc_aliquot_means(iRepE,1);
+repE.d18O_repE = spc_aliquot_means(iRepE,2);
+repE.d17O_repE = spc_aliquot_means(iRepE,3);
+repE.d36Ar_repE = spc_aliquot_means(iRepE,4);
+repE.d38Ar_repE = spc_aliquot_means(iRepE,5);
+repE.dO2N2_repE = spc_aliquot_means(iRepE,6);
+repE.dArN2_repE = spc_aliquot_means(iRepE,7);
 
 spc_replicates = outerjoin(outerjoin(outerjoin(outerjoin(repA,repB,'MergeKeys',1),repC,'MergeKeys',1),repD,'MergeKeys',1),repE,'MergeKeys',1);
 spc_replicates = mergevars(spc_replicates,{'d15N_repA','d15N_repB','d15N_repC','d15N_repD','d15N_repE'},'NewVariableName','d15N');
@@ -306,22 +306,22 @@ ylabel('SPC \delta^{17}O [per mil]');
 stackedFigAx(4)
 plot(spc_replicates.bottomDepth,spc_replicates.d36Ar,'.','Color',lineCol(9));
 plot(spc.bottomDepth,spc.d36Ar,'o','Color','none','MarkerFaceColor',lineCol(5))
-ylabel('SPC \delta^{40/36}Ar [per mil]');
+ylabel('SPC \delta^{40}/_{36}Ar [per mil]');
 
 stackedFigAx(5)
 plot(spc_replicates.bottomDepth,spc_replicates.d38Ar,'.','Color',lineCol(9));
 plot(spc.bottomDepth,spc.d38Ar,'o','Color','none','MarkerFaceColor',lineCol(5)*0.7)
-ylabel('SPC \delta^{40/38}Ar [per mil]');
+ylabel('SPC \delta^{40}/_{38}Ar [per mil]');
 
 stackedFigAx(6)
 plot(spc_replicates.bottomDepth,spc_replicates.dO2N2,'.','Color',lineCol(9));
 plot(spc.bottomDepth,spc.dO2N2,'o','Color','none','MarkerFaceColor',lineCol(7))
-ylabel('SPC \delta^O_2/N_2 [per mil]');
+ylabel('SPC \deltaO_2/N_2 [per mil]');
 
 stackedFigAx(7)
 plot(spc_replicates.bottomDepth,spc_replicates.dArN2,'.','Color',lineCol(9));
 plot(spc.bottomDepth,spc.dArN2,'o','Color','none','MarkerFaceColor',lineCol(4))
-ylabel('SPC \delta^Ar/N_2 [per mil]');
+ylabel('SPC \deltaAr/N_2 [per mil]');
 
 stackedFigAx();
 xlabel('Bottom Depth [m]')

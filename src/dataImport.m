@@ -5,7 +5,7 @@
 % session. It's easiest to then comment these lines back out and not clear
 % the xp2018 etc. variables as they take a long time to load in.
 
-clc;
+cluk; clc;
 set(0,'defaultFigureVisible','off');
 disp('Run dataImport: Turning Figures Off');
 clearvars -EXCEPT xp20*
@@ -64,10 +64,6 @@ intST = array2table(interp1(find(importedData.IsRef__), ...
 intST.Properties.VariableNames = intSA.Properties.VariableNames;
 
 cycle_deltas = table();
-cycle_deltas.int28SA = intSA.rIntensity28;
-cycle_deltas.intST28 = intST.rIntensity28;
-%cycle_deltas.pressure = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000; % N.B. - Ross typically calculates this just as a raw SA - ST rather than a delta value. Does this make a difference?
-cycle_deltas.pressure = (intSA.rIntensity28 - intST.rIntensity28);
 
 cycle_deltas.d15N = ((intSA.rIntensity29./intSA.rIntensity28)./(intST.rIntensity29./intST.rIntensity28) - 1)*1000;
 cycle_deltas.d18O = ((intSA.rIntensity34./intSA.rIntensity32)./(intST.rIntensity34./intST.rIntensity32) - 1)*1000;
@@ -77,7 +73,7 @@ cycle_deltas.d4038Ar = ((intSA.rIntensity40./intSA.rIntensity38)./(intST.rIntens
 cycle_deltas.dO2N2 = ((intSA.rIntensity32./intSA.rIntensity28)./(intST.rIntensity32./intST.rIntensity28) - 1)*1000;
 cycle_deltas.dArN2 = ((intSA.rIntensity40./intSA.rIntensity28)./(intST.rIntensity40./intST.rIntensity28) - 1)*1000;
 
-delta_cols = cycle_deltas.Properties.VariableNames;
+delta_cols = string(cycle_deltas.Properties.VariableNames);
 cycle_deltas = table2array(cycle_deltas);
 
 %% Compile Useful Metadata
@@ -96,6 +92,10 @@ cycle_metadata.method = importedData.Method(~importedData.IsRef__);
 cycle_metadata.scriptName = importedData.ScriptName(~importedData.IsRef__);
 cycle_metadata.gasConfig = importedData.GasConfiguration(~importedData.IsRef__);
 cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
+cycle_metadata.int28SA = intSA.rIntensity28;
+cycle_metadata.intST28 = intST.rIntensity28;
+%cycle_metadata.pressureImbal = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000; % N.B. - Ross typically calculates this just as a raw SA - ST rather than a delta value. Does this make a difference?
+cycle_metadata.pressureImbal = (intSA.rIntensity28 - intST.rIntensity28);
 
 metadata_fields = fieldnames(cycle_metadata)'; % Transpose it to a row vector so that it works as a loop index
 
@@ -149,7 +149,7 @@ numberOfAliquots = length(idx_SampleAliquots);
 longestAliquot = max(aliquotLengths);
 
 % Reshape
-aliquot_deltas = nan(numberOfAliquots,size(cycle_deltas,2),longestAliquot,longestBlock);
+aliquot_deltas = nan(numberOfAliquots,numel(delta_cols),longestAliquot,longestBlock);
 
 for ii = 1:length(idx_SampleAliquots)
     aliquot_deltas(ii,:,1:aliquotLengths(ii),:) = block_deltas(:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1,:);
@@ -203,13 +203,13 @@ suptitle('Properties of Rejected Blocks and Aliquots')
 
 figure
 subplot(211)
-semilogy(block_metadata.msDatetime(:,1),std(block_deltas(4:end,:,:),0,3),'.');
+semilogy(block_metadata.msDatetime(:,1),std(block_deltas(:,:,:),0,3),'.');
 ylabel('Std Dev of Cycles in a Block [per mil]');
 ylim([0 150]);
 legend(delta_cols(4:end),'Location','N','Orientation','Horizontal');
 
 subplot(212)
-semilogy(aliquot_metadata.msDatetime(:,1,1),nanstd(mean(aliquot_deltas(:,4:end,:,:),3),0,4),'.');
+semilogy(aliquot_metadata.msDatetime(:,1,1),nanstd(mean(aliquot_deltas(:,:,:,:),3),0,4),'.');
 ylabel('Std Dev of Blocks in an Aliquot [per mil]')
 ylim([0 1500])
 
@@ -225,42 +225,49 @@ if sum(any(iPIS,2)) ~= sum(all(iPIS,2)) % Check that all delta values identify e
     warning('Warning: Some delta values are misisng a PIS block for one or more experiments')
     iPIS = any(iPIS,2); % If some delta values are missing a PIS block somehow, calculate the PIS for the other delta values anyway
 else
-    iPIS = iPIS(:,1); % Otherwise, just make iPis a vector (from a metrix) by taking the first column.
+    iPIS = iPIS(:,1); % Otherwise, just make iPis a vector (from a matrix) by taking the first column.
 end
 
 
 % Calculate the PIS for each experiment for each of the delta values
-calcPis = nan(size(aliquot_deltas(:,4:end,:,:)));
-calcPisRsq = nan(size(aliquot_deltas(:,4:end,:,:)));
+calcPis = nan(size(aliquot_deltas));
+calcPisRsq = nan(size(aliquot_deltas));
 calcPisImbal = nan(size(aliquot_deltas,1),1);
 
 for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
-    for jj=4:numel(delta_cols) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
+    for jj=1:numel(delta_cols) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
 
         d = squeeze(nanmean(aliquot_deltas(ii,jj,:,:),4)); % response variable = the looped delta value from the looped aliquot
-        G = [ones(size(d)) squeeze(nanmean(aliquot_deltas(ii,3,:,:),4))]; % predictor variable = the pressure imbalance (col 3) from the looped variable
+        G = [ones(size(d)) nanmean(aliquot_metadata.pressureImbal(ii,:,:),3)']; % predictor variable = the pressure imbalance (col 3) from the looped variable
         m = (G'*G)\G'*d; % Calculate the PIS
         
         r_sq = corrcoef(G(:,2),d).^2; % Find the r-squared correlation coefficient for the PIS test
         [pImbal, idx] = max(abs(G(:,2))); % Find the block with the max P Imbalance
         
-        calcPis(ii,jj-3,:,:)=m(2);
-        calcPisRsq(ii,jj-3,:,:) = r_sq(1,2);
+        if idx ~= 5
+            warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
+        end
+        
+        calcPis(ii,jj,:,:)=m(2);
+        calcPisRsq(ii,jj,:,:) = r_sq(1,2);
         calcPisImbal(ii) = pImbal * sign(G(idx,2));
     end
 end
 
 % Now remove the fifth blocks from the arrays of block and aliquot delta
 % values so they don't get mixed in with further analysis
-aliquot_deltasPisExp = aliquot_deltas(:,:,5,:); aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
+aliquot_deltasPisExp = aliquot_deltas(:,:,5,:);
+aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
 aliquot_deltas(:,:,5,:) = [];
-calcPis(:,:,5,:) = [];
-calcPisRsq(:,:,5,:) = [];
 
 for ii = 1:numel(metadata_fields)
         aliquot_metadataPisExp.(metadata_fields{ii})(iPIS,:,:) = aliquot_metadata.(metadata_fields{ii})(iPIS,5,:);
-        aliquot_metadata.(metadata_fields{ii})(:,:,5,:) = [];
+        aliquot_metadata.(metadata_fields{ii})(:,5,:) = [];
 end
+
+calcPis(:,:,5,:) = [];
+calcPisRsq(:,:,5,:) = [];
+
 
 %% Filter the PIS values
 % Some of the PIS values are likely to be erroneous, here they get weeded
@@ -314,7 +321,7 @@ stackedFigAx(3)
 plot(aliquot_metadata.msDatenum(:,1,1),calcPisImbal,'^')
 set(gca,'ColorOrderIndex',1)
 plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
-text(aliquot_metadata.msDatenum(:,1,1),calcPisImbal,aliquot_metadata.ID1(:,5,1))
+text(aliquot_metadata.msDatenum(iPIS,1,1),calcPisImbal(iPIS),aliquot_metadataPisExp.ID1(iPIS,1,1))
 ylabel('Pressure Imbalance [per mil]')
 ylim([-600 600])
 
@@ -334,10 +341,7 @@ plot(aliquot_metadata.msDatetime(:,1,1),calcPis(:,:,1,1),'o')
 set(gca,'ColorOrderIndex',1);
 plot(aliquot_metadata.msDatetime(:,1,1),PIS(:,:,1,1),'.')
 
-
-aliquot_deltas_pisCorr = aliquot_deltas;
-aliquot_deltas_pisCorr(:,4:end,:,:) = aliquot_deltas(:,4:end,:,:) - aliquot_deltas(:,3,:,:).*PIS;
-
+aliquot_deltas_pisCorr = aliquot_deltas - permute(aliquot_metadata.pressureImbal,[1 4 2 3]).*PIS;
 
 %% Calculate the Chemical Slopes
 % Still need to:
@@ -374,13 +378,13 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_15N = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
+CS_15N = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 for ii=1:sum(endCS_15N)
     idxFinalAliquot = find(endCS_15Nloop,1);
     iAliquotsToUse = iCS_15Nloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,4,:,:),4),3)); % response variable = d15N
-    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))]; % predictor variable = dO2N2
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d15N',:,:),4),3)); % response variable = d15N
+    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))]; % predictor variable = dO2N2
     
     m = (G'*G)\G'*d; % Calculate the 15N CS
     r_sq = corrcoef(G(:,2),d).^2;
@@ -409,13 +413,13 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_ArN2 = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
+CS_ArN2 = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 for ii=1:sum(endCS_15N)
     idxFinalAliquot = find(endCS_15Nloop,1);
     iAliquotsToUse = iCS_15Nloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,10,:,:),4),3)); % response variable = dArN2
-    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))]; % predictor variable = dO2N2
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dArN2',:,:),4),3)); % response variable = dArN2
+    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))]; % predictor variable = dO2N2
     
     m = (G'*G)\G'*d; % Calculate the ArN2 CS
     r_sq = corrcoef(G(:,2),d).^2;
@@ -444,13 +448,13 @@ iCS_18Oloop = iCS_18O;
 endCS_18Oloop = endCS_18O;
 
 figure;
-CS_18O = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
+CS_18O = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 for ii=1:sum(endCS_18O)
     idxFinalAliquot = find(endCS_18Oloop,1);
     iAliquotsToUse = iCS_18Oloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,5,:,:),4),3)); % response variable = d18O
-    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d18O',:,:),4),3)); % response variable = d18O
+    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
     
     m = (G'*G)\G'*d; % Calculate the 18O CS
     r_sq = corrcoef(G(:,2),d).^2;
@@ -479,13 +483,13 @@ iCS_18Oloop = iCS_18O;
 endCS_18Oloop = endCS_18O;
 
 figure;
-CS_17O = nan(size(aliquot_deltas_pisCorr,1),1,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
+CS_17O = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 for ii=1:sum(endCS_18O)
     idxFinalAliquot = find(endCS_18Oloop,1);
     iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(:,1,1)) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,6,1,1),4),3)); % response variable = d17O
-    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d17O',:,:),4),3)); % response variable = d17O
+    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
     
     m = (G'*G)\G'*d; % Calculate the 17O CS
     r_sq = corrcoef(G(:,2),d).^2;
@@ -517,13 +521,13 @@ iCS_15Nloop = iCS_15N;
 endCS_15Nloop = endCS_15N;
 
 figure;
-CS_36Ar = nan(size(aliquot_deltas_pisCorr,1),2,size(aliquot_deltas_pisCorr,3),size(aliquot_deltas_pisCorr,4));
+CS_36Ar = nan(size(aliquot_deltas_pisCorr(:,1:2,:,:)));
 for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
     idxFinalAliquot = max([find(endCS_18Oloop,1),find(endCS_15Nloop,1)]); % Use the index of whichever CS experiment was done latest
     iAliquotsToUse = (iCS_18Oloop | iCS_15Nloop) & squeeze(aliquot_metadata.msDatetime(:,1,1)) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
     
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,7,:,:),4),3)); % response variable = d4036Ar
-    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,10,:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,9,:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,10,:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/qarn2 -1]*1000)
+    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d4036Ar',:,:),4),3)); % response variable = d4036Ar
+    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
     
     m = (G'*G)\G'*d; % Calculate the 4036Ar CS
     r_sq = corrcoef([G(:,2:3),d]).^2;
@@ -552,23 +556,21 @@ for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
 end
 %% Make the CS Corrections
 
-CS = nan(size(aliquot_deltas(:,4:end,:,:)));
-CS(:,:,:,:) = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
+CS = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
 CS = fillmissing(CS,'previous',1);
 
-CS_predictors = [aliquot_deltas_pisCorr(:,9,:,:) ... % O2N2 CS on d15N
-                 ((aliquot_deltas_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
-                 ((aliquot_deltas_pisCorr(:,9,:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
-                 zeros(size(aliquot_deltas_pisCorr(:,9,:,:))) ... % d4036Ar CS Below
-                 zeros(size(aliquot_deltas_pisCorr(:,9,:,:))) ... % d4038Ar CS Below
-                 zeros(size(aliquot_deltas_pisCorr(:,9,:,:))) ... % No CS Corr for dO2N2 
-                 aliquot_deltas_pisCorr(:,9,:,:)]; % O2N2 CS on dArN2
+CS_predictors = [aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:) ... % O2N2 CS on d15N
+                 ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
+                 ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
+                 zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4036Ar CS Below
+                 zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4038Ar CS Below
+                 zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % No CS Corr for dO2N2 
+                 aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)]; % O2N2 CS on dArN2
 
-aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
-aliquot_deltas_pisCorr_csCorr(:,4:end,:,:) = aliquot_deltas_pisCorr_csCorr(:,4:end,:,:) - CS.*CS_predictors;
+aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
 
 CS_36Ar = fillmissing(CS_36Ar,'previous',1);
-aliquot_deltas_pisCorr_csCorr(:,7,:,:) = aliquot_deltas_pisCorr_csCorr(:,7,:,:) - (CS_36Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,10,:,:)/1000+1).^-1-1)*1000) - (CS_36Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,9,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,10,:,:)/1000+1)-1)*1000);
+aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) - (CS_36Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_36Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
 
 
 %% Calculate the LJA Normalization Values
@@ -599,65 +601,63 @@ idxLjaAliquots = standardizeMissing(idxLjaAliquots,0); % Change the zeros to nan
 
 % Plot the distribution of all LJA aliquot means
 figure
-for ii = 1:7
-    subplot(1,7,ii)
-    histogram(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii+3,:,:),4),3))
+for ii = 1:numel(delta_cols)
+    subplot(1,numel(delta_cols),ii)
+    histogram(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))
     axis('square');
     xlabel('\delta [per mil]'); ylabel('Counts')
-    title(delta_cols(ii+3))
+    title(delta_cols(ii))
 end
 
 % Calculate stats for each batch and make box plots
 N = nan(sum(iLjaEnd),1);
-stdev = nan(sum(iLjaEnd),7);
+stdev = nan(sum(iLjaEnd),numel(delta_cols));
 for ii=1:sum(iLjaEnd)
     N(ii) = sum(idxLjaAliquots==ii); % number of aliquots measured for each batch of LJA measurements
-    stdev(ii,:) = nanstd(nanmean(mean(aliquot_deltas_pisCorr_csCorr(idxLjaAliquots==ii,4:end,:,:),4),3)); % standard deviation of aliquot means for each batch of LJA measurements
+    stdev(ii,:) = nanstd(nanmean(mean(aliquot_deltas_pisCorr_csCorr(idxLjaAliquots==ii,:,:,:),4),3)); % standard deviation of aliquot means for each batch of LJA measurements
 end
 SEM = stdev./sqrt(N); % standard error of aliquot means for each batch of LJA measurements
 
 labels = datestr(aliquot_metadata.msDatenum(iLjaEnd,1,1),'dd-mmm-yyyy');
-for ii = 1:7
+for ii = 1:numel(delta_cols)
     figure; hold on;
-    hBoxPlot=boxplot(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii+3,:,:),4),3),idxLjaAliquots(iLja),'Labels',labels,'Notch','off');
-    plot(idxLjaAliquots(iLja),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii+3,:,:),4),3),'.k');
+    hBoxPlot=boxplot(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),idxLjaAliquots(iLja),'Labels',labels,'Notch','off');
+    plot(idxLjaAliquots(iLja),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),'.k');
     text(1:sum(iLjaEnd),repmat(-0.010,1,sum(iLjaEnd)),compose('N = %d\n\\sigma = %.3f permil\nSEM = %.3f per mil',N,stdev(:,ii),SEM(:,ii)));
 
     ylim('auto');
     ylabel('\delta_{LJA} [per mil]')
-    title(['LJA ' delta_cols(ii+3)])
+    title(['LJA ' delta_cols(ii)])
 end
 
 % Reject Outliers
 isoutlierAnonFn = @(x){(isoutlier(x,'quartiles'))};
-tf=splitapply(isoutlierAnonFn,nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,4:end,:,:),4),3),idxLjaAliquots(iLja));
+tf=splitapply(isoutlierAnonFn,nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,:,:,:),4),3),idxLjaAliquots(iLja));
 
-iLjaAfterRej = repmat(iLja,[1 7]);
+iLjaAfterRej = repmat(iLja,[1 numel(delta_cols)]);
 for ii=1:length(tf)
     iLjaAfterRej(idxLjaAliquots==ii,:) = ~tf{ii};
 end
 
 % Calculate LJA Values for Normalization
-ljaValues = nan(size(aliquot_deltas_pisCorr_csCorr(:,4:end,:,:)));
-ljaLoCI = nan(size(aliquot_deltas_pisCorr_csCorr(:,4:end,:,:)));
-ljaHiCI = nan(size(aliquot_deltas_pisCorr_csCorr(:,4:end,:,:)));
+ljaValues = nan(size(aliquot_deltas_pisCorr_csCorr));
+ljaLoCI = nan(size(aliquot_deltas_pisCorr_csCorr));
+ljaHiCI = nan(size(aliquot_deltas_pisCorr_csCorr));
 
 for ii=1:7
-    [batchMean batchMeanCI] = grpstats(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLjaAfterRej(:,ii),ii+3,:,:),4),3),idxLjaAliquots(iLjaAfterRej(:,ii)),{'mean','meanci'});
-    ljaValues(iLjaEnd,ii,:,:) = repmat(batchMean,[1 1 4 16]);
-    ljaLoCI(iLjaEnd,ii,:,:) = repmat(batchMeanCI(:,1),[1 1 4 16]);
-    ljaHiCI(iLjaEnd,ii,:,:) = repmat(batchMeanCI(:,2),[1 1 4 16]);
+    [batchMean, batchMeanCI] = grpstats(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLjaAfterRej(:,ii),ii,:,:),4),3),idxLjaAliquots(iLjaAfterRej(:,ii)),{'mean','meanci'});
+    ljaValues(iLjaEnd,ii,:,:) = repmat(batchMean,[1 1 size(aliquot_deltas_pisCorr_csCorr,[3 4])]);
+    ljaLoCI(iLjaEnd,ii,:,:) = repmat(batchMeanCI(:,1),[1 1 size(aliquot_deltas_pisCorr_csCorr,[3 4])]);
+    ljaHiCI(iLjaEnd,ii,:,:) = repmat(batchMeanCI(:,2),[1 1 size(aliquot_deltas_pisCorr_csCorr,[3 4])]);
 end
 
 
 %% Make the LJA Correction
 
-LJA = nan(size(aliquot_deltas_pisCorr_csCorr,1),7,size(aliquot_deltas_pisCorr_csCorr,3),size(aliquot_deltas_pisCorr_csCorr,4));
-LJA(:,:,:,:) = ljaValues;
+LJA = ljaValues;
 LJA = fillmissing(LJA,'previous',1);
 
-aliquot_deltas_pisCorr_csCorr_ljaCorr = aliquot_deltas_pisCorr_csCorr;
-aliquot_deltas_pisCorr_csCorr_ljaCorr(:,4:end,:,:) = ((aliquot_deltas_pisCorr_csCorr_ljaCorr(:,4:end,:,:)/1000+1)./(LJA/1000+1)-1)*1000;
+aliquot_deltas_pisCorr_csCorr_ljaCorr = ((aliquot_deltas_pisCorr_csCorr/1000+1)./(LJA/1000+1)-1)*1000;
 
 
 %%
