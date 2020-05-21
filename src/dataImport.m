@@ -348,8 +348,7 @@ aliquot_deltas_pisCorr = aliquot_deltas - permute(aliquot_metadata.pressureImbal
 %   1) Weed out the questionable blocks/aliquots that mess up some of the
 %      chem slope experiments
 %   2) Figure out how I'm going to do the CS Correction for Ar isotopes
-
-%aliquot_means = nanmean(block_means_pisCorr,3);
+cluk
 
 iCS_15N = contains(squeeze(aliquot_metadata.ID1(:,1,1)),'CS') ...
           & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'15') ...
@@ -358,202 +357,173 @@ iCS_18O = contains(squeeze(aliquot_metadata.ID1(:,1,1)),'CS') ...
           & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'18') ...
           | contains(squeeze(aliquot_metadata.ID1(:,1,1)),'O'));
 
+iCS_Ar = iCS_15N | iCS_18O; % Create joint CS index for d40/36Ar CS experiments
+
 dates = {aliquot_metadata.msDatetime(iCS_15N,1,1) aliquot_metadata.msDatetime(iCS_18O,1,1)}; % just for reference
 
 % Find the different CS experiments by finding the CS aliquots separated by more than 10 hours
-diffsCS_15N = duration(nan(3223,3)); diffsCS_18O = duration(nan(3223,3));
+diffsCS_15N = duration(nan(3223,3));
+diffsCS_18O = diffsCS_15N;
+diffsCS_Ar = diffsCS_15N;
+
 diffsCS_15N(iCS_15N) = [diff(aliquot_metadata.msDatetime(iCS_15N,1,1)); hours(999)+minutes(59)+seconds(59)];
 diffsCS_18O(iCS_18O) = [diff(aliquot_metadata.msDatetime(iCS_18O,1,1)); hours(999)+minutes(59)+seconds(59)];
+diffsCS_Ar(iCS_Ar) = [diff(aliquot_metadata.msDatetime(iCS_Ar,1,1)); hours(999)+minutes(59)+seconds(59)];
 
 % N.B. It's important to not use too big a number here. Using 24 hours
 % fails to resolve a re-do of the 18O CS in Feb-2016 as it was run the
 % morning after the previous attempt was run in the afternoon w/ diff=15 hr
-endCS_15N = diffsCS_15N > 10/24; endCS_18O = diffsCS_18O > 10/24;
+endCS_15N = diffsCS_15N > 10/24; 
+endCS_18O = diffsCS_18O > 10/24;
+endCS_Ar = diffsCS_Ar > 24; % Use 24 hours for Ar to make sure the re-do is lumped together with the right 15N CS experiment
 
+% Increment an index by one each time its a new CS experiment
+idxCS_15NEnd = nan(size(aliquot_deltas_pisCorr,1),1);
+idxCS_15NEnd(endCS_15N) = cumsum(endCS_15N(endCS_15N));
+
+idxCS_18OEnd = nan(size(aliquot_deltas_pisCorr,1),1);
+idxCS_18OEnd(endCS_18O) = cumsum(endCS_18O(endCS_18O));
+
+idxCS_ArEnd = nan(size(aliquot_deltas_pisCorr,1),1);
+idxCS_ArEnd(endCS_Ar) = cumsum(endCS_Ar(endCS_Ar));
+
+% Assign the same index to all the aliquots from each CS experiment
+idxCS_15N = zeros(size(aliquot_deltas_pisCorr,1),1); % Create a vector of zeros
+idxCS_15N(iCS_15N)=nan; % Assign NaN to the values I want to replace
+idxCS_15N(endCS_15N) = idxCS_15NEnd(endCS_15N); % Fill in the indices of the end of each CS experiment
+idxCS_15N(iCS_15N) = fillmissing(idxCS_15N(iCS_15N),'next'); % Replace the nans for each aliquot with the next index - must fill only the (iCS_15N) subset otherwise it fills some indices with interspersed zeros that are then reassigned to NaN in the next line
+idxCS_15N = standardizeMissing(idxCS_15N,0); % Change the zeros to nans to properly represent the fact that they are missing values
+
+idxCS_18O = zeros(size(aliquot_deltas_pisCorr,1),1); % Create a vector of zeros
+idxCS_18O(iCS_18O)=nan; % Assign NaN to the values I want to replace
+idxCS_18O(endCS_18O) = idxCS_18OEnd(endCS_18O); % Fill in the indices of the end of each CS experiment
+idxCS_18O(iCS_18O) = fillmissing(idxCS_18O(iCS_18O),'next'); % Replace the nans for each aliquot with the next index - must fill only the (iCS_15N) subset otherwise it fills some indices with interspersed zeros that are then reassigned to NaN in the next line
+idxCS_18O = standardizeMissing(idxCS_18O,0); % Change the zeros to nans to properly represent the fact that they are missing values
+
+idxCS_Ar = zeros(size(aliquot_deltas_pisCorr,1),1); % Create a vector of zeros
+idxCS_Ar(iCS_Ar)=nan; % Assign NaN to the values I want to replace
+idxCS_Ar(endCS_Ar) = idxCS_ArEnd(endCS_Ar); % Fill in the indices of the end of each CS experiment
+idxCS_Ar(iCS_Ar) = fillmissing(idxCS_Ar(iCS_Ar),'next'); % Replace the nans for each aliquot with the next index - must fill only the (iCS_15N) subset otherwise it fills some indices with interspersed zeros that are then reassigned to NaN in the next line
+idxCS_Ar = standardizeMissing(idxCS_Ar,0); % Change the zeros to nans to properly represent the fact that they are missing values
+
+
+fitCS = @(x,y)(([x ones(length(x),1)]\y)'); % Transpose output to a row vector so that split apply can concatanate the outputs from each group
+rsqCS = @(x,y){(corrcoef(x,y)).^2};
 
 % dO2/N2 Effect on d15N
-% Create logical indices to update within the loop as I "check off" the
-% different sets of aliquots that make up the different CS experiments
-iCS_15Nloop = iCS_15N;
-endCS_15Nloop = endCS_15N;
-
-figure;
+x = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3));
+y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d15N',:,:),4),3));
+P_15N = splitapply(fitCS,x,y,idxCS_15N); % Calculate the slope with the anonymous function
+rsq_15N = splitapply(rsqCS,x,y,idxCS_15N);
 CS_15N = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
+CS_15N(endCS_15N,:,:,:) = repmat(P_15N(:,1), [1 1 size(CS_15N,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
+
+figure
 for ii=1:sum(endCS_15N)
-    idxFinalAliquot = find(endCS_15Nloop,1);
-    iAliquotsToUse = iCS_15Nloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
-    
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d15N',:,:),4),3)); % response variable = d15N
-    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))]; % predictor variable = dO2N2
-    
-    m = (G'*G)\G'*d; % Calculate the 15N CS
-    r_sq = corrcoef(G(:,2),d).^2;
-    
-    CS_15N(idxFinalAliquot,:,:,:) = m(2);
-    
-    subplot(1,sum(endCS_15N),ii); hold on;
-    plot(G(:,2),d,'xk')
-    plot(G(:,2),G*m,'-r')
-    text(50,0.015,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
-    text(50,0.005,['r^2 = ' num2str(r_sq(2,1))])
-    xlabel('\deltaO_2/N_2 [per mil]')
-    ylabel('\delta^{15}N [per mil]')
+    subplot(1,sum(endCS_15N),ii); hold on
+    plot(x(idxCS_15N==ii),y(idxCS_15N==ii),'xk') % Plot the individual aliquots
+    plot(x(idxCS_15N==ii),polyval(P_15N(ii,:),x(idxCS_15N==ii)),'-r') % Plot the fitted line
+    text(max(x(idxCS_15N==ii)),min(y(idxCS_15N==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_15N(ii,1)*1000,rsq_15N{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.01 0.25]);
-    
-    title(['\delta^{15}N CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
-    
-    iCS_15Nloop(1:idxFinalAliquot)=false;
-    endCS_15Nloop(idxFinalAliquot)=false;
+    xlabel('\deltaO_2/N_2 [per mil]');
+    ylabel('\delta^{15}N [per mil]');
+    title(['\delta^{15}N CS: ' datestr(aliquot_metadata.msDatetime(idxCS_15NEnd==ii,1,1),'yyyy-mmm-dd')])    
 end
 
-% dO2/N2 effect on dArN2
-% Reset logical indices to update within the loop as I "check off" the
-% different sets of aliquots that make up the different CS experiments
-iCS_15Nloop = iCS_15N;
-endCS_15Nloop = endCS_15N;
-
-figure;
+% dO2/N2 Effect on dArN2
+x = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3));
+y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3));
+P_ArN2 = splitapply(fitCS,x,y,idxCS_15N); % Calculate the slope with the anonymous function
+rsq_ArN2 = splitapply(rsqCS,x,y,idxCS_15N);
 CS_ArN2 = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
+CS_ArN2(endCS_15N,:,:,:) = repmat(P_ArN2(:,1), [1 1 size(CS_ArN2,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
+
+figure
 for ii=1:sum(endCS_15N)
-    idxFinalAliquot = find(endCS_15Nloop,1);
-    iAliquotsToUse = iCS_15Nloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
-    
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dArN2',:,:),4),3)); % response variable = dArN2
-    G = [ones(size(d)) squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))]; % predictor variable = dO2N2
-    
-    m = (G'*G)\G'*d; % Calculate the ArN2 CS
-    r_sq = corrcoef(G(:,2),d).^2;
-    
-    CS_ArN2(idxFinalAliquot,:,:,:) = m(2);
-    
-    subplot(1,sum(endCS_15N),ii); hold on;
-    plot(G(:,2),d,'xk')
-    plot(G(:,2),G*m,'-r')
-    text(50,0,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
-    text(50,-0.05,['r^2 = ' num2str(r_sq(2,1))])
-    xlabel('\deltaO_2/N_2 [per mil]')
-    ylabel('\deltaAr/N_2 [per mil]')
+    subplot(1,sum(endCS_15N),ii); hold on
+    plot(x(idxCS_15N==ii),y(idxCS_15N==ii),'xk') % Plot the individual aliquots
+    plot(x(idxCS_15N==ii),polyval(P_ArN2(ii,:),x(idxCS_15N==ii)),'-r') % Plot the fitted line
+    text(max(x(idxCS_15N==ii)),min(y(idxCS_15N==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_ArN2(ii,1)*1000,rsq_ArN2{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.1 1.2]);
-    
-    title(['\deltaAr/N_2 CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
-    
-    iCS_15Nloop(1:idxFinalAliquot)=false;
-    endCS_15Nloop(idxFinalAliquot)=false;
+    xlabel('\deltaO_2/N_2 [per mil]');
+    ylabel('\deltaAr/N_2 [per mil]');
+    title(['\deltaAr/N_2 CS: ' datestr(aliquot_metadata.msDatetime(idxCS_15NEnd==ii,1,1),'yyyy-mmm-dd')])    
 end
 
-% dN2/O2 effect on d18O
-% Create logical indices to update within the loop as I "check off" the
-% different sets of aliquots that make up the different CS experiments
-iCS_18Oloop = iCS_18O;
-endCS_18Oloop = endCS_18O;
-
-figure;
+% dN2/O2 Effect on d18O
+x = ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1).^-1-1)*1000;
+y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d18O',:,:),4),3));
+P_18O = splitapply(fitCS,x,y,idxCS_18O); % Calculate the slope with the anonymous function
+rsq_18O = splitapply(rsqCS,x,y,idxCS_18O);
 CS_18O = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
+CS_18O(endCS_18O,:,:,:) = repmat(P_18O(:,1), [1 1 size(CS_18O,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
+
+figure
 for ii=1:sum(endCS_18O)
-    idxFinalAliquot = find(endCS_18Oloop,1);
-    iAliquotsToUse = iCS_18Oloop & aliquot_metadata.msDatetime(:,1,1) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
-    
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d18O',:,:),4),3)); % response variable = d18O
-    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
-    
-    m = (G'*G)\G'*d; % Calculate the 18O CS
-    r_sq = corrcoef(G(:,2),d).^2;
-    
-    CS_18O(idxFinalAliquot,:,:,:) = m(2);
-    
-    subplot(1,sum(endCS_18O),ii); hold on;
-    plot(G(:,2),d,'xk')
-    plot(G(:,2),G*m,'-r')
-    text(50,-0.08,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
-    text(50,-0.09,['r^2 = ' num2str(r_sq(2,1))])
-    xlabel('\deltaN_2/O_2 [per mil]')
-    ylabel('\delta^{18}O [per mil]')
+    subplot(1,sum(endCS_18O),ii); hold on
+    plot(x(idxCS_18O==ii),y(idxCS_18O==ii),'xk') % Plot the individual aliquots
+    plot(x(idxCS_18O==ii),polyval(P_18O(ii,:),x(idxCS_18O==ii)),'-r') % Plot the fitted line
+    text(max(x(idxCS_18O==ii)),min(y(idxCS_18O==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_18O(ii,1)*1000,rsq_18O{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.1 0.1]);
-    
-    title(['\delta^{18}O CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
-    
-    iCS_18Oloop(1:idxFinalAliquot)=false;
-    endCS_18Oloop(idxFinalAliquot)=false;
+    xlabel('\deltaN_2/O_2 [per mil]');
+    ylabel('\delta^{18}O [per mil]');
+    title(['\delta^{18}O CS: ' datestr(aliquot_metadata.msDatetime(idxCS_18OEnd==ii,1,1),'yyyy-mmm-dd')])    
 end
 
-% dN2/O2 effect on d17O
-% Create logical indices to update within the loop as I "check off" the
-% different sets of aliquots that make up the different CS experiments
-iCS_18Oloop = iCS_18O;
-endCS_18Oloop = endCS_18O;
-
-figure;
+% dN2/O2 Effect on d17O
+x = ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1).^-1-1)*1000;
+y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d17O',:,:),4),3));
+P_17O = splitapply(fitCS,x,y,idxCS_18O); % Calculate the slope with the anonymous function
+rsq_17O = splitapply(rsqCS,x,y,idxCS_18O);
 CS_17O = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
+CS_17O(endCS_18O,:,:,:) = repmat(P_17O(:,1), [1 1 size(CS_17O,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
+
+figure
 for ii=1:sum(endCS_18O)
-    idxFinalAliquot = find(endCS_18Oloop,1);
-    iAliquotsToUse = iCS_18Oloop & squeeze(aliquot_metadata.msDatetime(:,1,1)) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
-    
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d17O',:,:),4),3)); % response variable = d17O
-    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))./1000+1).^-1-1)*1000]; % predictor variable = dN2/O2 
-    
-    m = (G'*G)\G'*d; % Calculate the 17O CS
-    r_sq = corrcoef(G(:,2),d).^2;
-    
-    CS_17O(idxFinalAliquot,:,:,:) = m(2);
-    
-    subplot(1,sum(endCS_18O),ii); hold on;
-    plot(G(:,2),d,'xk')
-    plot(G(:,2),G*m,'-r')
-    text(50,0,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
-    text(50,-0.05,['r^2 = ' num2str(r_sq(2,1))])
-    xlabel('\deltaN_2/O_2 [per mil]')
-    ylabel('\delta^{17}O [per mil]')
+    subplot(1,sum(endCS_18O),ii); hold on
+    plot(x(idxCS_18O==ii),y(idxCS_18O==ii),'xk') % Plot the individual aliquots
+    plot(x(idxCS_18O==ii),polyval(P_17O(ii,:),x(idxCS_18O==ii)),'-r') % Plot the fitted line
+    text(max(x(idxCS_18O==ii)),min(y(idxCS_18O==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_17O(ii,1)*1000,rsq_17O{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.1 1]);
-    
-    title(['\delta^{17}O CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
-    
-    iCS_18Oloop(1:idxFinalAliquot)=false;
-    endCS_18Oloop(idxFinalAliquot)=false;
+    xlabel('\deltaN_2/O_2 [per mil]');
+    ylabel('\delta^{17}O [per mil]');
+    title(['\delta^{17}O CS: ' datestr(aliquot_metadata.msDatetime(idxCS_18OEnd==ii,1,1),'yyyy-mmm-dd')])    
 end
 
-% N.B. - These ones are a little different as there are two effects to correct for for d40/36Ar and d40/38Ar
-% dN2Ar and dO2Ar effect on d4036
-% Create logical indices to update within the loop as I "check off" the
-% different sets of aliquots that make up the different CS experiments
-iCS_18Oloop = iCS_18O;
-endCS_18Oloop = endCS_18O;
-iCS_15Nloop = iCS_15N;
-endCS_15Nloop = endCS_15N;
+% d4036Ar
+% N.B. This one is a little different as there are two chemical slopes, one
+% for the effect of the N2/Ar ratio and one for the isobaric interference
+% of 18O18O, i.e. the O2/Ar ratio.
+x = [((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d4036Ar',:,:),4),3));
+P_4036Ar = splitapply(fitCS,x,y,idxCS_Ar); % Calculate the slope with the anonymous function
+CS_4036Ar = nan(size(aliquot_deltas_pisCorr(:,1:2,:,:)));
+CS_4036Ar(endCS_Ar,:,:,:) = repmat(P_4036Ar(:,1:2), [1 1 size(CS_4036Ar,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
 
-figure;
-CS_36Ar = nan(size(aliquot_deltas_pisCorr(:,1:2,:,:)));
-for ii=1:max([sum(endCS_15N) sum(endCS_18O)])-1
-    idxFinalAliquot = max([find(endCS_18Oloop,1),find(endCS_15Nloop,1)]); % Use the index of whichever CS experiment was done latest
-    iAliquotsToUse = (iCS_18Oloop | iCS_15Nloop) & squeeze(aliquot_metadata.msDatetime(:,1,1)) <= aliquot_metadata.msDatetime(idxFinalAliquot,1,1);
+figure
+for ii=1:sum(endCS_Ar)
+    subplot(1,sum(endCS_Ar),ii); hold on
+    plot3(x(idxCS_Ar==ii,1),x(idxCS_Ar==ii,2),y(idxCS_Ar==ii),'xk'); % Plot the individual aliquots
+    [X1,X2]=meshgrid(linspace(min(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,1)),20),linspace(min(x(idxCS_Ar==ii,2)),max(x(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
+    surf(X1,X2,X1.*P_4036Ar(ii,1)+X2*P_4036Ar(ii,2)+P_4036Ar(ii,1));  % Plot the fitted surface on the grid
     
-    d = squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='d4036Ar',:,:),4),3)); % response variable = d4036Ar
-    G = [ones(size(d)) ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(iAliquotsToUse,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+    text(max(x(idxCS_18O==ii,1)),min(x(idxCS_18O==ii,2)),min(y(idxCS_18O==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4036Ar(ii,1)*1000,P_4036Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
     
-    m = (G'*G)\G'*d; % Calculate the 4036Ar CS
-    r_sq = corrcoef([G(:,2:3),d]).^2;
-    
-    CS_36Ar(idxFinalAliquot,1,:,:) = m(2);
-    CS_36Ar(idxFinalAliquot,2,:,:) = m(3);
-    
-    subplot(1,sum(endCS_18O),ii); hold on;
-    [X,Y]=meshgrid(G(:,2),G(:,3));
-    plot3(G(:,2),G(:,3),d,'xk');
-    surf(X,Y,m(1)+X.*m(2)+Y*m(3));
-    %text(50,0.05,['CS = ' num2str(m(2)*1000) ' per meg/per mil'])
-    %text(50,0,['CS = ' num2str(m(3)*1000) ' per meg/per mil'])
-    %text(50,-0.05,['r^2 = ' num2str(r_sq(2,1))])
     xlabel('\deltaN_2/Ar [per mil]')
     ylabel('\deltaO_2/Ar [per mil]')
     zlabel('\delta^{40}/_{36}Ar [per mil]')
-    %axis([-10 350 -10 350 -0.1 10]);
+    title(['\delta^{40}/_{36}Ar CS: ' datestr(aliquot_metadata.msDatetime(idxCS_ArEnd==ii,1,1),'yyyy-mmm-dd')])
     
-    title(['\delta^{40}/{36}Ar CS: ' datestr(aliquot_metadata.msDatetime(idxFinalAliquot,1,1),'yyyy-mmm-dd')])    
-    
-    iCS_18Oloop(1:idxFinalAliquot)=false;
-    endCS_18Oloop(1:idxFinalAliquot)=false;
-    iCS_15Nloop(1:idxFinalAliquot)=false;
-    endCS_15Nloop(1:idxFinalAliquot)=false;
+    colormap(cbrewer('seq','Greens',20));
+    axis([-20 350 -20 350 -8 1]); 
+    caxis([-8 0]);
+    view([40 45]);
 end
+pos=get(gca,'Position');
+colorbar;
+set(gca,'Position',pos);
+
+
 %% Make the CS Corrections
 
 CS = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
@@ -569,8 +539,8 @@ CS_predictors = [aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:) ... % O2N2 CS
 
 aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
 
-CS_36Ar = fillmissing(CS_36Ar,'previous',1);
-aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) - (CS_36Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_36Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
+CS_4036Ar = fillmissing(CS_4036Ar,'previous',1);
+aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) - (CS_4036Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4036Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
 
 
 %% Calculate the LJA Normalization Values
