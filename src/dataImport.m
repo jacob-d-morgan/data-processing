@@ -348,7 +348,6 @@ aliquot_deltas_pisCorr = aliquot_deltas - permute(aliquot_metadata.pressureImbal
 %   1) Weed out the questionable blocks/aliquots that mess up some of the
 %      chem slope experiments
 %   2) Figure out how I'm going to do the CS Correction for Ar isotopes
-cluk
 
 iCS_15N = contains(squeeze(aliquot_metadata.ID1(:,1,1)),'CS') ...
           & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'15') ...
@@ -507,7 +506,7 @@ for ii=1:sum(endCS_Ar)
     [X1,X2]=meshgrid(linspace(min(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,1)),20),linspace(min(x(idxCS_Ar==ii,2)),max(x(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
     surf(X1,X2,X1.*P_4036Ar(ii,1)+X2*P_4036Ar(ii,2)+P_4036Ar(ii,1));  % Plot the fitted surface on the grid
     
-    text(max(x(idxCS_18O==ii,1)),min(x(idxCS_18O==ii,2)),min(y(idxCS_18O==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4036Ar(ii,1)*1000,P_4036Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+    text(max(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4036Ar(ii,1)*1000,P_4036Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
     
     xlabel('\deltaN_2/Ar [per mil]')
     ylabel('\deltaO_2/Ar [per mil]')
@@ -516,6 +515,39 @@ for ii=1:sum(endCS_Ar)
     
     colormap(cbrewer('seq','Greens',20));
     axis([-20 350 -20 350 -8 1]); 
+    caxis([-8 0]);
+    view([40 45]);
+end
+pos=get(gca,'Position');
+colorbar;
+set(gca,'Position',pos);
+
+% d4038Ar
+% N.B. This one is a little different as there are two chemical slopes, one
+% for the effect of the N2/Ar ratio and one for the isobaric interference
+% of 18O18O, i.e. the O2/Ar ratio.
+x = [((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d4038Ar',:,:),4),3));
+P_4038Ar = splitapply(fitCS,x,y,idxCS_Ar); % Calculate the slope with the anonymous function
+CS_4038Ar = nan(size(aliquot_deltas_pisCorr(:,1:2,:,:)));
+CS_4038Ar(endCS_Ar,:,:,:) = repmat(P_4036Ar(:,1:2), [1 1 size(CS_4038Ar,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
+
+figure
+for ii=1:sum(endCS_Ar)
+    subplot(1,sum(endCS_Ar),ii); hold on
+    plot3(x(idxCS_Ar==ii,1),x(idxCS_Ar==ii,2),y(idxCS_Ar==ii),'xk'); % Plot the individual aliquots
+    [X1,X2]=meshgrid(linspace(min(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,1)),20),linspace(min(x(idxCS_Ar==ii,2)),max(x(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
+    surf(X1,X2,X1.*P_4038Ar(ii,1)+X2*P_4038Ar(ii,2)+P_4038Ar(ii,1));  % Plot the fitted surface on the grid
+    
+    text(max(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4038Ar(ii,1)*1000,P_4038Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+    
+    xlabel('\deltaN_2/Ar [per mil]')
+    ylabel('\deltaO_2/Ar [per mil]')
+    zlabel('\delta^{40}/_{38}Ar [per mil]')
+    title(['\delta^{40}/_{38}Ar CS: ' datestr(aliquot_metadata.msDatetime(idxCS_ArEnd==ii,1,1),'yyyy-mmm-dd')])
+    
+    colormap(cbrewer('seq','Greens',20));
+    axis([-50 350 -50 350 -16 1]); 
     caxis([-8 0]);
     view([40 45]);
 end
@@ -541,6 +573,9 @@ aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
 
 CS_4036Ar = fillmissing(CS_4036Ar,'previous',1);
 aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) - (CS_4036Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4036Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
+
+CS_4038Ar = fillmissing(CS_4038Ar,'previous',1);
+aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4038Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4038Ar',:,:) - (CS_4038Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4038Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
 
 
 %% Calculate the LJA Normalization Values
