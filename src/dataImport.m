@@ -27,6 +27,8 @@ xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
 %xp2015.MeasurmentErrors = num2cell(xp2015.MeasurmentErrors);
 importedData = [xp2018; xp2017; xp2016]; % ; xp2015];
 
+importedData.datenum = datenum(importedData.TimeCode,'yyyy/mm/dd HH:MM:SS');
+importedData.datetime = datetime(importedData.TimeCode,'InputFormat','yyyy/MM/dd HH:mm:ss');
 importedData.Date = datestr(datenum(importedData.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
 importedData.IsRef__ = logical(importedData.IsRef__);
 importedData.Method = string(importedData.Method);
@@ -82,8 +84,8 @@ cycle_deltas = table2array(cycle_deltas);
 % Also, the cycles all have exactly the same metadata so this step is
 % somewhat pointless.
 
-cycle_metadata.msDatetime = datetime(importedData.TimeCode(~importedData.IsRef__),'InputFormat','yyyy/MM/dd HH:mm:ss');
-cycle_metadata.msDatenum = datenum(importedData.TimeCode(~importedData.IsRef__),'yyyy/mm/dd HH:MM:SS');
+cycle_metadata.msDatetime = datetime(importedData.datetime(~importedData.IsRef__));
+cycle_metadata.msDatenum = datenum(importedData.datenum(~importedData.IsRef__));
 cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
 cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
 cycle_metadata.ASInlet = importedData.AS_SIOInlet(~importedData.IsRef__);
@@ -157,6 +159,37 @@ for ii = 1:length(idx_SampleAliquots)
         aliquot_metadata.(metadata_fields{jj})(ii,1:aliquotLengths(ii),:) = block_metadata.(metadata_fields{jj})(idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1,:);
     end
 end
+
+%% Add the CO2 Check Data Back In
+% Find the Timestamp for the CO2 Check Blocks
+% I do this by interpolating to find the index/cycle number (y) of the 
+% block nearest to the CO2 blocks in datetime (x). I then use this index to
+% find the datetime of these blocks.
+% I have to use the index as the interpolant as the 'nearest' neighbour is 
+% calculated in the x variable and I want to interpolate to the nearest
+% neightbour in datetime, not in cycle number.
+
+iCO2 = importedData.Method=="CO2nonB" | importedData.Method=="CO2_non_B"; % Identify the CO2 blocks using the method name
+rCO2N2_SA = importedData.x1_CycleInt_Samp_40(iCO2)./importedData.x1_CycleInt_Samp_29(iCO2);
+rCO2N2_ST = importedData.x1_CycleInt_Ref_40(iCO2)./importedData.x1_CycleInt_Ref_29(iCO2);
+
+x = importedData.datenum + cumsum(ones(size(importedData.datenum))).*importedData.datenum*eps; % Generate an x-variable with unique points by adding a quasi-infinitesimal increment (eps) to each row
+y = 1:length(x);
+
+idxCO2NearestBlocks = interp1(x(~iCO2),y(~iCO2),x(iCO2),'nearest'); % Interpolate to find the index of the nearest blocks
+datetimeCO2NearestBlocks = importedData.datetime(idxCO2NearestBlocks); % Use the index to find the datetime of those blocks
+
+[iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquot_metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure
+[idxCO2Aliquots,idx2,idx3] = ind2sub(size(aliquot_metadata.msDatetime),idxB); % Convert to a subscript so that I know which aliquot they correspond to
+
+aliquot_metadata.rCO2N2_SA = nan(size(aliquot_metadata.msDatetime,4),1);
+aliquot_metadata.rCO2N2_ST = nan(size(aliquot_metadata.msDatetime,4),1);
+aliquot_metadata.dCO2N2 = nan(size(aliquot_metadata.msDatetime,4),1);
+
+aliquot_metadata.rCO2N2_SA(idxCO2Aliquots(iA)) = rCO2N2_SA(iA);
+aliquot_metadata.rCO2N2_ST(idxCO2Aliquots(iA)) = rCO2N2_ST(iA);
+aliquot_metadata.dCO2N2(idxCO2Aliquots(iA)) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
+
 
 %% Do Some Staistics on the Blocks
 % There are some weird looking blocks here that plot off the top of the
