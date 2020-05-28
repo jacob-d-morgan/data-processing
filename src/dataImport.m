@@ -95,7 +95,7 @@ cycle_metadata.scriptName = importedData.ScriptName(~importedData.IsRef__);
 cycle_metadata.gasConfig = importedData.GasConfiguration(~importedData.IsRef__);
 cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
 cycle_metadata.int28SA = intSA.rIntensity28;
-cycle_metadata.intST28 = intST.rIntensity28;
+cycle_metadata.int28ST = intST.rIntensity28;
 %cycle_metadata.pressureImbal = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000; % N.B. - Ross typically calculates this just as a raw SA - ST rather than a delta value. Does this make a difference?
 cycle_metadata.pressureImbal = (intSA.rIntensity28 - intST.rIntensity28);
 
@@ -239,7 +239,7 @@ subplot(211)
 semilogy(block_metadata.msDatetime(:,1),std(block_deltas(:,:,:),0,3),'.');
 ylabel('Std Dev of Cycles in a Block [per mil]');
 ylim([0 150]);
-legend(delta_cols(4:end),'Location','N','Orientation','Horizontal');
+legend(delta_cols,'Location','N','Orientation','Horizontal');
 
 subplot(212)
 semilogy(aliquot_metadata.msDatetime(:,1,1),nanstd(mean(aliquot_deltas(:,:,:,:),3),0,4),'.');
@@ -339,7 +339,7 @@ stackedFigAx(1)
 plot(aliquot_metadata.msDatenum(:,1,1),calcPisRsq(:,:,1,1),'s')
 set(gca,'ColorOrderIndex',1)
 plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPisRsq(~isnan(calcPisImbal),:,1,1),'-');
-legend(delta_cols(4:end),'Orientation','Horizontal','Location','South')
+legend(delta_cols,'Orientation','Horizontal','Location','South')
 ylabel('r^2');
 ylim([0.7 1]);
 
@@ -539,7 +539,7 @@ for ii=1:sum(endCS_Ar)
     [X1,X2]=meshgrid(linspace(min(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,1)),20),linspace(min(x(idxCS_Ar==ii,2)),max(x(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
     surf(X1,X2,X1.*P_4036Ar(ii,1)+X2*P_4036Ar(ii,2)+P_4036Ar(ii,1));  % Plot the fitted surface on the grid
     
-    text(max(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4036Ar(ii,1)*1000,P_4036Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+    text(max(x(idxCS_Ar==ii,1)),min(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4036Ar(ii,1)*1000,P_4036Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
     
     xlabel('\deltaN_2/Ar [per mil]')
     ylabel('\deltaO_2/Ar [per mil]')
@@ -572,7 +572,7 @@ for ii=1:sum(endCS_Ar)
     [X1,X2]=meshgrid(linspace(min(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,1)),20),linspace(min(x(idxCS_Ar==ii,2)),max(x(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
     surf(X1,X2,X1.*P_4038Ar(ii,1)+X2*P_4038Ar(ii,2)+P_4038Ar(ii,1));  % Plot the fitted surface on the grid
     
-    text(max(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4038Ar(ii,1)*1000,P_4038Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+    text(max(x(idxCS_Ar==ii,1)),min(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4038Ar(ii,1)*1000,P_4038Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
     
     xlabel('\deltaN_2/Ar [per mil]')
     ylabel('\deltaO_2/Ar [per mil]')
@@ -656,12 +656,13 @@ for ii=1:sum(iLjaEnd)
 end
 SEM = stdev./sqrt(N); % standard error of aliquot means for each batch of LJA measurements
 
+% Make Box Plots
 labels = datestr(aliquot_metadata.msDatenum(iLjaEnd,1,1),'dd-mmm-yyyy');
 for ii = 1:numel(delta_cols)
     figure; hold on;
     hBoxPlot=boxplot(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),idxLjaAliquots(iLja),'Labels',labels,'Notch','off');
     plot(idxLjaAliquots(iLja),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),'.k');
-    text(1:sum(iLjaEnd),repmat(-0.010,1,sum(iLjaEnd)),compose('N = %d\n\\sigma = %.3f permil\nSEM = %.3f per mil',N,stdev(:,ii),SEM(:,ii)));
+    text(1:sum(iLjaEnd),repmat(min(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))*1.05,1,sum(iLjaEnd)),compose(['N = %d\n\\sigma = %.3f' char(8240) '\nSEM = %.3f' char(8240)],N,stdev(:,ii),SEM(:,ii)));
 
     ylim('auto');
     ylabel('\delta_{LJA} [per mil]')
