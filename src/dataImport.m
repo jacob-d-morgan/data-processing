@@ -54,15 +54,15 @@ importedData = sortrows(importedData,idxTimeCode);
 
 %% Interpolate ST Voltages and Calculate Delta Values
 % NOTE: The current method of interpolating onto the ~isRef indices
-% excludes the CO2 checks from the blocks I consider as they are recorded 
+% excludes the CO2 checks from the blocks I consider as they are recorded
 % in isRef as 'true'. This is probably the right way to do it for now but I
 % must remember to add them back in, including their metadata, which is
 % also excluded when I subsample the metadata columns for the ~isRef rows.
 
 intSA = importedData(~importedData.IsRef__,1:9);
 intST = array2table(interp1(find(importedData.IsRef__), ...
-                    importedData{importedData.IsRef__,1:9}, ...
-                    find(~importedData.IsRef__)));
+    importedData{importedData.IsRef__,1:9}, ...
+    find(~importedData.IsRef__)));
 intST.Properties.VariableNames = intSA.Properties.VariableNames;
 
 cycle_deltas = table();
@@ -108,7 +108,7 @@ blockLengthsAll = diff(idx_blocksAll); blockLengthsAll(end+1)=length(cycle_delta
 
 % TAKE ONLY THE BLOCKS WITH 16 CYCLES! - This causes me to lose 156 blocks
 % (17672 -> 17516, <1%), mostly with <5 cycles in them.
-idx_blocks = idx_blocksAll(blockLengthsAll==16); 
+idx_blocks = idx_blocksAll(blockLengthsAll==16);
 blockLengths = blockLengthsAll(blockLengthsAll==16);
 
 numberOfBlocks = length(idx_blocks);
@@ -162,10 +162,10 @@ end
 
 %% Add the CO2 Check Data Back In
 % Find the Timestamp for the CO2 Check Blocks
-% I do this by interpolating to find the index/cycle number (y) of the 
+% I do this by interpolating to find the index/cycle number (y) of the
 % block nearest to the CO2 blocks in datetime (x). I then use this index to
 % find the datetime of these blocks.
-% I have to use the index as the interpolant as the 'nearest' neighbour is 
+% I have to use the index as the interpolant as the 'nearest' neighbour is
 % calculated in the x variable and I want to interpolate to the nearest
 % neightbour in datetime, not in cycle number.
 
@@ -199,14 +199,14 @@ figure;
 subplot(211); hold on;
 plot(cycle_metadata.msDatetime(idx_blocksAll),blockLengthsAll,'-','Color',lineCol(9),'LineWidth',1)
 plot(cycle_metadata.msDatetime(idx_blocks),blockLengths,'-','Color',lineCol(10),'LineWidth',3)
-ylabel('Number of Cycles in Block'); 
+ylabel('Number of Cycles in Block');
 title('Block Length (by method)');
 ylim([0 20])
 
 subplot(212); hold on;
 plot(block_metadata.msDatetime(idx_SampleAliquotsAll,1),aliquotLengthsAll,'-','Color',lineCol(9),'LineWidth',1);
 plot(block_metadata.msDatetime(idx_SampleAliquots,1),aliquotLengths,'-','Color',lineCol(10),'LineWidth',3);
-ylabel('Number of Blocks in Aliquot'); 
+ylabel('Number of Blocks in Aliquot');
 title('Aliquot Lengths (by method)')
 ylim([0 10])
 
@@ -214,25 +214,24 @@ figure
 subplot(121); hold on;
 histogram(blockLengthsAll(blockLengthsAll~=16))
 text(15,75,{['No. Total: ' num2str(length(blockLengthsAll))]; ...
-            ['No. Included: ' num2str(numberOfBlocks)]; ...
-            ['No. Rejected: ' num2str(length(blockLengthsAll(blockLengthsAll~=16)))]; ...
-            ['Rejected: ' num2str(length(blockLengthsAll(blockLengthsAll~=16))/length(blockLengthsAll)*100) '%']}, ...
-            'HorizontalAlignment','right','VerticalAlignment','Top');
+    ['No. Included: ' num2str(numberOfBlocks)]; ...
+    ['No. Rejected: ' num2str(length(blockLengthsAll(blockLengthsAll~=16)))]; ...
+    ['Rejected: ' num2str(length(blockLengthsAll(blockLengthsAll~=16))/length(blockLengthsAll)*100) '%']}, ...
+    'HorizontalAlignment','right','VerticalAlignment','Top');
 xlabel('Block Length (# cycles)');
 ylabel('Counts')
 
 subplot(122); hold on;
 histogram(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5))
 text(9,17,{['No. Total: ' num2str(length(aliquotLengthsAll))]; ...
-           ['No. Included: ' num2str(numberOfAliquots)]; ...
-           ['No. Rejected: ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5)))]; ...
-           ['Rejected: ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5))/length(aliquotLengthsAll)*100) '%']}, ...
-           'HorizontalAlignment','right','VerticalAlignment','Top');
+    ['No. Included: ' num2str(numberOfAliquots)]; ...
+    ['No. Rejected: ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5)))]; ...
+    ['Rejected: ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5))/length(aliquotLengthsAll)*100) '%']}, ...
+    'HorizontalAlignment','right','VerticalAlignment','Top');
 xlabel('Aliquot Length (# blocks)');
 ylabel('Counts');
 
 suptitle('Properties of Rejected Blocks and Aliquots')
-
 
 figure
 subplot(211)
@@ -269,7 +268,7 @@ calcPisImbal = nan(size(aliquot_deltas,1),1);
 
 for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
     for jj=1:numel(delta_cols) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
-
+        
         d = squeeze(nanmean(aliquot_deltas(ii,jj,:,:),4)); % response variable = the looped delta value from the looped aliquot
         G = [ones(size(d)) nanmean(aliquot_metadata.pressureImbal(ii,:,:),3)']; % predictor variable = the pressure imbalance (col 3) from the looped variable
         m = (G'*G)\G'*d; % Calculate the PIS
@@ -294,8 +293,8 @@ aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
 aliquot_deltas(:,:,5,:) = [];
 
 for ii = 1:numel(metadata_fields)
-        aliquot_metadataPisExp.(metadata_fields{ii})(iPIS,:,:) = aliquot_metadata.(metadata_fields{ii})(iPIS,5,:);
-        aliquot_metadata.(metadata_fields{ii})(:,5,:) = [];
+    aliquot_metadataPisExp.(metadata_fields{ii})(iPIS,:,:) = aliquot_metadata.(metadata_fields{ii})(iPIS,5,:);
+    aliquot_metadata.(metadata_fields{ii})(:,5,:) = [];
 end
 
 calcPis(:,:,5,:) = [];
@@ -383,11 +382,11 @@ aliquot_deltas_pisCorr = aliquot_deltas - permute(aliquot_metadata.pressureImbal
 %   2) Figure out how I'm going to do the CS Correction for Ar isotopes
 
 iCS_15N = contains(squeeze(aliquot_metadata.ID1(:,1,1)),'CS') ...
-          & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'15') ...
-          | contains(squeeze(aliquot_metadata.ID1(:,1,1)),'N'));
+    & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'15') ...
+    | contains(squeeze(aliquot_metadata.ID1(:,1,1)),'N'));
 iCS_18O = contains(squeeze(aliquot_metadata.ID1(:,1,1)),'CS') ...
-          & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'18') ...
-          | contains(squeeze(aliquot_metadata.ID1(:,1,1)),'O'));
+    & (contains(squeeze(aliquot_metadata.ID1(:,1,1)),'18') ...
+    | contains(squeeze(aliquot_metadata.ID1(:,1,1)),'O'));
 
 iCS_Ar = iCS_15N | iCS_18O; % Create joint CS index for d40/36Ar CS experiments
 
@@ -405,7 +404,7 @@ diffsCS_Ar(iCS_Ar) = [diff(aliquot_metadata.msDatetime(iCS_Ar,1,1)); hours(999)+
 % N.B. It's important to not use too big a number here. Using 24 hours
 % fails to resolve a re-do of the 18O CS in Feb-2016 as it was run the
 % morning after the previous attempt was run in the afternoon w/ diff=15 hr
-endCS_15N = diffsCS_15N > 10/24; 
+endCS_15N = diffsCS_15N > 10/24;
 endCS_18O = diffsCS_18O > 10/24;
 endCS_Ar = diffsCS_Ar > 24; % Use 24 hours for Ar to make sure the re-do is lumped together with the right 15N CS experiment
 
@@ -459,7 +458,7 @@ for ii=1:sum(endCS_15N)
     axis([-10 350 -0.01 0.25]);
     xlabel('\deltaO_2/N_2 [per mil]');
     ylabel('\delta^{15}N [per mil]');
-    title(['\delta^{15}N CS: ' datestr(aliquot_metadata.msDatetime(idxCS_15NEnd==ii,1,1),'yyyy-mmm-dd')])    
+    title(['\delta^{15}N CS: ' datestr(aliquot_metadata.msDatetime(idxCS_15NEnd==ii,1,1),'yyyy-mmm-dd')])
 end
 
 % dO2/N2 Effect on dArN2
@@ -479,7 +478,7 @@ for ii=1:sum(endCS_15N)
     axis([-10 350 -0.1 1.2]);
     xlabel('\deltaO_2/N_2 [per mil]');
     ylabel('\deltaAr/N_2 [per mil]');
-    title(['\deltaAr/N_2 CS: ' datestr(aliquot_metadata.msDatetime(idxCS_15NEnd==ii,1,1),'yyyy-mmm-dd')])    
+    title(['\deltaAr/N_2 CS: ' datestr(aliquot_metadata.msDatetime(idxCS_15NEnd==ii,1,1),'yyyy-mmm-dd')])
 end
 
 % dN2/O2 Effect on d18O
@@ -499,7 +498,7 @@ for ii=1:sum(endCS_18O)
     axis([-10 350 -0.1 0.1]);
     xlabel('\deltaN_2/O_2 [per mil]');
     ylabel('\delta^{18}O [per mil]');
-    title(['\delta^{18}O CS: ' datestr(aliquot_metadata.msDatetime(idxCS_18OEnd==ii,1,1),'yyyy-mmm-dd')])    
+    title(['\delta^{18}O CS: ' datestr(aliquot_metadata.msDatetime(idxCS_18OEnd==ii,1,1),'yyyy-mmm-dd')])
 end
 
 % dN2/O2 Effect on d17O
@@ -519,7 +518,7 @@ for ii=1:sum(endCS_18O)
     axis([-10 350 -0.1 1]);
     xlabel('\deltaN_2/O_2 [per mil]');
     ylabel('\delta^{17}O [per mil]');
-    title(['\delta^{17}O CS: ' datestr(aliquot_metadata.msDatetime(idxCS_18OEnd==ii,1,1),'yyyy-mmm-dd')])    
+    title(['\delta^{17}O CS: ' datestr(aliquot_metadata.msDatetime(idxCS_18OEnd==ii,1,1),'yyyy-mmm-dd')])
 end
 
 % d4036Ar
@@ -547,7 +546,7 @@ for ii=1:sum(endCS_Ar)
     title(['\delta^{40}/_{36}Ar CS: ' datestr(aliquot_metadata.msDatetime(idxCS_ArEnd==ii,1,1),'yyyy-mmm-dd')])
     
     colormap(cbrewer('seq','Greens',20));
-    axis([-20 350 -20 350 -8 1]); 
+    axis([-20 350 -20 350 -8 1]);
     caxis([-8 0]);
     view([40 45]);
 end
@@ -580,7 +579,7 @@ for ii=1:sum(endCS_Ar)
     title(['\delta^{40}/_{38}Ar CS: ' datestr(aliquot_metadata.msDatetime(idxCS_ArEnd==ii,1,1),'yyyy-mmm-dd')])
     
     colormap(cbrewer('seq','Greens',20));
-    axis([-50 350 -50 350 -16 1]); 
+    axis([-50 350 -50 350 -16 1]);
     caxis([-8 0]);
     view([40 45]);
 end
@@ -595,12 +594,12 @@ CS = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS
 CS = fillmissing(CS,'previous',1);
 
 CS_predictors = [aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:) ... % O2N2 CS on d15N
-                 ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
-                 ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
-                 zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4036Ar CS Below
-                 zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4038Ar CS Below
-                 zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % No CS Corr for dO2N2 
-                 aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)]; % O2N2 CS on dArN2
+    ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
+    ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
+    zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4036Ar CS Below
+    zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4038Ar CS Below
+    zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % No CS Corr for dO2N2
+    aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)]; % O2N2 CS on dArN2
 
 aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
 
@@ -630,7 +629,7 @@ iLjaEnd = diffsLJA > 5;
 idxLjaAliquotsEnd = nan(size(aliquot_deltas_pisCorr_csCorr,1),1);
 idxLjaAliquotsEnd(iLjaEnd) = cumsum(iLjaEnd(iLjaEnd));
 
-% Assign the same index to all the aliquots from each given batch 
+% Assign the same index to all the aliquots from each given batch
 idxLjaAliquots = zeros(size(aliquot_deltas_pisCorr_csCorr,1),1); % Create a vector of zeros
 idxLjaAliquots(iLja)=nan; % Assign NaN to the values I want to replace
 idxLjaAliquots(iLjaEnd) = idxLjaAliquotsEnd(iLjaEnd); % Fill in the indices of the end of each LJA aliquot
@@ -663,7 +662,7 @@ for ii = 1:numel(delta_cols)
     hBoxPlot=boxplot(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),idxLjaAliquots(iLja),'Labels',labels,'Notch','off');
     plot(idxLjaAliquots(iLja),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),'.k');
     text(1:sum(iLjaEnd),repmat(min(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))*1.05,1,sum(iLjaEnd)),compose(['N = %d\n\\sigma = %.3f' char(8240) '\nSEM = %.3f' char(8240)],N,stdev(:,ii),SEM(:,ii)));
-
+    
     ylim('auto');
     ylabel('\delta_{LJA} [per mil]')
     title(['LJA ' delta_cols(ii)])
