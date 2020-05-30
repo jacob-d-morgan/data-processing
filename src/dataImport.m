@@ -179,16 +179,16 @@ y = 1:length(x);
 idxCO2NearestBlocks = interp1(x(~iCO2),y(~iCO2),x(iCO2),'nearest'); % Interpolate to find the index of the nearest blocks
 datetimeCO2NearestBlocks = importedData.datetime(idxCO2NearestBlocks); % Use the index to find the datetime of those blocks
 
-[iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquot_metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure
-[idxCO2Aliquots,idx2,idx3] = ind2sub(size(aliquot_metadata.msDatetime),idxB); % Convert to a subscript so that I know which aliquot they correspond to
+[iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquot_metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
+[idxCO2Aliquots,idx2,idx3] = ind2sub(size(aliquot_metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
 
-aliquot_metadata.rCO2N2_SA = nan(size(aliquot_metadata.msDatetime,4),1);
-aliquot_metadata.rCO2N2_ST = nan(size(aliquot_metadata.msDatetime,4),1);
-aliquot_metadata.dCO2N2 = nan(size(aliquot_metadata.msDatetime,4),1);
+aliquot_metadata.rCO2N2_SA = nan(size(aliquot_metadata.msDatetime,1),1);
+aliquot_metadata.rCO2N2_ST = nan(size(aliquot_metadata.msDatetime,1),1);
+aliquot_metadata.dCO2N2 = nan(size(aliquot_metadata.msDatetime,1),1);
 
-aliquot_metadata.rCO2N2_SA(idxCO2Aliquots(iA)) = rCO2N2_SA(iA);
-aliquot_metadata.rCO2N2_ST(idxCO2Aliquots(iA)) = rCO2N2_ST(iA);
-aliquot_metadata.dCO2N2(idxCO2Aliquots(iA)) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
+aliquot_metadata.rCO2N2_SA(idxCO2Aliquots) = rCO2N2_SA(iA);
+aliquot_metadata.rCO2N2_ST(idxCO2Aliquots) = rCO2N2_ST(iA);
+aliquot_metadata.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
 
 
 %% Do Some Staistics on the Blocks
@@ -277,7 +277,7 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
         [pImbal, idx] = max(abs(G(:,2))); % Find the block with the max P Imbalance
         
         if idx ~= 5
-            warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
+            warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy HH:MM') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
         end
         
         calcPis(ii,jj,:,:)=m(2);
