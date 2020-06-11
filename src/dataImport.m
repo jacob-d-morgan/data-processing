@@ -33,24 +33,9 @@ importedData.Date = datestr(datenum(importedData.Date) + datenum('31 Dec 1999'))
 importedData.IsRef__ = logical(importedData.IsRef__);
 importedData.Method = string(importedData.Method);
 importedData.Identifier1 = string(importedData.Identifier1);
+importedData.GasConfiguration = string(importedData.GasConfiguration);
 
-idxTimeCode = find(cellfun(@(varName) strcmp('TimeCode',varName),importedData.Properties.VariableNames)==1);
-importedData = sortrows(importedData,idxTimeCode);
-
-%% Check the Gas Configuration and Gas Names
-% Do something here to highlight the different unique values of the Gas
-% Config or the Gas Name (CAREFUL! These can be different) and ask the user
-% to select which ones they want to include? For example, discard
-% everything that is not 'Air+' or discard everything that is 'Ne'.
-%
-% Could do something similar here with folder names etc.
-
-% 1. Only Use Data from the "SPICE" Folders
-% importedData = importedData(contains(importedData.FileHeader_Filename,'SPICE'),:);
-
-% 2. Remove Cycles with No ID1 (Sample ID/Bottom Depth)
-% disp(['Removing ' num2str(sum(ismissing(importedData.Identifier1))) ' cycles with no ID1']);
-% importedData = importedData(~ismissing(importedData.Identifier1),:);
+importedData = sortrows(importedData,'TimeCode');
 
 %% Interpolate ST Voltages and Calculate Delta Values
 % NOTE: The current method of interpolating onto the ~isRef indices
@@ -100,6 +85,42 @@ cycle_metadata.int28ST = intST.rIntensity28;
 cycle_metadata.pressureImbal = (intSA.rIntensity28 - intST.rIntensity28);
 
 metadata_fields = fieldnames(cycle_metadata)'; % Transpose it to a row vector so that it works as a loop index
+
+%% Reject Erroneous Cycles
+% Get rid of some data that is of little use for evaluating the health of
+% the mass spec and which causes problems with PIS etc.
+%
+% First, discard all data with a gas config different to 'Air+'
+% This is mostly Jeff's neon experiments.
+    % N.B. Note that there is a difference between Gas Config and Gas Name!
+    % N.B. This does not reject the data from the CO2 check blocks as they
+    % are already misisng from the cycle deltas and metadata.
+
+iAirPlus = cycle_metadata.gasConfig == 'Air+';
+cycle_deltas(~iAirPlus,:) = [];
+for ii = 1:numel(metadata_fields)
+    cycle_metadata.(metadata_fields{ii})(~iAirPlus,:) = [];
+end
+
+% Could do something similar here with folder names e.g. only use data from
+% the "SPICE" Folders:
+% importedData = importedData(contains(importedData.FileHeader_Filename,'SPICE'),:);
+
+
+% Second, reject cycles where the mass 28 beam is saturated on the cup
+% (>9000 mV) or where it is less than 10 mV, presumably indicating some 
+% problem with the source.
+    % N.B. This also happens sometimes when measuring in an unusual gas
+    % configuration that doesn't focus the 28 beam into a cup but collects 
+    % the signal anyway. If the 28 beam isn't included in the gas config 
+    % then its value is recorded as NaN.
+
+iBeamReject = cycle_metadata.int28SA > 9000 | cycle_metadata.int28SA < 10 | cycle_metadata.int28ST > 9000 | cycle_metadata.int28ST < 10;
+
+cycle_deltas = cycle_deltas(~iBeamReject,:);
+for ii = 1:numel(metadata_fields)
+    cycle_metadata.(metadata_fields{ii}) = cycle_metadata.(metadata_fields{ii})(~iBeamReject);
+end
 
 %% Reshape into Isotope Ratio-x-Block-x-Cycle
 % Identify the different blocks by the unique filenames
