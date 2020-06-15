@@ -30,7 +30,7 @@ numRejections = sum(iNotSig);
 % calcPisRsq(iNotSig) = nan;
 % calcPisImbal(iNotSig(:,1,1,1)) = nan;
 
-%% Moving Median
+%% Moving Median +/- 3 Moving MedAD
 % Reject PIS values that are more than three median absolute deviations
 % away from a moving median of the time series. Test various values for the
 % width of the moving median window.
