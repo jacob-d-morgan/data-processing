@@ -113,7 +113,7 @@ ylabel('Number of Rejections')
 legend(delta_cols)
 
 
-%% Deviations from Detrended Time-Series
+%% Deviations from Detrended Time-Series by +/- 3 MedAD
 % Removes the points with the most extreme deviations from the running
 % median, i.e. the points with deviations outside of the median deviation
 % (which ought to be, and is ~0) +/- 3 MedAD.
@@ -158,3 +158,56 @@ ylabel('Number of Rejections')
 legend(delta_cols)
 
 
+%% Deviations from Detrended Time-Series by CDF
+% Removes the points with the most extreme deviations from the running
+% median, i.e. the points with deviations outside of the median deviation
+% (which ought to be, and is ~0) +/- 3 MedAD.
+
+edges = {-2.1e-4:3e-5/4:3e-4; ...
+         -2.1e-4:3e-5/4:4.2e-4; ...
+         -3.0e-4:1e-5:3e-4; ...
+         -1e-3:1e-4/4:5e-4; ...
+         -2e-2:1e-3/4:2e-2; ...
+         -1e-3:1e-4/4:1e-3; ...
+         -1e-3:2e-4/4:3e-3
+        };
+    
+movWindow = 7:7:7*4*4;
+dev = nan(sum(~isnan(calcPisImbal)),length(movWindow),numel(delta_cols));
+numRej = nan(length(movWindow),numel(delta_cols));
+for ii =1:length(movWindow)
+    stackedFig(numel(delta_cols));
+    for jj = 1:numel(delta_cols)
+        stackedFigAx(jj)
+        x = aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1);
+        y = calcPis(~isnan(calcPisImbal),jj,1,1);
+        
+        cen = movmedian(y,movWindow(ii),'omitnan','SamplePoints',x);
+        dev(:,jj,ii) = y-cen;
+        CDF = histcounts(dev(:,jj,ii),edges{jj},'Normalization','cdf');
+        
+        low = cen + edges{jj}(find(CDF<0.01,1,'last'));
+        upp = cen + edges{jj}(find(CDF>0.99,1,'first'));
+        iRej = (y > upp) | (y < low);
+        
+        H=shadedErrorBar(x,cen,[upp-cen cen-low],'-k'); delete(H.edge); H.patch.FaceColor = lineCol(9)*1.3; H.mainLine.LineWidth = 1;
+        plot(x(~iRej),y(~iRej),'o','Color','none','MarkerFaceColor',lineCol(jj))
+        errorbar(x(iRej),y(iRej),[],[],repmat(movWindow(ii)/2,sum(iRej),1),repmat(movWindow(ii)/2,sum(iRej),1),'xk','LineWidth',2)
+        ylabel(delta_cols{jj})
+        
+        numRej(ii,jj) = sum(iRej(:,:,1,1));
+                
+    end
+    stackedFigAx;
+    xlim(datenum(["01-Jan-2016" "01-Jan-2019"]));
+    datetick('x','dd-mmm','KeepLimits')
+    title(['Window = ' num2str(movWindow(ii)) ' days'])
+    stackedFigReset;
+    maximize;
+end
+
+figure
+plot(movWindow,numRej)
+xlabel('Window Size [days]');
+ylabel('Number of Rejections')
+legend(delta_cols)
