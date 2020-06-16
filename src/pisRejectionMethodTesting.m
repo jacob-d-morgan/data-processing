@@ -48,7 +48,8 @@ numRejections = sum(iNotSig);
 movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
 numRej = nan(length(movWindow),numel(delta_cols));
 
-for ii =1:length(movWindow)
+% for ii =1:length(movWindow)
+for ii = find(movWindow==42) % Works best for the Moving MedAD method
     stackedFig(numel(delta_cols));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
@@ -97,7 +98,9 @@ legend(delta_cols)
 
 movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
 numRej = nan(length(movWindow),numel(delta_cols));
-for ii =1:length(movWindow)
+
+% for ii =1:length(movWindow)
+for ii = find(movWindow==49) % Works best for the entire time-series method
     stackedFig(numel(delta_cols));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
@@ -150,7 +153,9 @@ legend(delta_cols)
 movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
 dev = nan(sum(~isnan(calcPisImbal)),length(movWindow),numel(delta_cols));
 numRej = nan(length(movWindow),numel(delta_cols));
-for ii =1:length(movWindow)
+
+% for ii =1:length(movWindow)
+for ii = movWindow==98 % Works best for the detrended method
     stackedFig(numel(delta_cols));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
@@ -213,7 +218,8 @@ movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
 dev = nan(sum(~isnan(calcPisImbal)),length(movWindow),numel(delta_cols));
 numRej = nan(length(movWindow),numel(delta_cols));
 
-for ii =1:length(movWindow)
+% for ii =1:length(movWindow)
+for ii = find(movWindow==56) % Works best for the CDF method
     stackedFig(numel(delta_cols));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
