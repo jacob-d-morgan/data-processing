@@ -63,7 +63,7 @@ for ii = find(movWindow==42) % Works best for the Moving MedAD method
         errorbar(x(iRej),y(iRej),[],[],repmat(movWindow(ii)/2,sum(iRej),1),repmat(movWindow(ii)/2,sum(iRej),1),'xk','LineWidth',2) % Plot the rejected data and indicate the window size with x error bars
         ylabel(delta_cols{jj})
         
-        numRej(ii,jj) = sum(iRej(:,:,1,1)); % tally the number of rejections for each combination of delta value and window size
+        numRej(ii,jj) = sum(iRej); % tally the number of rejections for each combination of delta value and window size
     end
     
     stackedFigAx;
@@ -118,7 +118,7 @@ for ii = find(movWindow==49) % Works best for the entire time-series method
         errorbar(x(iRej),y(iRej),[],[],repmat(movWindow(ii)/2,sum(iRej),1),repmat(movWindow(ii)/2,sum(iRej),1),'xk','LineWidth',2) % Plot the rejected data and indicate the window size with x error bars
         ylabel(delta_cols{jj})
         
-        numRej(ii,jj) = sum(iRej(:,:,1,1)); % tally the number of rejections for each combination of delta value and window size
+        numRej(ii,jj) = sum(iRej); % tally the number of rejections for each combination of delta value and window size
     end
     
     stackedFigAx;
@@ -174,7 +174,7 @@ for ii = movWindow==98 % Works best for the detrended method
         errorbar(x(iRej),y(iRej),[],[],repmat(movWindow(ii)/2,sum(iRej),1),repmat(movWindow(ii)/2,sum(iRej),1),'xk','LineWidth',2) % Plot the rejected data and indicate the window size with x error bars
         ylabel(delta_cols{jj})
         
-        numRej(ii,jj) = sum(iRej(:,:,1,1)); % tally the number of rejections for each combination of delta value and window size
+        numRej(ii,jj) = sum(iRej); % tally the number of rejections for each combination of delta value and window size
                 
     end
     
@@ -241,7 +241,7 @@ for ii = find(movWindow==49) % Works best for the CDF method
         errorbar(x(iRej),y(iRej),[],[],repmat(movWindow(ii)/2,sum(iRej),1),repmat(movWindow(ii)/2,sum(iRej),1),'xk','LineWidth',2) % Plot the rejected data and indicate the window size with x error bars
         ylabel(delta_cols{jj})
         
-        numRej(ii,jj) = sum(iRej(:,:,1,1)); % tally the number of rejections for each combination of delta value and window size
+        numRej(ii,jj) = sum(iRej); % tally the number of rejections for each combination of delta value and window size
                 
     end
     
