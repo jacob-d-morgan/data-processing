@@ -151,7 +151,7 @@ legend(delta_cols)
 
 
 movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
-dev = nan(sum(~isnan(calcPisImbal)),length(movWindow),numel(delta_cols));
+dev = nan(sum(~isnan(calcPisImbal)),numel(delta_cols),length(movWindow));
 numRej = nan(length(movWindow),numel(delta_cols));
 
 % for ii =1:length(movWindow)
@@ -202,25 +202,25 @@ legend(delta_cols)
 % This method seems to do well. It has asymmetrical rejection thresholds
 % but I don't see this as a problem. It doesn't seem to have any big
 % problem with false positives or false negatives and it is insensitive to
-% window size for windows larger than ~5 weeks.
+% window size for windows larger than ~5 weeks. It is, however, sensitive
+% to the number and width of the bins (especially d40/38Ar, which has two
+% large outliers). The Freedman-Diaconis method seems to do the best job as
+% it is based on the IQR, which is not very sensitive to outliers, compared
+% to other methods that use the std dev. I also anticipate this method
+% improving once I add more data.
 
-% Define the edges for the CDF of each delta value
-edges = {-2.1e-4:3e-5/4:3e-4; ...
-         -2.1e-4:3e-5/4:4.2e-4; ...
-         -3.0e-4:1e-5:3e-4; ...
-         -1e-3:1e-4/4:5e-4; ...
-         -2e-2:1e-3/4:2e-2; ...
-         -1e-3:1e-4/4:1e-3; ...
-         -1e-3:2e-4/4:3e-3
-        };
     
 movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
-dev = nan(sum(~isnan(calcPisImbal)),length(movWindow),numel(delta_cols));
+dev = nan(sum(~isnan(calcPisImbal)),numel(delta_cols),length(movWindow));
 numRej = nan(length(movWindow),numel(delta_cols));
+CDF = cell(length(movWindow),numel(delta_cols));
+edges = cell(length(movWindow),numel(delta_cols));
 
 % for ii =1:length(movWindow)
-for ii = find(movWindow==56) % Works best for the CDF method
+for ii = find(movWindow==49) % Works best for the CDF method
     stackedFig(numel(delta_cols));
+	stackedFigAx;
+    xlim(datenum(["01-Jan-2016" "01-Jan-2019"]));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
         x = aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1);
@@ -228,14 +228,16 @@ for ii = find(movWindow==56) % Works best for the CDF method
         
         cen = movmedian(y,movWindow(ii),'omitnan','SamplePoints',x); % Calculate moving median for given window width
         dev(:,jj,ii) = y-cen; % Detrend time-series by calculating deviation of each point from moving median
-        CDF = histcounts(dev(:,jj,ii),edges{jj},'Normalization','cdf'); % Calculate CDF of the deviations
         
-        low = cen + edges{jj}(find(CDF<0.01,1,'last')); % Lower Bound = Median - First Percentile Deviation
-        upp = cen + edges{jj}(find(CDF>0.99,1,'first')); % Upper Bound = Median + Ninety Ninth Percentile Deviation
+        [CDF{ii,jj},edges{ii,jj}] = histcounts(dev(:,jj,ii),'BinMethod','fd','Normalization','cdf'); % Calculate CDF of the deviations, using Freedman-Diaconis rule for bin widths
+        
+        low = cen + edges{ii,jj}(find(CDF{ii,jj}>0.01,1,'first')); % Lower Bound = Median - First Percentile Deviation
+        upp = cen + edges{ii,jj}(find(CDF{ii,jj}>0.99,1,'first')); % Upper Bound = Median + Ninety Ninth Percentile Deviation
         iRej = (y > upp) | (y < low);
         
         H=shadedErrorBar(x,cen,[upp-cen cen-low],'-k'); delete(H.edge); H.patch.FaceColor = lineCol(9)*1.3; H.mainLine.LineWidth = 1; % Plot the rejection criteria
         plot(x(~iRej),y(~iRej),'o','Color','none','MarkerFaceColor',lineCol(jj)) % Plot the non-rejected data
+        drawnow; ylim('manual')
         errorbar(x(iRej),y(iRej),[],[],repmat(movWindow(ii)/2,sum(iRej),1),repmat(movWindow(ii)/2,sum(iRej),1),'xk','LineWidth',2) % Plot the rejected data and indicate the window size with x error bars
         ylabel(delta_cols{jj})
         
