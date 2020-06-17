@@ -284,6 +284,7 @@ end
 % Calculate the PIS for each experiment for each of the delta values
 calcPis = nan(size(aliquot_deltas,[1 2]));
 calcPisRsq = nan(size(aliquot_deltas,[1 2]));
+calcPisPval = nan(size(aliquot_deltas,[1 2]));
 calcPisImbal = nan(size(aliquot_deltas,[1 2]));
 
 for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
@@ -293,7 +294,7 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
         G = [ones(size(d)) nanmean(aliquot_metadata.pressureImbal(ii,:,:),3)']; % predictor variable = the pressure imbalance (col 3) from the looped variable
         m = (G'*G)\G'*d; % Calculate the PIS
         
-        R_corr = corrcoef(G(:,2),d); % Find the r-squared correlation coefficient for the PIS test
+        [R_corr,pVal] = corrcoef(G(:,2),d); % Find the r-squared correlation coefficient for the PIS test
         [pImbal, idx] = max(abs(G(:,2))); % Find the block with the max P Imbalance
         
         if idx ~= 5
@@ -302,6 +303,7 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
         
         calcPis(ii,jj)=m(2);
         calcPisRsq(ii,jj) = R_corr(1,2).^2;
+        calcPisPval(ii,jj) = pVal(1,2);
         calcPisImbal(ii,jj) = pImbal * sign(G(idx,2));
     end
 end
@@ -313,6 +315,7 @@ end
 iPisRejections = abs(calcPisImbal)<100;
 calcPis(iPisRejections) = nan;
 calcPisRsq(iPisRejections) = nan;
+calcPisPval(iPisRejections) = nan;
 calcPisImbal(iPisRejections) = nan;
 
 %pisRejectionMethodTesting; % Run to test different rejection criteria

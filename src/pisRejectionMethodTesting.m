@@ -53,8 +53,8 @@ for ii = find(movWindow==42) % Works best for the Moving MedAD method
     stackedFig(numel(delta_cols));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
-        x = aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1);
-        y = calcPis(~isnan(calcPisImbal),jj,1,1);
+        x = aliquot_metadata.msDatenum(iPIS,1,1);
+        y = calcPis(iPIS,jj,1,1);
         
         [iRej,low,upp,cen] = isoutlier(y,'movmed',movWindow(ii),'SamplePoints',x); % Reject points three moving MedAD away from the moving median
 
@@ -75,11 +75,11 @@ for ii = find(movWindow==42) % Works best for the Moving MedAD method
 end
 
 % Plot the sensitivity of number of rejections to window size
-figure
-plot(movWindow,numRej)
-xlabel('Window Size [days]');
-ylabel('Number of Rejections')
-legend(delta_cols)
+% figure
+% plot(movWindow,numRej)
+% xlabel('Window Size [days]');
+% ylabel('Number of Rejections')
+% legend(delta_cols)
 
 
 %% Moving Median +/- 3 MedAD of the Entire Time-Series
@@ -104,8 +104,8 @@ for ii = find(movWindow==49) % Works best for the entire time-series method
     stackedFig(numel(delta_cols));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
-        x = aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1);
-        y = calcPis(~isnan(calcPisImbal),jj,1,1);
+        x = aliquot_metadata.msDatenum(iPIS,1,1);
+        y = calcPis(iPIS,jj,1,1);
         
         cen = movmedian(y,movWindow(ii),'omitnan','SamplePoints',x);
         MedAD = mad(y,1); % Calculate MedAD of entire dataset (flag = 1 calculates Median AD c.f. Mean AD)
@@ -130,11 +130,11 @@ for ii = find(movWindow==49) % Works best for the entire time-series method
 end
 
 % Plot the sensitivity of number of rejections to window size
-figure
-plot(movWindow,numRej)
-xlabel('Window Size [days]');
-ylabel('Number of Rejections')
-legend(delta_cols)
+% figure
+% plot(movWindow,numRej)
+% xlabel('Window Size [days]');
+% ylabel('Number of Rejections')
+% legend(delta_cols)
 
 
 %% Moving Median +/- 3 MedAD of the Entire Detrended Time-Series
@@ -151,16 +151,16 @@ legend(delta_cols)
 
 
 movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
-dev = nan(sum(~isnan(calcPisImbal)),numel(delta_cols),length(movWindow));
+dev = nan(sum(iPIS),numel(delta_cols),length(movWindow));
 numRej = nan(length(movWindow),numel(delta_cols));
 
 % for ii =1:length(movWindow)
-for ii = movWindow==98 % Works best for the detrended method
+for ii = find(movWindow==98) % Works best for the detrended method
     stackedFig(numel(delta_cols));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
-        x = aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1);
-        y = calcPis(~isnan(calcPisImbal),jj,1,1);
+        x = aliquot_metadata.msDatenum(iPIS,1,1);
+        y = calcPis(iPIS,jj,1,1);
         
         cen = movmedian(y,movWindow(ii),'omitnan','SamplePoints',x);
         dev(:,jj,ii) = y-cen; % Detrend time-series by calculating deviation of each point from moving median
@@ -181,17 +181,17 @@ for ii = movWindow==98 % Works best for the detrended method
     stackedFigAx;
     xlim(datenum(["01-Jan-2016" "01-Jan-2019"]));
     datetick('x','dd-mmm','KeepLimits')
-    title(['Window = ' num2str(movWindow(ii)) ' days'])
+    title({['Mov Med. ' char(177) '3 MedADN of De-trended TS'];['Window = ' num2str(movWindow(ii)) ' days']})
     stackedFigReset;
     
 end
 
 % Plot the sensitivity of number of rejections to window size
-figure
-plot(movWindow,numRej)
-xlabel('Window Size [days]');
-ylabel('Number of Rejections')
-legend(delta_cols)
+% figure
+% plot(movWindow,numRej)
+% xlabel('Window Size [days]');
+% ylabel('Number of Rejections')
+% legend(delta_cols)
 
 
 %% Moving Median +/- 45.5% of the PDF of the Detrended Time-Series
@@ -211,7 +211,7 @@ legend(delta_cols)
 
     
 movWindow = 7:7:7*4*4; % Define a range of window sizes from 1 to 16 weeks
-dev = nan(sum(~isnan(calcPisImbal)),numel(delta_cols),length(movWindow));
+dev = nan(sum(iPIS),numel(delta_cols),length(movWindow));
 numRej = nan(length(movWindow),numel(delta_cols));
 CDF = cell(length(movWindow),numel(delta_cols));
 edges = cell(length(movWindow),numel(delta_cols));
@@ -223,8 +223,8 @@ for ii = find(movWindow==49) % Works best for the CDF method
     xlim(datenum(["01-Jan-2016" "01-Jan-2019"]));
     for jj = 1:numel(delta_cols)
         stackedFigAx(jj)
-        x = aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1);
-        y = calcPis(~isnan(calcPisImbal),jj,1,1);
+        x = aliquot_metadata.msDatenum(iPIS,1,1);
+        y = calcPis(iPIS,jj,1,1);
         
         cen = movmedian(y,movWindow(ii),'omitnan','SamplePoints',x); % Calculate moving median for given window width
         dev(:,jj,ii) = y-cen; % Detrend time-series by calculating deviation of each point from moving median
@@ -248,14 +248,14 @@ for ii = find(movWindow==49) % Works best for the CDF method
     stackedFigAx;
     xlim(datenum(["01-Jan-2016" "01-Jan-2019"]));
     datetick('x','dd-mmm','KeepLimits')
-    title(['Window = ' num2str(movWindow(ii)) ' days'])
+    title({['Mov Med. ' char(177) '45.5% of De-trended Deviations']; ['Window = ' num2str(movWindow(ii)) ' days']})
     stackedFigReset;
 
 end
 
 % Plot the sensitivity of number of rejections to window size
-figure
-plot(movWindow,numRej)
-xlabel('Window Size [days]');
-ylabel('Number of Rejections')
-legend(delta_cols)
+% figure
+% plot(movWindow,numRej)
+% xlabel('Window Size [days]');
+% ylabel('Number of Rejections')
+% legend(delta_cols)
