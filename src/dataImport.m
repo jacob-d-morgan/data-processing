@@ -6,8 +6,7 @@
 % the xp2018 etc. variables as they take a long time to load in.
 
 cluk; clc;
-set(0,'defaultFigureVisible','off');
-disp('Run dataImport: Turning Figures Off');
+% set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
 clearvars -EXCEPT xp20*
 
 % clearvars;
@@ -271,7 +270,7 @@ ylim([0 1500])
 % Identifies the aliquots containing PIS experiments and calculates the
 % pressure imbalance sensitivity of each delta vlaue for each experiment.
 
-iPIS = all(~isnan(mean(aliquot_deltas,4)),3); % identify aliquots where the mean of ANY of the delta value is not NaN for ALL the blocks
+iPIS = all(~isnan(mean(aliquot_deltas,4)),3); % identify aliquots where the mean of ANY of the delta values is not NaN for ALL the blocks
 iPIS = iPIS & aliquot_metadata.ID1(:,5,1)=='PIS'; % limit the selection to just those identified as a PIS experiment by their Sample ID1
 
 if sum(any(iPIS,2)) ~= sum(all(iPIS,2)) % Check that all delta values identify each PIS experiment
@@ -283,9 +282,9 @@ end
 
 
 % Calculate the PIS for each experiment for each of the delta values
-calcPis = nan(size(aliquot_deltas));
-calcPisRsq = nan(size(aliquot_deltas));
-calcPisImbal = nan(size(aliquot_deltas,1),1);
+calcPis = nan(size(aliquot_deltas,[1 2]));
+calcPisRsq = nan(size(aliquot_deltas,[1 2]));
+calcPisImbal = nan(size(aliquot_deltas,[1 2]));
 
 for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
     for jj=1:numel(delta_cols) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
@@ -294,21 +293,101 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
         G = [ones(size(d)) nanmean(aliquot_metadata.pressureImbal(ii,:,:),3)']; % predictor variable = the pressure imbalance (col 3) from the looped variable
         m = (G'*G)\G'*d; % Calculate the PIS
         
-        r_sq = corrcoef(G(:,2),d).^2; % Find the r-squared correlation coefficient for the PIS test
+        R_corr = corrcoef(G(:,2),d); % Find the r-squared correlation coefficient for the PIS test
         [pImbal, idx] = max(abs(G(:,2))); % Find the block with the max P Imbalance
         
         if idx ~= 5
             warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy HH:MM') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
         end
         
-        calcPis(ii,jj,:,:)=m(2);
-        calcPisRsq(ii,jj,:,:) = r_sq(1,2);
-        calcPisImbal(ii) = pImbal * sign(G(idx,2));
+        calcPis(ii,jj)=m(2);
+        calcPisRsq(ii,jj) = R_corr(1,2).^2;
+        calcPisImbal(ii,jj) = pImbal * sign(G(idx,2));
     end
 end
 
-% Now remove the fifth blocks from the arrays of block and aliquot delta
-% values so they don't get mixed in with further analysis
+
+%% Identify Anomalous PIS values
+
+% Reject all PIS values where the P Imbalance is smaller than 100 mV
+iPisRejections = abs(calcPisImbal)<100;
+calcPis(iPisRejections) = nan;
+calcPisRsq(iPisRejections) = nan;
+calcPisImbal(iPisRejections) = nan;
+
+%pisRejectionMethodTesting; % Run to test different rejection criteria
+
+% Identify PIS values that differ significantly from the running median for a given delta value
+numRej = zeros(1,numel(delta_cols));
+movWindow=49; % Moving median window = 7 weeks
+
+
+for ii = 1:numel(delta_cols)
+    x = aliquot_metadata.msDatenum(iPIS,1,1);
+    y = calcPis(iPIS,ii,1,1);
+
+    cen = movmedian(y,movWindow,'omitnan','SamplePoints',x); % Calculate moving median for given window width
+    dev = y-cen; % Detrend time-series by calculating deviation of each point from moving median
+
+    [CDF,edges] = histcounts(dev,'BinMethod','fd','Normalization','cdf'); % Calculate CDF of the deviations, using Freedman-Diaconis rule for bin widths
+
+    low = cen + edges(find(CDF>0.01,1,'first')); % Lower Bound = Median - First Percentile Deviation
+    upp = cen + edges(find(CDF>0.99,1,'first')); % Upper Bound = Median + Ninety Ninth Percentile Deviation
+    iRej = (y > upp) | (y < low);
+
+    iPisRejections(iPIS,ii) = iPisRejections(iPIS,ii) | iRej; % assign the rejections back to the full-size variable
+    numRej(ii) = sum(iRej); % tally the number of rejections for each combination of delta value and window size
+
+end
+
+
+%% Plot a time-series of the PIS and related parameters
+% This is useful to identify aliquots where the PIS block did no run
+% correctly or where the r-squared is low, suggesting a poor determination
+% of the PIS. These cases can be filtered out below.
+
+stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
+stackedFigAx
+xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
+
+% Plot R-Squared of each PIS Experiment
+stackedFigAx(1)
+for ii = 1:numel(delta_cols)
+    set(gca,'ColorOrderIndex',ii)
+    plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPisRsq(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii));
+    legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPisRsq(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii));
+end
+legend(legH,delta_cols,'Orientation','Horizontal','Location','South')
+ylabel('r^2');
+ylim([0.7 1]);
+
+% Plot PIS Value for each PIS Experiment
+stackedFigAx(2)
+for ii = 1:numel(delta_cols)
+    set(gca,'ColorOrderIndex',ii)
+    plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPis(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii));
+    legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPis(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii));
+end
+ylabel('PIS [per mil/per mil]');
+ylim([-0.01 0.005]);
+
+% Plot Pressure Imbalance for each PIS Experiment
+stackedFigAx(3)
+plot(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2),:),'-^','Color',lineCol(9))
+text(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2)),aliquot_metadata.ID1(iPIS & any(~iPisRejections,2),5,1))
+ylabel('Pressure Imbalance [per mil]')
+ylim([-600 0])
+
+stackedFigAx();
+datetick('x');
+xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
+
+stackedFigReset
+
+
+%% Remove PIS Blocks
+% Now remove the fifth blocks from the array of aliquot delta values so
+% they don't get used in with further analysis
 aliquot_deltasPisExp = aliquot_deltas(:,:,5,:);
 aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
 aliquot_deltas(:,:,5,:) = [];
@@ -318,81 +397,26 @@ for ii = 1:numel(metadata_fields)
     aliquot_metadata.(metadata_fields{ii})(:,5,:) = [];
 end
 
-calcPis(:,:,5,:) = [];
-calcPisRsq(:,:,5,:) = [];
-
-
-%% Filter the PIS values
-% Some of the PIS values are likely to be erroneous, here they get weeded
-% out.
-
-% Remove those with a P Imbalance smaller than 100 mV
-iSmallImbal = abs(calcPisImbal)<100;
-calcPis(iSmallImbal,:,:,:) = nan;
-calcPisRsq(iSmallImbal,:,:,:) = nan;
-calcPisImbal(iSmallImbal) = nan;
-
-% Remove those with an r-squared of less than 0.7
-iBadRsq = calcPisRsq < 0.7;
-calcPis(iBadRsq) = nan;
-calcPisRsq(iBadRsq) = nan;
-calcPisImbal(iBadRsq(:,1,1,1)) = nan;
-
-% Manual Removal
-% Remove two spurious looking d4038 values where the sign of the PIS
-% changes back and forth and the magnitude jumps by two orders.
-toRemove = find(aliquot_metadata.msDatetime(:,1,1)==datetime(2017,12,12,10,22,33));
-calcPis(toRemove,5,:,:)=nan;
-
-toRemove = find(aliquot_metadata.msDatetime(:,1,1)==datetime(2016,04,26,02,38,05));
-calcPis(toRemove,5,:,:)=nan;
-
-
-%% Plot a time-series of the PIS and related parameters
-% This is useful to identify aliquots where the PIS block did no run
-% correctly or where the r-squared is low, suggesting a poor determination
-% of the PIS. These cases can be filtered out below.
-
-stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
-
-stackedFigAx(1)
-plot(aliquot_metadata.msDatenum(:,1,1),calcPisRsq(:,:,1,1),'s')
-set(gca,'ColorOrderIndex',1)
-plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPisRsq(~isnan(calcPisImbal),:,1,1),'-');
-legend(delta_cols,'Orientation','Horizontal','Location','South')
-ylabel('r^2');
-ylim([0.7 1]);
-
-stackedFigAx(2)
-plot(aliquot_metadata.msDatenum(:,1,1),calcPis(:,:,1,1),'o')
-set(gca,'ColorOrderIndex',1)
-plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPis(~isnan(calcPisImbal),:,1,1),'-')
-ylabel('PIS [per mil/per mil]');
-ylim([-0.01 0.005]);
-
-stackedFigAx(3)
-plot(aliquot_metadata.msDatenum(:,1,1),calcPisImbal,'^')
-set(gca,'ColorOrderIndex',1)
-plot(aliquot_metadata.msDatenum(~isnan(calcPisImbal),1,1),calcPisImbal(~isnan(calcPisImbal)),'-','Color',lineCol(1));
-text(aliquot_metadata.msDatenum(iPIS,1,1),calcPisImbal(iPIS),aliquot_metadataPisExp.ID1(iPIS,1,1))
-ylabel('Pressure Imbalance [per mil]')
-ylim([-600 600])
-
-stackedFigAx();
-datetick('x');
-xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
-
-stackedFigReset
-
 
 %% Make PIS Correction
 PIS = calcPis;
+PIS(iPisRejections) = nan;
+PIS = repmat(PIS,[1 1 size(aliquot_deltas,[3 4])]);
 PIS = fillmissing(PIS,'previous',1);
 
-figure; hold on;
-plot(aliquot_metadata.msDatetime(:,1,1),calcPis(:,:,1,1),'o')
-set(gca,'ColorOrderIndex',1);
-plot(aliquot_metadata.msDatetime(:,1,1),PIS(:,:,1,1),'.')
+stackedFig(numel(delta_cols))
+for ii=1:numel(delta_cols)
+    stackedFigAx(ii)
+    plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii),1,1),calcPis(~iPisRejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
+    plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
+    ylabel(delta_cols{ii})
+end
+stackedFigAx
+title('PIS Values used for Correction')
+xlabel('Date')
+xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
+datetick('x','keeplimits')
+stackedFigReset
 
 aliquot_deltas_pisCorr = aliquot_deltas - permute(aliquot_metadata.pressureImbal,[1 4 2 3]).*PIS;
 
