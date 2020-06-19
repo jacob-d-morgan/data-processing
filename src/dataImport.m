@@ -1,40 +1,20 @@
 %% dataImport %%
 
-%% Import Data and Fix Variable Types
-% Uncomment this section when running the script for the first time in a
-% session. It's easiest to then comment these lines back out and not clear
-% the xp2018 etc. variables as they take a long time to load in.
+%% Import Data
+% Uncomment the csvReadIsodat line in this section when running the script 
+% for the first time in a session. It's easier and faster to then comment
+% these lines back out and not clear the importedData variable as the files
+% take a long time to load in.
 
-cluk; clc;
 % set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
-clearvars -EXCEPT xp20*
+clearvars -EXCEPT importedData;
+cluk; clc;
 
-% clearvars;
-% disp({'Loading file 1: Working...'})
-% xp2018 = readtable('XP-2018(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 1: Complete'}); disp({'Loading file 2: Working...'})
-% xp2017 = readtable('XP-2017(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 2: Complete'}); disp({'Loading file 3: Working...'})
-% xp2016 = readtable('XP-2016(excelExportIntensityJDM).csv','Delimiter',',');
-% disp({'Loading file 3: Complete'}); disp({'Loading file 4: Working...'})
-% % xp2015 = readtable('XP-2015(excelExportIntensityJDM).csv','Delimiter',',');
-% % disp({'Loading file 4: Complete'})
+filesToImport = ["XP-2018(excelExportIntensityJDM).csv"; ...
+    "XP-2017(excelExportIntensityJDM).csv"; ...
+    "XP-2016(excelExportIntensityJDM).csv"];
 
-xp2018.MeasurmentErrors = num2cell(xp2018.MeasurmentErrors);
-xp2017.MeasurmentErrors = num2cell(xp2017.MeasurmentErrors);
-xp2016.MeasurmentErrors = num2cell(xp2016.MeasurmentErrors);
-%xp2015.MeasurmentErrors = num2cell(xp2015.MeasurmentErrors);
-importedData = [xp2018; xp2017; xp2016]; % ; xp2015];
-
-importedData.datenum = datenum(importedData.TimeCode,'yyyy/mm/dd HH:MM:SS');
-importedData.datetime = datetime(importedData.TimeCode,'InputFormat','yyyy/MM/dd HH:mm:ss');
-importedData.Date = datestr(datenum(importedData.Date) + datenum('31 Dec 1999')); %Correct for two-character month '0018'
-importedData.IsRef__ = logical(importedData.IsRef__);
-importedData.Method = string(importedData.Method);
-importedData.Identifier1 = string(importedData.Identifier1);
-importedData.GasConfiguration = string(importedData.GasConfiguration);
-
-importedData = sortrows(importedData,'TimeCode');
+importedData = csvReadIsodat(filesToImport);
 
 %% Interpolate ST Voltages and Calculate Delta Values
 % NOTE: The current method of interpolating onto the ~isRef indices
@@ -71,7 +51,8 @@ cycle_deltas = table2array(cycle_deltas);
 cycle_metadata.msDatetime = datetime(importedData.datetime(~importedData.IsRef__));
 cycle_metadata.msDatenum = datenum(importedData.datenum(~importedData.IsRef__));
 cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
-cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
+%cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
+cycle_metadata.sequenceRow = importedData.SequenceRow(~importedData.IsRef__);
 cycle_metadata.ASInlet = importedData.AS_SIOInlet(~importedData.IsRef__);
 cycle_metadata.ID1 = importedData.Identifier1(~importedData.IsRef__);
 cycle_metadata.method = importedData.Method(~importedData.IsRef__);

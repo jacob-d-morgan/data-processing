@@ -55,18 +55,16 @@ end
 
 % Set My Default Import Options (Based off Auto-detected Options)
 optsToUse = opts{1};
-optsToUse = setvartype(optsToUse,'IsRef__','logical');
-optsToUse = setvartype(optsToUse,'PeakCenter','logical');
-optsToUse = setvartype(optsToUse,'Pressadjust','logical');
-optsToUse = setvartype(optsToUse,'Background','logical');
 optsToUse = setvartype(optsToUse,contains(optsToUse.VariableNames,'rIntensity'),'double'); % Import all the intensities as doubles, even if they are all NaN
 optsToUse = setvartype(optsToUse,string(optsToUse.VariableTypes)=='char','string'); % Import all text as string arrays
 optsToUse = setvartype(optsToUse,'TimeCode','datetime');
 optsToUse = setvaropts(optsToUse,'TimeCode','InputFormat','yyyy/MM/dd HH:mm:ss','DatetimeFormat','yyyy-MM-dd HH:mm:ss');
 optsToUse = setvartype(optsToUse,'Date','datetime');
 optsToUse = setvaropts(optsToUse,'Date','InputFormat','MM/dd/yy','DatetimeFormat','yyyy-MM-dd HH:mm:ss');
-optsToUse.VariableNames(string(optsToUse.VariableNames)=='Row')={'SequenceRow'}; % Otherwise this inteferes with table.Row, which is already a built-in MATLAB command
+optsToUse = setvartype(optsToUse,{'Identifier1','Identifier2'},'string');
 
+optsToUse.VariableNames(string(optsToUse.VariableNames)=='Row')={'SequenceRow'}; % Otherwise this inteferes with table.Row, which is already a built-in MATLAB command
+optsToUse.VariableNames(string(optsToUse.VariableNames)=='TimeCode')={'datetime'};
 
 % Read In Files
 importedData = table;
@@ -77,7 +75,8 @@ for ii=1:length(filesToRead)
     disp(compose('Reading File %i: Complete',ii))
 end
 
-importedData = sortrows(importedData,'TimeCode');
-
+importedData = sortrows(importedData,'datetime');
+importedData.datenum = datenum(importedData.datetime);
+importedData.IsRef__ = logical(importedData.IsRef__);
 
 end
