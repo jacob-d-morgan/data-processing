@@ -14,55 +14,19 @@ filesToImport = ["XP-2018(excelExportIntensityJDM).csv"; ...
     "XP-2017(excelExportIntensityJDM).csv"; ...
     "XP-2016(excelExportIntensityJDM).csv"];
 
-importedData = csvReadIsodat(filesToImport);
+%importedData = csvReadIsodat(filesToImport);
 
-%% Interpolate ST Voltages and Calculate Delta Values
+%% Calculate Delta Values and Compile Useful Metadata
 % NOTE: The current method of interpolating onto the ~isRef indices
 % excludes the CO2 checks from the blocks I consider as they are recorded
-% in isRef as 'true'. This is probably the right way to do it for now but I
-% must remember to add them back in, including their metadata, which is
-% also excluded when I subsample the metadata columns for the ~isRef rows.
+% in isRef as 'true'. This is probably the right way to do it but I have to
+% add them back in below, including their metadata.
 
-intSA = importedData(~importedData.IsRef__,1:9);
-intST = array2table(interp1(find(importedData.IsRef__), ...
-    importedData{importedData.IsRef__,1:9}, ...
-    find(~importedData.IsRef__)));
-intST.Properties.VariableNames = intSA.Properties.VariableNames;
-
-cycle_deltas = table();
-
-cycle_deltas.d15N = ((intSA.rIntensity29./intSA.rIntensity28)./(intST.rIntensity29./intST.rIntensity28) - 1)*1000;
-cycle_deltas.d18O = ((intSA.rIntensity34./intSA.rIntensity32)./(intST.rIntensity34./intST.rIntensity32) - 1)*1000;
-cycle_deltas.d17O = ((intSA.rIntensity33./intSA.rIntensity32)./(intST.rIntensity33./intST.rIntensity32) - 1)*1000;
-cycle_deltas.d4036Ar = ((intSA.rIntensity40./intSA.rIntensity36)./(intST.rIntensity40./intST.rIntensity36) - 1)*1000;
-cycle_deltas.d4038Ar = ((intSA.rIntensity40./intSA.rIntensity38)./(intST.rIntensity40./intST.rIntensity38) - 1)*1000;
-cycle_deltas.dO2N2 = ((intSA.rIntensity32./intSA.rIntensity28)./(intST.rIntensity32./intST.rIntensity28) - 1)*1000;
-cycle_deltas.dArN2 = ((intSA.rIntensity40./intSA.rIntensity28)./(intST.rIntensity40./intST.rIntensity28) - 1)*1000;
+[cycle_deltas,cycle_metadata] = calcCycles(importedData,'IsRef__');
 
 delta_cols = string(cycle_deltas.Properties.VariableNames);
+delta_labels = string(cycle_deltas.Properties.VariableDescriptions);
 cycle_deltas = table2array(cycle_deltas);
-
-%% Compile Useful Metadata
-% NOTE: The current approach of subsampling the colums for the ~isRef rows
-% excludes the CO2 check rows. I must remember to add these back in later.
-% Also, the cycles all have exactly the same metadata so this step is
-% somewhat pointless.
-
-cycle_metadata.msDatetime = datetime(importedData.datetime(~importedData.IsRef__));
-cycle_metadata.msDatenum = datenum(importedData.datenum(~importedData.IsRef__));
-cycle_metadata.filename = importedData.FileHeader_Filename(~importedData.IsRef__);
-%cycle_metadata.sequenceRow = importedData.Row(~importedData.IsRef__);
-cycle_metadata.sequenceRow = importedData.SequenceRow(~importedData.IsRef__);
-cycle_metadata.ASInlet = importedData.AS_SIOInlet(~importedData.IsRef__);
-cycle_metadata.ID1 = importedData.Identifier1(~importedData.IsRef__);
-cycle_metadata.method = importedData.Method(~importedData.IsRef__);
-cycle_metadata.scriptName = importedData.ScriptName(~importedData.IsRef__);
-cycle_metadata.gasConfig = importedData.GasConfiguration(~importedData.IsRef__);
-cycle_metadata.gasName = importedData.GasName(~importedData.IsRef__);
-cycle_metadata.int28SA = intSA.rIntensity28;
-cycle_metadata.int28ST = intST.rIntensity28;
-%cycle_metadata.pressureImbal = (intSA.rIntensity28./intST.rIntensity28 - 1)*1000; % N.B. - Ross typically calculates this just as a raw SA - ST rather than a delta value. Does this make a difference?
-cycle_metadata.pressureImbal = (intSA.rIntensity28 - intST.rIntensity28);
 
 metadata_fields = fieldnames(cycle_metadata)'; % Transpose it to a row vector so that it works as a loop index
 
