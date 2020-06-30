@@ -1,8 +1,10 @@
 function [aliquotDeltas,aliquotMetadata,varargout] = reshapeCycles(cycle_deltas,cycle_metadata,varargin)
 % RESHAPECYCLES converts cycle deltas to an aliquot-delta-block-cycle array
-%   ALIQUOTDELTAS = RESHAPECYCLES(CYCLEDELTAS) reshapes CYCLEDELTAS to the
-%   array ALIQUOTDELTAS, which contains most of the elements of CYCLEDELTAS
-%   in a aliquot-by-delta-by-block-by-cycle structure.
+%   ALIQUOTDELTAS = RESHAPECYCLES(CYCLEDELTAS,CYCLEMETADATA) reshapes
+%   CYCLEDELTAS and CYCLEMETADATA to the array ALIQUOTDELTAS and structure
+%   of arrays ALIQUOTMETADATA, which contains most of the elements of
+%   CYCLEDELTAS and CYCLEMETADATA in a aliquot-by-delta-by-block-by-cycle
+%   structure.
 %   The elements included in ALIQUOTDELTAS are the aliquots with the most
 %   common number of regular (non-PIS) blocks, and the blocks with the most
 %   common number of cycles. This greatly reduces the time the function
@@ -19,6 +21,29 @@ function [aliquotDeltas,aliquotMetadata,varargout] = reshapeCycles(cycle_deltas,
 %       - 'includeAllAliquots': Outputs two cell arrays containing all
 %                               aliquots and their metadata, regardless of
 %                               the number of blocks they are made up of.
+%
+% [...,PISDELTAS,PISMETADATA] = RESHAPECYCLES(...,'includePIS') outputs the
+% PIS experiment delta values and their metadata.
+%
+% [...,ALLBLOCKSDELTAS,ALLBLOCKSMETADATA] = RESHAPECYCLES(...,'includeAllBlocks')
+% outputs a cell array containing the aliquots composed of the mode number 
+% of blocks of any number of cycles.
+%
+% [...,ALLALIQUOTDELTAS,ALLALIQUOTMETADATA] = RESHAPECYCLES(...,'includeAllAliquots')
+% outputs a cell array containing aliquots of any number of blocks of the
+% mode number of cycles.
+%
+% [...,ALLDATADELTAS,ALLDATAMETADATA] = RESHAPECYCLES(...,'includeAllData')
+% outputs a cell array containing aliquots of any number of blocks of any
+% number of cycles.
+%
+% The optional flags can be combined to output both the PIS data and the
+% cell arrays of all the blocks/aliquots, e.g.:
+%
+% [...,PISDELTAS,PISMETADATA,ALLDATADELTAS,ALLDATAMETADATA] = 
+%   RESHAPECYCLES(...,'includePIS',includeAllData) outputs both the pis
+%   data and a cell array containing aliquots of any number of blocks of 
+%   any number of cycles.
 
 
 % -------------------------------------------------------------------------
@@ -55,18 +80,19 @@ end
 %% Calculate and Assign Outputs
 varargout = {};
 
+% Identify the Blocks and Aliquots from the Cycle Metadata
+%[idxStartNewBlocks,idxStartNewAliquots] = detectBlocksAliquots(cycle_metadata);
+
 % Fast Reshape Most of the Data
 % Reshapes only the blocks and aliquots with the most common number of
 % cycles and blocks respectively. This is the default behaviour of
 % reshapeCycles and is faster than including all of data.
 % Also, include the PIS blocks if requested by the function call.
-[blockDeltas,blockMetadata] = reshapeToBlocks(cycle_deltas,cycle_metadata,false);
-
 if flagPIS
-    [aliquotDeltas,aliquotMetadata,pisAliquotDeltas,pisAliquotMetadata] = reshapeArrToAliquots(blockDeltas,blockMetadata,false,true);
-    varargout = [varargout {pisAliquotDeltas pisAliquotMetadata}];
+    [aliquotDeltas,aliquotMetadata,pis_aliquot_deltas,pis_aliquot_metadata] = reshapeModesToAliquots(cycle_deltas,cycle_metadata,flagPIS);
+    varargout = [varargout {pis_aliquot_deltas pis_aliquot_metadata}];
 else
-    [aliquotDeltas,aliquotMetadata] = reshapeArrToAliquots(blockDeltas,blockMetadata,false,false);
+    [aliquotDeltas,aliquotMetadata] = reshapeModesToAliquots(cycle_deltas,cycle_metadata,false);
 end
 
 % Additionally, Reshape all the Blocks and/or Aliquots if Requested
@@ -75,242 +101,212 @@ end
 % output that can be requested by the function call and can be
 % significantly slower than the default behaviour, depending on the size of
 % the inputs.
-if ~flagUseAllBlocks && flagUseAllAliquots
-    [aliquotDeltasAll,aliquotMetadataAll] = reshapeArrToAliquots(blockDeltas,blockMetadata,true,false);
-    varargout = [varargout {aliquotDeltasAll aliquotMetadataAll}];
-    
-elseif flagUseAllBlocks && ~flagUseAllAliquots
-    [blockDeltasAll,blockMetadataAll] = reshapeToBlocks(cycle_deltas,cycle_metadata,true);
-    [aliquotDeltasAll,aliquotMetadataAll] = reshapeCellToAliquots(blockDeltasAll,blockMetadataAll,false);
-    varargout = [varargout {aliquotDeltasAll aliquotMetadataAll}];
-    
-elseif flagUseAllBlocks && flagUseAllAliquots
-    [blockDeltasAll,blockMetadataAll] = reshapeToBlocks(cycle_deltas,cycle_metadata,true);
-    [aliquotDeltasAll,aliquotMetadataAll] = reshapeCellToAliquots(blockDeltasAll,blockMetadataAll,true);
+if flagUseAllAliquots || flagUseAllBlocks
+    [aliquotDeltasAll,aliquotMetadataAll] = reshapeAllToCell(cycle_deltas,cycle_metadata,flagUseAllBlocks,flagUseAllAliquots);
+    if ~exist('aliquotDeltasAll','var')
+        warning('All blocks and aliquots were the same size. No cell array necessary.')
+    end
     varargout = [varargout {aliquotDeltasAll aliquotMetadataAll}];
 end
 end % end main
 
-%% ------------------------------------------------------------------------
-% Local Functions
+%% Local Functions
 
-function [block_deltas,block_metadata] = reshapeToBlocks(cycle_deltas,cycle_metadata,flagAllBlocks)
-% Reshapes the cycle_deltas and cycle_metadata arrays to the
-% block_deltas and block_metadata outputs. The output is a cell
-% array of all blocks if the flag is set to true and is an array of
-% only the blocks with the most common number of cycles if the flag
-% is set to false.
-%
-% -----------------------------------------------------------------
+%  ------------------------------------------------------------------------
+
+function [idxStartNewBlocks,idxStartNewAliquots,block_metadata] = detectBlocksAliquots(cycle_metadata)
 
 % Identify the New Blocks
 % Each block has a unique filename: find their indices.
-[~,idxStartNewBlockAll,~] = unique(cycle_metadata.filename,'stable');
-blockLengthsAll = diff(idxStartNewBlockAll);
-blockLengthsAll(end+1) = length(cycle_deltas) - (idxStartNewBlockAll(end)-1);
+[~,idxStartNewBlocks,~] = unique(cycle_metadata.filename,'stable');
 
-if flagAllBlocks % Use all the blocks
-    NUM_ALL_BLOCKS = length(idxStartNewBlockAll);
-    
-    block_deltas = cell(NUM_ALL_BLOCKS,1);
-    for ii_BLOCK_TO_FILL = 1:NUM_ALL_BLOCKS
-        block_deltas{ii_BLOCK_TO_FILL} = cycle_deltas(idxStartNewBlockAll(ii_BLOCK_TO_FILL):idxStartNewBlockAll(ii_BLOCK_TO_FILL)+blockLengthsAll(ii_BLOCK_TO_FILL)-1,:);
-        
-        for fields = string(fieldnames(cycle_metadata))'
-            block_metadata.(fields){ii_BLOCK_TO_FILL,1} = cycle_metadata.(fields)(idxStartNewBlockAll(ii_BLOCK_TO_FILL):idxStartNewBlockAll(ii_BLOCK_TO_FILL)+blockLengthsAll(ii_BLOCK_TO_FILL)-1);
-        end
-    end
-    
-else % Take only the blocks with the most common number of cycles!
-    MODE_BLOCK_LENGTH = mode(blockLengthsAll);
-    idxStartNewBlockUse = idxStartNewBlockAll(blockLengthsAll==MODE_BLOCK_LENGTH);
-    NUM_BLOCKS = length(idxStartNewBlockUse);
-    
-    iCyclesToUse = ismember(cycle_metadata.filename,cycle_metadata.filename(idxStartNewBlockUse));
-    
-    % Fill the Array of Delta Values
-    block_deltas = reshape(cycle_deltas(iCyclesToUse,:),MODE_BLOCK_LENGTH,NUM_BLOCKS,[]);
-    
-    for fields = string(fieldnames(cycle_metadata))'
-        block_metadata.(fields) = reshape(cycle_metadata.(fields)(iCyclesToUse,:),MODE_BLOCK_LENGTH,NUM_BLOCKS);
-    end
+% Generate Block Metadata
+for fields = string(fieldnames(cycle_metadata))'
+    block_metadata.(fields) = cycle_metadata.(fields)(idxStartNewBlocks,:);
 end
-end % end reshapeToBlocks
 
-function [aliquot_deltas,aliquot_metadata,pis_aliquot_deltas,pis_aliquot_metadata] = reshapeArrToAliquots(block_deltas,block_metadata,flagAllAliquots,flagPIS)
-% Reshapes the block_deltas and block_metadata inputs to the
-% aliquot_deltas and aliquot_metadata outputs.
-% If the input is a cell array (or structure of cell arrays in the
-% case of the metadata), the output is also a cell array of all
-% aliquots if the flag is set to true or is a cell array of only
-% the aliquots with the most common number of blocks if the flag is
-% set to false.
-% If the input is a numeric array (or structure of numeric arrays
-% in the case of the metadata), the output is a cell array of
-% all the aliquots if the flag is set to true, or is a numberic
-% array of only the aliquots with the most common number of blocks
-% if the flag is set to true.
-%
-% -----------------------------------------------------------------
+% Identify the New Aliquots
+% Define Methods that Are Run at the Start of Each New Sample
+SAMPLE_START_METHODS = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
 
-% Check Number of Output Arguments
+% Identify aliquots that were run with one of the three methods
+iWorking = false(length(block_metadata.method(:,1)),1); iWorking(1) = true;
+for ii=1:length(SAMPLE_START_METHODS)
+    iWorking = iWorking | block_metadata.method(:,1)==SAMPLE_START_METHODS(ii);
+end
+
+% Identify aliquots also by finding the start of a new sequence (value of sequence row decreases).
+idxStartNewAliquots = find(iWorking | ([0; diff(block_metadata.sequenceRow(:,1))]<0));
+
+end
+
+%  ------------------------------------------------------------------------
+
+function [aliquot_deltas,aliquot_metadata,varargout] = reshapeModesToAliquots(cycle_deltas,cycle_metadata,flagPIS)
+
+% Identify the Blocks and Aliquots
+[idxStartNewBlocks,idxStartNewAliquots,block_metadata] = detectBlocksAliquots(cycle_metadata);
+
+% Calculate Block and Aliquot Lengths
+blockLengthsAll = diff(idxStartNewBlocks);
+blockLengthsAll(end+1) = length(cycle_metadata.filename) - (idxStartNewBlocks(end)-1);
+
+aliquotLengthsAll = diff(idxStartNewAliquots);
+aliquotLengthsAll(end+1)=length(block_metadata.filename)-(idxStartNewAliquots(end)-1);
+
+% Identify Which Data To Use
+% Find the aliquots that are composed of [four] blocks of [sixteen] cycles (or [five] blocks but have a PIS blocks)
+MODE_BLOCK_LENGTH = mode(blockLengthsAll);
+MODE_ALIQUOT_LENGTH = mode(aliquotLengthsAll);
+iModeCycles = blockLengthsAll==MODE_BLOCK_LENGTH;
+iModeBlocks = aliquotLengthsAll==MODE_ALIQUOT_LENGTH;
+iPisAliquots = aliquotLengthsAll==MODE_ALIQUOT_LENGTH + 1 & block_metadata.ID1(idxStartNewAliquots+aliquotLengthsAll-1)=='PIS'; % Is the last block in each aliquot have an ID1 equal to 'PIS'
+% Is this a valid way to ID PIS blocks? It will miss blocks that were maybe not explicitly tagged as PIS. Could see if looking at the actual P Imbalance improves this?
+
+% Find the relevant aliquots
+iAliquotsToUse = false(size(idxStartNewAliquots));
+for ii = 1:length(idxStartNewAliquots)
+    iAliquotsToUse(ii) = all(iModeCycles(idxStartNewAliquots(ii):idxStartNewAliquots(ii)+aliquotLengthsAll(ii)-1)) & (iModeBlocks(ii) | iPisAliquots(ii));
+end
+
+% Find the relevant blocks
+iBlocksToUse = false(length(blockLengthsAll),1);
+iBlocksToUse(idxStartNewAliquots) = iAliquotsToUse;
+idxBlocksToUse = find(iBlocksToUse) + (0:MODE_ALIQUOT_LENGTH-1); % Include only the four measurement blocks, not the PIS block at the end
+
+% Find the relevant cycles
+iCyclesToUse = ismember(cycle_metadata.filename,block_metadata.filename(idxBlocksToUse)); 
+
+% Build the Array of Deltas and Metadata
+% Simply reshape the relevant rows of cycle deltas into an array of the
+% right dimensions. Make sure to fill the cycle, block, aliquot dimensions
+% in that order and then permute after filling.
+aliquot_deltas = reshape(cycle_deltas(iCyclesToUse,:),MODE_BLOCK_LENGTH,MODE_ALIQUOT_LENGTH,[],size(cycle_deltas,2));
+aliquot_deltas = permute(aliquot_deltas,[3 4 2 1]);
+for fields = string(fieldnames(cycle_metadata))'
+    aliquot_metadata.(fields) = reshape(cycle_metadata.(fields)(iCyclesToUse,:),MODE_BLOCK_LENGTH,MODE_ALIQUOT_LENGTH,[]);
+    aliquot_metadata.(fields) = permute(aliquot_metadata.(fields),[3 2 1]);
+end
+
+varargout = {};
 if flagPIS
-    nargoutchk(4,4)
-else
-    nargoutchk(2,2)
-end
-
-% Identify the New Aliquots
-% Define Methods that Are Run at the Start of Each New Sample
-SAMPLE_START_METHODS = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
-
-% Identify aliquots that were run with one of the three methods
-iWorking = false(1,size(block_metadata.method(1,:),2));
-for ii=1:length(SAMPLE_START_METHODS)
-    iWorking = iWorking | block_metadata.method(1,:)==SAMPLE_START_METHODS(ii);
-end
-
-% Identify aliquots also by finding the start of a new sequence (value of sequence row decreases).
-idxStartNewAliquotAll = find(iWorking | ([0 diff(block_metadata.sequenceRow(1,:))]<0));
-aliquotLengthsAll = diff(idxStartNewAliquotAll);
-aliquotLengthsAll(end+1)=length(block_deltas)-(idxStartNewAliquotAll(end)-1);
-
-if flagAllAliquots % Use all aliquots
-    NUM_ALL_ALIQUOTS = length(idxStartNewAliquotAll);
+    % Find the relevant PIS blocks
+    iPisAliquotPisBlocks = false(length(blockLengthsAll),1);
+    iPisAliquotPisBlocks(idxStartNewAliquots + MODE_ALIQUOT_LENGTH) = iPisAliquots; % Find where the PIS blocks are in the block_metadata array
     
-    % Fill the Cell Array of Delta Values
-    aliquot_deltas = cell(NUM_ALL_ALIQUOTS,1);
-    for ii_ALIQUOT_TO_FILL = 1:NUM_ALL_ALIQUOTS
-        aliquot_deltas{ii_ALIQUOT_TO_FILL} = block_deltas(:,idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL):idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL)+aliquotLengthsAll(ii_ALIQUOT_TO_FILL)-1,:);
-        aliquot_deltas{ii_ALIQUOT_TO_FILL} = permute(aliquot_deltas{ii_ALIQUOT_TO_FILL},[3 2 1]);
-        
-        for fields = string(fieldnames(block_metadata))'
-            aliquot_metadata.(fields){ii_ALIQUOT_TO_FILL,1} = squeeze(block_metadata.(fields)(:,idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL):idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL) + aliquotLengthsAll(ii_ALIQUOT_TO_FILL)-1));
-            aliquot_metadata.(fields){ii_ALIQUOT_TO_FILL,1} = permute(aliquot_metadata.(fields){ii_ALIQUOT_TO_FILL,1},[2 1]);
-        end
+    % Find the relevant PIS cycles
+    iCyclesToUsePIS = ismember(cycle_metadata.filename,block_metadata.filename(iPisAliquotPisBlocks)); % Find the cycles corresponding to the PIS blocks
+    
+    % Find where the PIS aliquots should go
+    % Alternative approach is to make a NaN array and put the PIS blocks in
+    % the position of the first block of the PIS aliquots and then reshape
+    % as we do for the non-PIS blocks.
+    iPisAliquotFirstBlocks = false(length(blockLengthsAll),1);
+    iPisAliquotFirstBlocks(idxStartNewAliquots) = iPisAliquots;
+    [~,idxPisAliquotsAfterReshape] = ismember(block_metadata.filename(iPisAliquotFirstBlocks),aliquot_metadata.filename(:,1,1)); % Find where the PIS aliquots ended up after the reshape
+    
+    % Build the array of PIS deltas and metadata
+    pis_aliquot_deltas = nan(size(aliquot_deltas));
+    pis_aliquot_deltas(idxPisAliquotsAfterReshape,:,1,:) = permute(reshape(cycle_deltas(iCyclesToUsePIS,:),MODE_BLOCK_LENGTH,1,[],size(cycle_deltas,2)),[3 4 2 1]);
+    pis_aliquot_deltas = pis_aliquot_deltas(:,:,1,:); % Only one PIS block per aliquot, discard the rest
+
+    pis_aliquot_metadata = aliquot_metadata;
+    for fields = string(fieldnames(cycle_metadata))'
+        pis_aliquot_metadata.(fields)(:,:) = missing;
+        pis_aliquot_metadata.(fields)(idxPisAliquotsAfterReshape,1,:) = permute(reshape(cycle_metadata.(fields)(iCyclesToUsePIS,:),MODE_BLOCK_LENGTH,1,[]),[3 2 1]);
+        pis_aliquot_metadata.(fields) = pis_aliquot_metadata.(fields)(:,1,:);
     end
     
-else % Take only the aliquots with the most common numner of blocks!
-    % NB: Also include aliquots with 1 block more than the mode, where
-    % this extra block is a PIS block. We still want to include the
-    % main measurement blocks in the aliquot_delta output, just not the
-    % PIS block. The PIS blocks are not included in the aliquot_deltas
-    % output (they are filtered into a different variable instead).
-    
-    iPIS = block_metadata.ID1(1,idxStartNewAliquotAll+aliquotLengthsAll-1)=='PIS'; % Is the last block in each aliquot have an ID1 equal to 'PIS'
-    % Is this a valid way to ID PIS blocks? It will miss blocks that were maybe not explicitly tagged as PIS. Could see if looking at the actual P Imbalance improves this?
-    
-    MODE_ALIQUOT_LENGTH = mode(aliquotLengthsAll);
-    idxStartNewAliquotUse = idxStartNewAliquotAll(aliquotLengthsAll==MODE_ALIQUOT_LENGTH | ((aliquotLengthsAll==MODE_ALIQUOT_LENGTH+1) & iPIS));
-    NUM_ALIQUOTS = length(idxStartNewAliquotUse);
-    
-    % Identify the Blocks to Inlcude
-    idxBlocksToUse = idxStartNewAliquotUse + (0:MODE_ALIQUOT_LENGTH-1)'; % PIS blocks are excluded here: + 0:MODE_ALIQUOT_LENGTH-1 excludes the final block
-    %block_deltas = block_deltas(:,idxBlocksToUse,:);
-    
-    % Fill the Array of Delta Values
-    aliquot_deltas = reshape(block_deltas(:,idxBlocksToUse,:),size(block_deltas,1),MODE_ALIQUOT_LENGTH,NUM_ALIQUOTS,size(block_deltas,3));
-    aliquot_deltas = permute(aliquot_deltas,[3 4 2 1]);
-    
-    
-    for fields = string(fieldnames(block_metadata))'
-        aliquot_metadata.(fields) = reshape(block_metadata.(fields)(:,idxBlocksToUse,:),size(block_deltas,1),MODE_ALIQUOT_LENGTH,NUM_ALIQUOTS);
-        aliquot_metadata.(fields) = permute(aliquot_metadata.(fields),[3 2 1]);
-    end
-    
-    if flagPIS
-        idxPisAliquots = idxStartNewAliquotAll(aliquotLengthsAll==MODE_ALIQUOT_LENGTH+1 & iPIS);
-        idxPisBlocks = idxPisAliquots + aliquotLengthsAll(aliquotLengthsAll==MODE_ALIQUOT_LENGTH+1 & iPIS)-1;
-        pis_block_deltas = nan(size(block_deltas));
-        pis_block_deltas(:,idxPisAliquots,:) = block_deltas(:,idxPisBlocks,:);
-        
-        pis_aliquot_deltas = reshape(pis_block_deltas(:,idxBlocksToUse,:),size(block_deltas,1),MODE_ALIQUOT_LENGTH,NUM_ALIQUOTS,size(block_deltas,3));
-        pis_aliquot_deltas = permute(pis_aliquot_deltas,[3 4 2 1]);
-        pis_aliquot_deltas = pis_aliquot_deltas(:,:,1,:);
-        
-        pis_block_metadata = block_metadata;
-        for fields = string(fieldnames(block_metadata))'
-            pis_block_metadata.(fields)(:,:) = missing;
-            pis_block_metadata.(fields)(:,idxPisAliquots) = block_metadata.(fields)(:,idxPisBlocks);
-            pis_aliquot_metadata.(fields) = permute(reshape(pis_block_metadata.(fields)(:,idxBlocksToUse,:),size(block_deltas,1),MODE_ALIQUOT_LENGTH,NUM_ALIQUOTS),[3 2 1]);
-            pis_aliquot_metadata.(fields) = pis_aliquot_metadata.(fields)(:,1,:);
-        end
-    end
+    varargout = {pis_aliquot_deltas pis_aliquot_metadata};
 end
-end % end reshapeArrToAliquots
+end % end reshapeModesToArr()
 
-function [aliquot_deltas,aliquot_metadata] = reshapeCellToAliquots(block_deltas,block_metadata,flagAllAliquots)
-% Reshapes the block_deltas and block_metadata inputs to the
-% aliquot_deltas and aliquot_metadata outputs.
-% If the input is a cell array (or structure of cell arrays in the
-% case of the metadata), the output is also a cell array of all
-% aliquots if the flag is set to true or is a cell array of only
-% the aliquots with the most common number of blocks if the flag is
-% set to false.
-% If the input is a numeric array (or structure of numeric arrays
-% in the case of the metadata), the output is a cell array of
-% all the aliquots if the flag is set to true, or is a numberic
-% array of only the aliquots with the most common number of blocks
-% if the flag is set to true.
-%
-% -----------------------------------------------------------------
+%  ------------------------------------------------------------------------
 
-% Identify the New Aliquots
-% Define Methods that Are Run at the Start of Each New Sample
-SAMPLE_START_METHODS = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
+function [aliquot_deltas_all,aliquot_metadata_all] = reshapeAllToCell(cycle_deltas,cycle_metadata,iUseAllBlocks,iUseAllAliquots)
 
-blockMethods = cellfun(@(x) x(1),block_metadata.method)';
-blockSequenceRow = cellfun(@(x) x(1),block_metadata.sequenceRow)';
+% Identify the Blocks and Aliquots
+[idxStartNewBlocks,idxStartNewAliquots,block_metadata] = detectBlocksAliquots(cycle_metadata);
 
-% Identify aliquots that were run with one of the three methods
-iWorking = false(1,size(blockMethods,2));
-for ii=1:length(SAMPLE_START_METHODS)
-    iWorking = iWorking | blockMethods==SAMPLE_START_METHODS(ii);
+% Calculate Block and Aliquot Lengths
+blockLengths = diff(idxStartNewBlocks);
+blockLengths(end+1) = length(cycle_metadata.filename) - (idxStartNewBlocks(end)-1);
+
+aliquotLengths = diff(idxStartNewAliquots);
+aliquotLengths(end+1)=length(block_metadata.method)-(idxStartNewAliquots(end)-1);
+
+MODE_BLOCK_LENGTH = mode(blockLengths);
+MODE_ALIQUOT_LENGTH = mode(aliquotLengths);
+iModeCycles = blockLengths==MODE_BLOCK_LENGTH; % Blocks of [sixteen] cycles
+iModeBlocks = aliquotLengths==MODE_ALIQUOT_LENGTH; % Aliquots of [four] blocks
+iPisAliquots = (aliquotLengths==MODE_ALIQUOT_LENGTH+1) & (block_metadata.ID1(idxStartNewAliquots+aliquotLengths-1)=='PIS'); % Aliquots where there is one extra block at the end that is labelled as a 'PIS' block
+% Is this a valid way to ID PIS blocks? It will miss blocks that were maybe not explicitly tagged as PIS. Could see if looking at the actual P Imbalance improves this?
+
+% Check if it's necessary to make a cell array or not
+% If all the aliquots are four blocks of sixteen cycles then there is no
+% need to re-do the reshaping we've already done
+if all(blockLengths==MODE_BLOCK_LENGTH) || all(aliquotLengths==MODE_ALIQUOT_LENGTH)
+    return;
 end
 
-% Identify aliquots also by finding the start of a new sequence (value of sequence row decreases).
-idxStartNewAliquotAll = find(iWorking | ([0 diff(blockSequenceRow)]<0));
-aliquotLengthsAll = diff(idxStartNewAliquotAll);
-aliquotLengthsAll(end+1)=length(block_deltas)-(idxStartNewAliquotAll(end)-1);
-
-
-if flagAllAliquots % Use All Aliquots
-    NUM_ALL_ALIQUOTS = length(idxStartNewAliquotAll);
+% Identify Which Data to Use
+% Find the aliquots that are composed of the right number of blocks of the
+% right number of cycles (or one too many blocks but have a PIS block)
+if iUseAllBlocks && iUseAllAliquots % Use BLOCKS of ALL LENGTHS and ALIQUOTS of ALL LENGTHS
+    iAliquotsToUse = true(length(aliquotLengths),1);
+    iWorking = true(length(blockLengths),1);
+    idxBlocksToUse = find(iWorking);
     
-    aliquot_deltas = cell(NUM_ALL_ALIQUOTS,1);
-    for ii_ALIQUOT_TO_FILL = 1:NUM_ALL_ALIQUOTS
-        aliquot_deltas{ii_ALIQUOT_TO_FILL} = block_deltas(idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL):idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL) + aliquotLengthsAll(ii_ALIQUOT_TO_FILL)-1);
-        for fields = string(fieldnames(block_metadata))'
-            aliquot_metadata.(fields){ii_ALIQUOT_TO_FILL,1} = block_metadata.(fields)(idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL):idxStartNewAliquotAll(ii_ALIQUOT_TO_FILL) + aliquotLengthsAll(ii_ALIQUOT_TO_FILL)-1);
-        end
+elseif iUseAllBlocks && ~iUseAllAliquots % Use BLOCKS of ALL LENGTHS but ONLY ALIQUOTS of [four] blocks
+    % Identify Which Aliquots To Use
+    iAliquotsToUse = iModeBlocks | iPisAliquots;
+    
+    % Find the relevant blocks
+    iWorking = false(length(blockLengths),1);
+    iWorking(idxStartNewAliquots) = iAliquotsToUse;
+    idxBlocksToUse = find(iWorking) + (0:MODE_ALIQUOT_LENGTH-1); % Include only the four measurement blocks, not the PIS block at the end
+    idxBlocksToUse = sort(idxBlocksToUse(:));
+    
+elseif ~iUseAllBlocks && iUseAllAliquots % Use ONLY BLOCKS of [sixteen cycles] but ALIQUOTS of ALL LENGTHS
+    % Identify Which Aliquots To Use
+    iAliquotsToUse = false(size(idxStartNewAliquots));
+    for ii = 1:length(idxStartNewAliquots)
+        iAliquotsToUse(ii) = all(iModeCycles(idxStartNewAliquots(ii):idxStartNewAliquots(ii)+aliquotLengths(ii)-1));
     end
     
-else % Take only the aliquots with the most common numner of blocks!
-    % NB: Also include aliquots with 1 block more than the mode, where
-    % this extra block is a PIS block. We still want to include the
-    % main measurement blocks in the aliquot_delta output, just not the
-    % PIS block. The PIS blocks are not included in the aliquot_deltas
-    % output (they are filtered out below).
-    
-    blockID1 = cellfun(@(x) x(1), block_metadata.ID1)';
-    iPIS = blockID1(idxStartNewAliquotAll+aliquotLengthsAll-1)=='PIS'; % Is the last block in each aliquot have an ID1 equal to 'PIS'
-    % Is this a valid way to ID PIS blocks? It will miss blocks that were maybe not explicitly tagged as PIS. Could see if looking at the actual P Imbalance improves this?
-    
-    MODE_ALIQUOT_LENGTH = mode(aliquotLengthsAll);
-    idxStartNewAliquotUse = idxStartNewAliquotAll(aliquotLengthsAll==MODE_ALIQUOT_LENGTH | ((aliquotLengthsAll==MODE_ALIQUOT_LENGTH+1) & iPIS));
-    NUM_ALIQUOTS = length(idxStartNewAliquotUse);
-    
-    % Identify the Blocks to Inlcude
-    idxBlocksToUse = idxStartNewAliquotUse + (0:MODE_ALIQUOT_LENGTH-1)'; % PIS blocks are excluded here: + 0:MODE_ALIQUOT_LENGTH-1 excludes the final block
-    block_deltas = block_deltas(idxBlocksToUse,:);
-    
-    % Fill the Cell Array of Delta Values
-    aliquot_deltas = reshape(block_deltas,MODE_ALIQUOT_LENGTH,NUM_ALIQUOTS)';
-    
-    for fields = string(fieldnames(block_metadata))'
-        block_metadata.(fields) = block_metadata.(fields)(idxBlocksToUse);
-        aliquot_metadata.(fields) = reshape(block_metadata.(fields),MODE_ALIQUOT_LENGTH,NUM_ALIQUOTS)';
+    % Find the relevant blocks
+    iWorking = false(length(blockLengths),1);
+    for ii = 1:length(idxStartNewAliquots)
+        iWorking(idxStartNewAliquots(ii):idxStartNewAliquots(ii) + aliquotLengths(ii)-1) = iAliquotsToUse(ii);
     end
+    idxBlocksToUse = find(iWorking);
     
 end
-end % end reshapeCellToAliquots
+
+% Build the Arrays of Deltas and Metadata
+NUM_ALIQUOTS = sum(iAliquotsToUse);
+LONGEST_ALIQUOT = max(aliquotLengths(iAliquotsToUse));
+if iUseAllBlocks && ~iUseAllAliquots
+    LONGEST_ALIQUOT = LONGEST_ALIQUOT - 1; % Because we won't inlude any PIS blocks
+end
+
+idxStartNewBlocksToUse = idxStartNewBlocks(idxBlocksToUse);
+blockLengthsToUse = blockLengths(idxBlocksToUse);
+
+aliquotNum = 0;
+blockNum = 0;
+aliquot_deltas_all = cell(NUM_ALIQUOTS,LONGEST_ALIQUOT);
+for ii = 1:length(idxStartNewBlocksToUse)
+    if ismember(idxStartNewBlocksToUse(ii),idxStartNewBlocks(idxStartNewAliquots(iAliquotsToUse)))
+        blockNum = 1;
+        aliquotNum = aliquotNum + 1;
+    else
+        blockNum = blockNum + 1;
+    end
+    
+    aliquot_deltas_all{aliquotNum,blockNum} = cycle_deltas(idxStartNewBlocksToUse(ii):idxStartNewBlocksToUse(ii) + blockLengthsToUse(ii)-1,:);
+    for fields = string(fieldnames(cycle_metadata))'
+        aliquot_metadata_all.(fields){aliquotNum,blockNum} = cycle_metadata.(fields)(idxStartNewBlocksToUse(ii):idxStartNewBlocksToUse(ii) + blockLengthsToUse(ii)-1,:);
+    end
+end
+end % end reshapeAllToCell()
