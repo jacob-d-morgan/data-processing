@@ -10,9 +10,11 @@
 clearvars -EXCEPT importedData;
 cluk; clc;
 
-filesToImport = ["XP-2018(excelExportIntensityJDM).csv"; ...
+filesToImport = [
+    "XP-2018(excelExportIntensityJDM).csv"; ...
     "XP-2017(excelExportIntensityJDM).csv"; ...
-    "XP-2016(excelExportIntensityJDM).csv"];
+    "XP-2016(excelExportIntensityJDM).csv"
+    ];
 
 %importedData = csvReadIsodat(filesToImport);
 
@@ -66,64 +68,12 @@ for ii = 1:numel(metadata_fields)
     cycle_metadata.(metadata_fields{ii}) = cycle_metadata.(metadata_fields{ii})(~iBeamReject);
 end
 
-%% Reshape into Isotope Ratio-x-Block-x-Cycle
-% Identify the different blocks by the unique filenames
-[~,idx_blocksAll,~] = unique(cycle_metadata.filename,'stable');
-blockLengthsAll = diff(idx_blocksAll); blockLengthsAll(end+1)=length(cycle_deltas)-(idx_blocksAll(end)-1);
 
-% TAKE ONLY THE BLOCKS WITH 16 CYCLES! - This causes me to lose 156 blocks
-% (17672 -> 17516, <1%), mostly with <5 cycles in them.
-idx_blocks = idx_blocksAll(blockLengthsAll==16);
-blockLengths = blockLengthsAll(blockLengthsAll==16);
+%% Reshape to Isotope Ratio x Delta Value x Block x Cycle
+% Reshape the cycle deltas and their metadata into a more useable format.
 
-numberOfBlocks = length(idx_blocks);
-longestBlock = max(blockLengths);
-
-% Fill the Array of Delta Values
-block_deltas = nan(numel(delta_cols),numberOfBlocks,longestBlock);
-
-for ii = 1:length(idx_blocks)
-    block_deltas(:,ii,1:blockLengths(ii)) = cycle_deltas(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:)';
-end
-
-for ii = 1:length(idx_blocks)
-    for jj = 1:numel(metadata_fields)
-        block_metadata.(metadata_fields{jj})(ii,1:blockLengths(ii)) = cycle_metadata.(metadata_fields{jj})(idx_blocks(ii):idx_blocks(ii)+blockLengths(ii)-1,:);
-    end
-end
-
-%% Reshape into Cycles-x-Isotope Ratio-x-Block-x-Sample Aliquot
-% Define Methods that Are Run at the Start of Each New Sample
-sampleStartMethods = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
-
-idx_working = false(size(block_metadata.msDatetime,1),1);
-
-for ii=1:length(sampleStartMethods)
-    idx_working = idx_working | block_metadata.method(:,1)==sampleStartMethods(ii);
-end
-
-% Find new aliquots by finding above methods or by finding the start of a
-% new sequence (sequence row decreases from N to 1).
-idx_SampleAliquotsAll = find(idx_working | ([0; diff(block_metadata.sequenceRow(:,1))]<0));
-aliquotLengthsAll = diff(idx_SampleAliquotsAll); aliquotLengthsAll(end+1)=length(block_deltas)-(idx_SampleAliquotsAll(end)-1);
-
-% TAKE ONLY THE ALIQUOTS WITH 4 OR 5 BLOCKS! - This causes me to lose 56
-% aliquots (4360 -> 4304, ~1%), mostly with only 1 or 2 blocks in them.
-idx_SampleAliquots = idx_SampleAliquotsAll(aliquotLengthsAll>3 & aliquotLengthsAll<6);
-aliquotLengths = aliquotLengthsAll(aliquotLengthsAll>3 & aliquotLengthsAll<6);
-
-numberOfAliquots = length(idx_SampleAliquots);
-longestAliquot = max(aliquotLengths);
-
-% Reshape
-aliquot_deltas = nan(numberOfAliquots,numel(delta_cols),longestAliquot,longestBlock);
-
-for ii = 1:length(idx_SampleAliquots)
-    aliquot_deltas(ii,:,1:aliquotLengths(ii),:) = block_deltas(:,idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1,:);
-    for jj=1:numel(metadata_fields)
-        aliquot_metadata.(metadata_fields{jj})(ii,1:aliquotLengths(ii),:) = block_metadata.(metadata_fields{jj})(idx_SampleAliquots(ii):idx_SampleAliquots(ii)+aliquotLengths(ii)-1,:);
-    end
-end
+[aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS');
+%[~,~,aliquotDeltasAll,aliquotMetadataAll] = reshapeCycles(cycle_deltas,cycle_metadata,'includeAllData');
 
 %% Add the CO2 Check Data Back In
 % Find the Timestamp for the CO2 Check Blocks
@@ -138,10 +88,10 @@ iCO2 = importedData.Method=="CO2nonB" | importedData.Method=="CO2_non_B"; % Iden
 rCO2N2_SA = importedData.x1_CycleInt_Samp_40(iCO2)./importedData.x1_CycleInt_Samp_29(iCO2);
 rCO2N2_ST = importedData.x1_CycleInt_Ref_40(iCO2)./importedData.x1_CycleInt_Ref_29(iCO2);
 
-x = importedData.datenum + cumsum(ones(size(importedData.datenum))).*importedData.datenum*eps; % Generate an x-variable with unique points by adding a quasi-infinitesimal increment (eps) to each row
-y = 1:length(x);
+x_temp = importedData.datenum + cumsum(ones(size(importedData.datenum))).*importedData.datenum*eps; % Generate an x-variable with unique points by adding a quasi-infinitesimal increment (eps) to each row
+y_temp = 1:length(x_temp);
 
-idxCO2NearestBlocks = interp1(x(~iCO2),y(~iCO2),x(iCO2),'nearest'); % Interpolate to find the index of the nearest blocks
+idxCO2NearestBlocks = interp1(x_temp(~iCO2),y_temp(~iCO2),x_temp(iCO2),'nearest'); % Interpolate to find the index of the nearest blocks
 datetimeCO2NearestBlocks = importedData.datetime(idxCO2NearestBlocks); % Use the index to find the datetime of those blocks
 
 [iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquot_metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
@@ -156,68 +106,11 @@ aliquot_metadata.rCO2N2_ST(idxCO2Aliquots) = rCO2N2_ST(iA);
 aliquot_metadata.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
 
 
-%% Do Some Staistics on the Blocks
-% There are some weird looking blocks here that plot off the top of the
-% y-axis. I should take a closer look. Set a threshold for inclusion?
-
-figure;
-subplot(211); hold on;
-plot(cycle_metadata.msDatetime(idx_blocksAll),blockLengthsAll,'-','Color',lineCol(9),'LineWidth',1)
-plot(cycle_metadata.msDatetime(idx_blocks),blockLengths,'-','Color',lineCol(10),'LineWidth',3)
-ylabel('Number of Cycles in Block');
-title('Block Length (by method)');
-ylim([0 20])
-
-subplot(212); hold on;
-plot(block_metadata.msDatetime(idx_SampleAliquotsAll,1),aliquotLengthsAll,'-','Color',lineCol(9),'LineWidth',1);
-plot(block_metadata.msDatetime(idx_SampleAliquots,1),aliquotLengths,'-','Color',lineCol(10),'LineWidth',3);
-ylabel('Number of Blocks in Aliquot');
-title('Aliquot Lengths (by method)')
-ylim([0 10])
-
-figure
-subplot(121); hold on;
-histogram(blockLengthsAll(blockLengthsAll~=16))
-text(15,75,{['No. Total: ' num2str(length(blockLengthsAll))]; ...
-    ['No. Included: ' num2str(numberOfBlocks)]; ...
-    ['No. Rejected: ' num2str(length(blockLengthsAll(blockLengthsAll~=16)))]; ...
-    ['Rejected: ' num2str(length(blockLengthsAll(blockLengthsAll~=16))/length(blockLengthsAll)*100) '%']}, ...
-    'HorizontalAlignment','right','VerticalAlignment','Top');
-xlabel('Block Length (# cycles)');
-ylabel('Counts')
-
-subplot(122); hold on;
-histogram(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5))
-text(9,17,{['No. Total: ' num2str(length(aliquotLengthsAll))]; ...
-    ['No. Included: ' num2str(numberOfAliquots)]; ...
-    ['No. Rejected: ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5)))]; ...
-    ['Rejected: ' num2str(length(aliquotLengthsAll(aliquotLengthsAll < 4 | aliquotLengthsAll > 5))/length(aliquotLengthsAll)*100) '%']}, ...
-    'HorizontalAlignment','right','VerticalAlignment','Top');
-xlabel('Aliquot Length (# blocks)');
-ylabel('Counts');
-
-suptitle('Properties of Rejected Blocks and Aliquots')
-
-figure
-subplot(211)
-semilogy(block_metadata.msDatetime(:,1),std(block_deltas(:,:,:),0,3),'.');
-ylabel('Std Dev of Cycles in a Block [per mil]');
-ylim([0 150]);
-legend(delta_cols,'Location','N','Orientation','Horizontal');
-
-subplot(212)
-semilogy(aliquot_metadata.msDatetime(:,1,1),nanstd(mean(aliquot_deltas(:,:,:,:),3),0,4),'.');
-ylabel('Std Dev of Blocks in an Aliquot [per mil]')
-ylim([0 1500])
-
-
 %% Calculate the PIS for each PIS experiment
 % Identifies the aliquots containing PIS experiments and calculates the
 % pressure imbalance sensitivity of each delta vlaue for each experiment.
 
-iPIS = all(~isnan(mean(aliquot_deltas,4)),3); % identify aliquots where the mean of ANY of the delta values is not NaN for ALL the blocks
-iPIS = iPIS & aliquot_metadata.ID1(:,5,1)=='PIS'; % limit the selection to just those identified as a PIS experiment by their Sample ID1
-
+iPIS = ~isnan(aliquot_deltas_pis(:,:,1,1));
 if sum(any(iPIS,2)) ~= sum(all(iPIS,2)) % Check that all delta values identify each PIS experiment
     warning('Warning: Some delta values are misisng a PIS block for one or more experiments')
     iPIS = any(iPIS,2); % If some delta values are missing a PIS block somehow, calculate the PIS for the other delta values anyway
@@ -235,21 +128,21 @@ calcPisImbal = nan(size(aliquot_deltas,[1 2]));
 for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
     for jj=1:numel(delta_cols) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
         
-        d = squeeze(nanmean(aliquot_deltas(ii,jj,:,:),4)); % response variable = the looped delta value from the looped aliquot
-        G = [ones(size(d)) nanmean(aliquot_metadata.pressureImbal(ii,:,:),3)']; % predictor variable = the pressure imbalance (col 3) from the looped variable
-        m = (G'*G)\G'*d; % Calculate the PIS
+        y_temp = [squeeze(nanmean(aliquot_deltas(ii,jj,:,:),4)); squeeze(nanmean(aliquot_deltas_pis(ii,jj,1,:),4))]; % response variable = the looped delta value from the looped aliquot
+        x_temp = [nanmean(aliquot_metadata.pressureImbal(ii,:,:),3)'; nanmean(aliquot_metadata_pis.pressureImbal(ii,:,:),3)']; % predictor variable = the pressure imbalance (col 3) from the looped variable
+        m_temp = [ones(size(y_temp)) x_temp]\y_temp; % Calculate the PIS and Intercept
         
-        [R_corr,pVal] = corrcoef(G(:,2),d); % Find the r-squared correlation coefficient for the PIS test
-        [pImbal, idx] = max(abs(G(:,2))); % Find the block with the max P Imbalance
+        [R_corr,pVal] = corrcoef(x_temp,y_temp); % Find the r-squared correlation coefficient for the PIS test
+        [pImbal, idx] = max(abs(x_temp)); % Find the block with the max P Imbalance
         
         if idx ~= 5
             warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy HH:MM') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
         end
         
-        calcPis(ii,jj)=m(2);
+        calcPis(ii,jj)=m_temp(2);
         calcPisRsq(ii,jj) = R_corr(1,2).^2;
         calcPisPval(ii,jj) = pVal(1,2);
-        calcPisImbal(ii,jj) = pImbal * sign(G(idx,2));
+        calcPisImbal(ii,jj) = pImbal * sign(x_temp(idx));
     end
 end
 
@@ -271,17 +164,17 @@ movWindow=49; % Moving median window = 7 weeks
 
 
 for ii = 1:numel(delta_cols)
-    x = aliquot_metadata.msDatenum(iPIS,1,1);
-    y = calcPis(iPIS,ii,1,1);
+    x_temp = aliquot_metadata.msDatenum(iPIS,1,1);
+    y_temp = calcPis(iPIS,ii,1,1);
 
-    cen = movmedian(y,movWindow,'omitnan','SamplePoints',x); % Calculate moving median for given window width
-    dev = y-cen; % Detrend time-series by calculating deviation of each point from moving median
+    cen = movmedian(y_temp,movWindow,'omitnan','SamplePoints',x_temp); % Calculate moving median for given window width
+    dev = y_temp-cen; % Detrend time-series by calculating deviation of each point from moving median
 
     [CDF,edges] = histcounts(dev,'BinMethod','fd','Normalization','cdf'); % Calculate CDF of the deviations, using Freedman-Diaconis rule for bin widths
 
     low = cen + edges(find(CDF>0.01,1,'first')); % Lower Bound = Median - First Percentile Deviation
     upp = cen + edges(find(CDF>0.99,1,'first')); % Upper Bound = Median + Ninety Ninth Percentile Deviation
-    iRej = (y > upp) | (y < low);
+    iRej = (y_temp > upp) | (y_temp < low);
 
     iPisRejections(iPIS,ii) = iPisRejections(iPIS,ii) | iRej; % assign the rejections back to the full-size variable
     numRej(ii) = sum(iRej); % tally the number of rejections for each combination of delta value and window size
@@ -302,8 +195,8 @@ xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
 stackedFigAx(1)
 for ii = 1:numel(delta_cols)
     set(gca,'ColorOrderIndex',ii)
-    plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPisRsq(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii));
-    legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPisRsq(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii));
+    plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPisRsq(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
+    legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPisRsq(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
 end
 legend(legH,delta_cols,'Orientation','Horizontal','Location','South')
 ylabel('r^2');
@@ -313,17 +206,17 @@ ylim([0.7 1]);
 stackedFigAx(2)
 for ii = 1:numel(delta_cols)
     set(gca,'ColorOrderIndex',ii)
-    plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPis(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii));
-    legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPis(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii));
+    plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPis(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
+    legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPis(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
 end
 ylabel('PIS [per mil/per mil]');
 ylim([-0.01 0.005]);
 
 % Plot Pressure Imbalance for each PIS Experiment
 stackedFigAx(3)
-plot(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2),:),'-^','Color',lineCol(9))
-text(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2)),aliquot_metadata.ID1(iPIS & any(~iPisRejections,2),5,1))
-ylabel('Pressure Imbalance [per mil]')
+plot(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2),:),'-^','Color',lineCol(9));
+text(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2)),aliquot_metadata_pis.ID1(iPIS & any(~iPisRejections,2),1,1));
+ylabel('Pressure Imbalance [per mil]');
 ylim([-600 0])
 
 stackedFigAx();
@@ -331,19 +224,6 @@ datetick('x');
 xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
 
 stackedFigReset
-
-
-%% Remove PIS Blocks
-% Now remove the fifth blocks from the array of aliquot delta values so
-% they don't get used in with further analysis
-aliquot_deltasPisExp = aliquot_deltas(:,:,5,:);
-aliquot_deltasPisExp(~iPIS,:,:,:)=nan;
-aliquot_deltas(:,:,5,:) = [];
-
-for ii = 1:numel(metadata_fields)
-    aliquot_metadataPisExp.(metadata_fields{ii})(iPIS,:,:) = aliquot_metadata.(metadata_fields{ii})(iPIS,5,:);
-    aliquot_metadata.(metadata_fields{ii})(:,5,:) = [];
-end
 
 
 %% Make PIS Correction
@@ -435,19 +315,19 @@ fitCS = @(x,y)(([x ones(length(x),1)]\y)'); % Transpose output to a row vector s
 rsqCS = @(x,y){(corrcoef(x,y)).^2};
 
 % dO2/N2 Effect on d15N
-x = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3));
-y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d15N',:,:),4),3));
-P_15N = splitapply(fitCS,x,y,idxCS_15N); % Calculate the slope with the anonymous function
-rsq_15N = splitapply(rsqCS,x,y,idxCS_15N);
+x_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3));
+y_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d15N',:,:),4),3));
+P_15N = splitapply(fitCS,x_temp,y_temp,idxCS_15N); % Calculate the slope with the anonymous function
+rsq_15N = splitapply(rsqCS,x_temp,y_temp,idxCS_15N);
 CS_15N = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 CS_15N(endCS_15N,:,:,:) = repmat(P_15N(:,1), [1 1 size(CS_15N,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
 
 figure
 for ii=1:sum(endCS_15N)
     subplot(1,sum(endCS_15N),ii); hold on
-    plot(x(idxCS_15N==ii),y(idxCS_15N==ii),'xk') % Plot the individual aliquots
-    plot(x(idxCS_15N==ii),polyval(P_15N(ii,:),x(idxCS_15N==ii)),'-r') % Plot the fitted line
-    text(max(x(idxCS_15N==ii)),min(y(idxCS_15N==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_15N(ii,1)*1000,rsq_15N{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
+    plot(x_temp(idxCS_15N==ii),y_temp(idxCS_15N==ii),'xk') % Plot the individual aliquots
+    plot(x_temp(idxCS_15N==ii),polyval(P_15N(ii,:),x_temp(idxCS_15N==ii)),'-r') % Plot the fitted line
+    text(max(x_temp(idxCS_15N==ii)),min(y_temp(idxCS_15N==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_15N(ii,1)*1000,rsq_15N{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.01 0.25]);
     xlabel('\deltaO_2/N_2 [per mil]');
     ylabel('\delta^{15}N [per mil]');
@@ -455,19 +335,19 @@ for ii=1:sum(endCS_15N)
 end
 
 % dO2/N2 Effect on dArN2
-x = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3));
-y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3));
-P_ArN2 = splitapply(fitCS,x,y,idxCS_15N); % Calculate the slope with the anonymous function
-rsq_ArN2 = splitapply(rsqCS,x,y,idxCS_15N);
+x_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3));
+y_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3));
+P_ArN2 = splitapply(fitCS,x_temp,y_temp,idxCS_15N); % Calculate the slope with the anonymous function
+rsq_ArN2 = splitapply(rsqCS,x_temp,y_temp,idxCS_15N);
 CS_ArN2 = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 CS_ArN2(endCS_15N,:,:,:) = repmat(P_ArN2(:,1), [1 1 size(CS_ArN2,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
 
 figure
 for ii=1:sum(endCS_15N)
     subplot(1,sum(endCS_15N),ii); hold on
-    plot(x(idxCS_15N==ii),y(idxCS_15N==ii),'xk') % Plot the individual aliquots
-    plot(x(idxCS_15N==ii),polyval(P_ArN2(ii,:),x(idxCS_15N==ii)),'-r') % Plot the fitted line
-    text(max(x(idxCS_15N==ii)),min(y(idxCS_15N==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_ArN2(ii,1)*1000,rsq_ArN2{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
+    plot(x_temp(idxCS_15N==ii),y_temp(idxCS_15N==ii),'xk') % Plot the individual aliquots
+    plot(x_temp(idxCS_15N==ii),polyval(P_ArN2(ii,:),x_temp(idxCS_15N==ii)),'-r') % Plot the fitted line
+    text(max(x_temp(idxCS_15N==ii)),min(y_temp(idxCS_15N==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_ArN2(ii,1)*1000,rsq_ArN2{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.1 1.2]);
     xlabel('\deltaO_2/N_2 [per mil]');
     ylabel('\deltaAr/N_2 [per mil]');
@@ -475,19 +355,19 @@ for ii=1:sum(endCS_15N)
 end
 
 % dN2/O2 Effect on d18O
-x = ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1).^-1-1)*1000;
-y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d18O',:,:),4),3));
-P_18O = splitapply(fitCS,x,y,idxCS_18O); % Calculate the slope with the anonymous function
-rsq_18O = splitapply(rsqCS,x,y,idxCS_18O);
+x_temp = ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1).^-1-1)*1000;
+y_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d18O',:,:),4),3));
+P_18O = splitapply(fitCS,x_temp,y_temp,idxCS_18O); % Calculate the slope with the anonymous function
+rsq_18O = splitapply(rsqCS,x_temp,y_temp,idxCS_18O);
 CS_18O = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 CS_18O(endCS_18O,:,:,:) = repmat(P_18O(:,1), [1 1 size(CS_18O,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
 
 figure
 for ii=1:sum(endCS_18O)
     subplot(1,sum(endCS_18O),ii); hold on
-    plot(x(idxCS_18O==ii),y(idxCS_18O==ii),'xk') % Plot the individual aliquots
-    plot(x(idxCS_18O==ii),polyval(P_18O(ii,:),x(idxCS_18O==ii)),'-r') % Plot the fitted line
-    text(max(x(idxCS_18O==ii)),min(y(idxCS_18O==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_18O(ii,1)*1000,rsq_18O{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
+    plot(x_temp(idxCS_18O==ii),y_temp(idxCS_18O==ii),'xk') % Plot the individual aliquots
+    plot(x_temp(idxCS_18O==ii),polyval(P_18O(ii,:),x_temp(idxCS_18O==ii)),'-r') % Plot the fitted line
+    text(max(x_temp(idxCS_18O==ii)),min(y_temp(idxCS_18O==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_18O(ii,1)*1000,rsq_18O{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.1 0.1]);
     xlabel('\deltaN_2/O_2 [per mil]');
     ylabel('\delta^{18}O [per mil]');
@@ -495,19 +375,19 @@ for ii=1:sum(endCS_18O)
 end
 
 % dN2/O2 Effect on d17O
-x = ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1).^-1-1)*1000;
-y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d17O',:,:),4),3));
-P_17O = splitapply(fitCS,x,y,idxCS_18O); % Calculate the slope with the anonymous function
-rsq_17O = splitapply(rsqCS,x,y,idxCS_18O);
+x_temp = ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1).^-1-1)*1000;
+y_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d17O',:,:),4),3));
+P_17O = splitapply(fitCS,x_temp,y_temp,idxCS_18O); % Calculate the slope with the anonymous function
+rsq_17O = splitapply(rsqCS,x_temp,y_temp,idxCS_18O);
 CS_17O = nan(size(aliquot_deltas_pisCorr(:,1,:,:)));
 CS_17O(endCS_18O,:,:,:) = repmat(P_17O(:,1), [1 1 size(CS_17O,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
 
 figure
 for ii=1:sum(endCS_18O)
     subplot(1,sum(endCS_18O),ii); hold on
-    plot(x(idxCS_18O==ii),y(idxCS_18O==ii),'xk') % Plot the individual aliquots
-    plot(x(idxCS_18O==ii),polyval(P_17O(ii,:),x(idxCS_18O==ii)),'-r') % Plot the fitted line
-    text(max(x(idxCS_18O==ii)),min(y(idxCS_18O==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_17O(ii,1)*1000,rsq_17O{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
+    plot(x_temp(idxCS_18O==ii),y_temp(idxCS_18O==ii),'xk') % Plot the individual aliquots
+    plot(x_temp(idxCS_18O==ii),polyval(P_17O(ii,:),x_temp(idxCS_18O==ii)),'-r') % Plot the fitted line
+    text(max(x_temp(idxCS_18O==ii)),min(y_temp(idxCS_18O==ii)),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',P_17O(ii,1)*1000,rsq_17O{ii}(1,2)),'HorizontalAlignment','Right','VerticalAlignment','bottom')
     axis([-10 350 -0.1 1]);
     xlabel('\deltaN_2/O_2 [per mil]');
     ylabel('\delta^{17}O [per mil]');
@@ -518,20 +398,20 @@ end
 % N.B. This one is a little different as there are two chemical slopes, one
 % for the effect of the N2/Ar ratio and one for the isobaric interference
 % of 18O18O, i.e. the O2/Ar ratio.
-x = [((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d4036Ar',:,:),4),3));
-P_4036Ar = splitapply(fitCS,x,y,idxCS_Ar); % Calculate the slope with the anonymous function
+x_temp = [((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+y_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d4036Ar',:,:),4),3));
+P_4036Ar = splitapply(fitCS,x_temp,y_temp,idxCS_Ar); % Calculate the slope with the anonymous function
 CS_4036Ar = nan(size(aliquot_deltas_pisCorr(:,1:2,:,:)));
 CS_4036Ar(endCS_Ar,:,:,:) = repmat(P_4036Ar(:,1:2), [1 1 size(CS_4036Ar,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
 
 figure
 for ii=1:sum(endCS_Ar)
     subplot(1,sum(endCS_Ar),ii); hold on
-    plot3(x(idxCS_Ar==ii,1),x(idxCS_Ar==ii,2),y(idxCS_Ar==ii),'xk'); % Plot the individual aliquots
-    [X1,X2]=meshgrid(linspace(min(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,1)),20),linspace(min(x(idxCS_Ar==ii,2)),max(x(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
+    plot3(x_temp(idxCS_Ar==ii,1),x_temp(idxCS_Ar==ii,2),y_temp(idxCS_Ar==ii),'xk'); % Plot the individual aliquots
+    [X1,X2]=meshgrid(linspace(min(x_temp(idxCS_Ar==ii,1)),max(x_temp(idxCS_Ar==ii,1)),20),linspace(min(x_temp(idxCS_Ar==ii,2)),max(x_temp(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
     surf(X1,X2,X1.*P_4036Ar(ii,1)+X2*P_4036Ar(ii,2)+P_4036Ar(ii,1));  % Plot the fitted surface on the grid
     
-    text(max(x(idxCS_Ar==ii,1)),min(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4036Ar(ii,1)*1000,P_4036Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+    text(max(x_temp(idxCS_Ar==ii,1)),min(x_temp(idxCS_Ar==ii,2)),min(y_temp(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4036Ar(ii,1)*1000,P_4036Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
     
     xlabel('\deltaN_2/Ar [per mil]')
     ylabel('\deltaO_2/Ar [per mil]')
@@ -551,20 +431,20 @@ set(gca,'Position',pos);
 % N.B. This one is a little different as there are two chemical slopes, one
 % for the effect of the N2/Ar ratio and one for the isobaric interference
 % of 18O18O, i.e. the O2/Ar ratio.
-x = [((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-y = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d4038Ar',:,:),4),3));
-P_4038Ar = splitapply(fitCS,x,y,idxCS_Ar); % Calculate the slope with the anonymous function
+x_temp = [((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1).^-1-1)*1000 ((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:),4),3))/1000+1)./((squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:),4),3))./1000+1))-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+y_temp = squeeze(nanmean(mean(aliquot_deltas_pisCorr(:,delta_cols=='d4038Ar',:,:),4),3));
+P_4038Ar = splitapply(fitCS,x_temp,y_temp,idxCS_Ar); % Calculate the slope with the anonymous function
 CS_4038Ar = nan(size(aliquot_deltas_pisCorr(:,1:2,:,:)));
 CS_4038Ar(endCS_Ar,:,:,:) = repmat(P_4036Ar(:,1:2), [1 1 size(CS_4038Ar,[3 4])]); % Assign the slope values to the end aliquots in the time-series of CS values
 
 figure
 for ii=1:sum(endCS_Ar)
     subplot(1,sum(endCS_Ar),ii); hold on
-    plot3(x(idxCS_Ar==ii,1),x(idxCS_Ar==ii,2),y(idxCS_Ar==ii),'xk'); % Plot the individual aliquots
-    [X1,X2]=meshgrid(linspace(min(x(idxCS_Ar==ii,1)),max(x(idxCS_Ar==ii,1)),20),linspace(min(x(idxCS_Ar==ii,2)),max(x(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
+    plot3(x_temp(idxCS_Ar==ii,1),x_temp(idxCS_Ar==ii,2),y_temp(idxCS_Ar==ii),'xk'); % Plot the individual aliquots
+    [X1,X2]=meshgrid(linspace(min(x_temp(idxCS_Ar==ii,1)),max(x_temp(idxCS_Ar==ii,1)),20),linspace(min(x_temp(idxCS_Ar==ii,2)),max(x_temp(idxCS_Ar==ii,2)),20)); % Create a regularly spaced grid
     surf(X1,X2,X1.*P_4038Ar(ii,1)+X2*P_4038Ar(ii,2)+P_4038Ar(ii,1));  % Plot the fitted surface on the grid
     
-    text(max(x(idxCS_Ar==ii,1)),min(x(idxCS_Ar==ii,2)),min(y(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4038Ar(ii,1)*1000,P_4038Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+    text(max(x_temp(idxCS_Ar==ii,1)),min(x_temp(idxCS_Ar==ii,2)),min(y_temp(idxCS_Ar==ii)),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',P_4038Ar(ii,1)*1000,P_4038Ar(ii,2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
     
     xlabel('\deltaN_2/Ar [per mil]')
     ylabel('\deltaO_2/Ar [per mil]')
