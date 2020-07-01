@@ -1,18 +1,35 @@
-function [aliquot_deltas_pisCorr] = pisCorr(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis,varargin)
+function [aliquot_deltas_pisCorr,varargout] = pisCorr(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis,varargin)
 % PISCORR corrects all the delta values in ALIQUOT_DELTAS for the effect of
 % pressure imbalance. The correction is determined using the delta values
 % from the PIS experiment blocks and their metadata in ALIQUOT_DELTAS_PIS
 % and ALIQUOT_METADATA_PIS.
 %
+% PIS_CORR_DELTAS = pisCorr(ALIQUOT_DELTAS,ALIQUOT_METADATA,ALIQUOT_DELTAS_PIS,ALIQUOT_METADATA_PIS)
+% 
+% PISCORR can also optionally output the PIS values used to correct
+% ALIQUOT_DELTAS and a structure of statistics relating to the fit for each
+% PIS experiment.
+%
+% [...,PIS_VALUES] = pisCorr(...) outputs an array of PIS values used to
+% correct the values in ALIQUOT_DELTAS.
+%
+% [...,PIS_VALUES,PIS_STATS] = pisCorr(...) outputs an array of PIS values 
+% used to correct the values in ALIQUOT_DELTAS and the statistics of the
+% fit for each PIS experiment, including:
+% 
+%   pisCalcVal - the calculated PIS value for each PIS experiment
+%   pisCalcRsq - the r-squared value for each PIS experiment linear fit
+%   pisCalcPval - the p-value of the correlation coefficient for each PIS experiment
+%   pisCaclImbal - the pressure imbalance of the PIS block for each PIS experiment
+%   
 %  ------------------------------------------------------------------------
 
 %% Parse Inputs
-narginchk(4,6);
+% Check for right number of in/outputs.
 
-flagPlotFigs = false;
-if ~isempty(varargin)
-    flagPlotFigs = varargin{2};
-end
+narginchk(4,6);
+nargoutchk(0,3)
+
 
 %% Calculate the PIS for each PIS experiment
 % Identifies the aliquots containing PIS experiments and calculates the
@@ -56,6 +73,11 @@ end
 
 
 %% Identify Anomalous PIS values
+% Use a running median to remove anomalous PIS values. This method of
+% identifying outliers was chosen after testing several different methods.
+% Run pisRejectionMethodTesting.m to compare the different approaches.
+
+%pisRejectionMethodTesting; % Run to test different rejection criteria
 
 % Reject all PIS values where the P Imbalance is smaller than 100 mV
 iPisRejections = abs(calcPisImbal)<100;
@@ -64,13 +86,11 @@ calcPisRsq(iPisRejections) = nan;
 calcPisPval(iPisRejections) = nan;
 calcPisImbal(iPisRejections) = nan;
 
-%pisRejectionMethodTesting; % Run to test different rejection criteria
-
 % Identify PIS values that differ significantly from the running median for a given delta value
 numRej = zeros(1,size(aliquot_deltas,2));
 movWindow=49; % Moving median window = 7 weeks
 
-
+% Determine rejections for each delta value
 for ii = 1:size(aliquot_deltas,2)
     x_temp = aliquot_metadata.msDatenum(iPIS,1,1);
     y_temp = calcPis(iPIS,ii,1,1);
@@ -89,55 +109,10 @@ for ii = 1:size(aliquot_deltas,2)
 
 end
 
-
-%% Plot a time-series of the PIS and related parameters
-% This is useful to identify aliquots where the PIS block did no run
-% correctly or where the r-squared is low, suggesting a poor determination
-% of the PIS. These cases can be filtered out below.
-
-if flagPlotFigs
-    
-    stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
-    stackedFigAx
-    xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
-    
-    % Plot R-Squared of each PIS Experiment
-    stackedFigAx(1)
-    for ii = 1:size(aliquot_deltas,2)
-        set(gca,'ColorOrderIndex',ii)
-        plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPisRsq(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values
-        legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPisRsq(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
-    end
-    %legend(legH,delta_cols,'Orientation','Horizontal','Location','South')
-    ylabel('r^2');
-    ylim([0.7 1]);
-    
-    % Plot PIS Value for each PIS Experiment
-    stackedFigAx(2)
-    for ii = 1:size(aliquot_deltas,2)
-        set(gca,'ColorOrderIndex',ii)
-        plot(aliquot_metadata.msDatenum(iPIS,1,1),calcPis(iPIS,ii),'-ok','MarkerIndices',find(iPisRejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values
-        legH(ii)=plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii) & iPIS,1,1),calcPis(~iPisRejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
-    end
-    ylabel('PIS [per mil/per mil]');
-    ylim([-0.01 0.005]);
-    
-    % Plot Pressure Imbalance for each PIS Experiment
-    stackedFigAx(3)
-    plot(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2),:),'-^','Color',lineCol(9));
-    text(aliquot_metadata.msDatenum(iPIS & any(~iPisRejections,2),1,1),calcPisImbal(iPIS & any(~iPisRejections,2)),aliquot_metadata_pis.ID1(iPIS & any(~iPisRejections,2),1,1));
-    ylabel('Pressure Imbalance [per mil]');
-    ylim([-600 0])
-    
-    stackedFigAx();
-    datetick('x');
-    xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
-    
-    stackedFigReset
-    
-end
-
 %% Make PIS Correction
+% Use the calculated and filtered Pressure Imbalance Sensitivities to make
+% the PIS correction.
+
 PIS = calcPis;
 PIS(iPisRejections) = nan;
 PIS = repmat(PIS,[1 1 size(aliquot_deltas,[3 4])]);
@@ -145,20 +120,21 @@ PIS = fillmissing(PIS,'previous',1);
 
 aliquot_deltas_pisCorr = aliquot_deltas - permute(aliquot_metadata.pressureImbal,[1 4 2 3]).*PIS;
 
-if flagPlotFigs
-    stackedFig(size(aliquot_deltas,2))
-    for ii=1:size(aliquot_deltas,2)
-        stackedFigAx(ii)
-        plot(aliquot_metadata.msDatenum(~iPisRejections(:,ii),1,1),calcPis(~iPisRejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
-        plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
-        %ylabel(delta_cols{ii})
-    end
-    
-    stackedFigAx
-    title('PIS Values used for Correction')
-    xlabel('Date')
-    xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
-    datetick('x','keeplimits')
-    stackedFigReset
+%% Parse Outputs
+% Assign optional outputs if requested.
+
+varargout = {};
+
+pisStats.measuredPis = calcPis;
+pisStats.rejections = iPisRejections;
+pisStats.rSq = calcPisRsq;
+pisStats.pVal = calcPisPval;
+pisStats.pImbal = calcPisImbal;
+
+if nargout==2
+    varargout = {PIS};
+elseif nargout==3
+    varargout = {PIS pisStats};
 end
+    
 end % end pisCorr
