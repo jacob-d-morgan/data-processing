@@ -19,7 +19,10 @@ end
 %% Find the different CS experiments
 % Finding the CS aliquots separated by more than 10 hours or with a
 % decrease in the replicate identifier (assumes CS 0 - CS 30 are measured
-% in that order)
+% in that order). N.B. It's important to not use too big a number here.
+% Using 24 hours fails to resolve a re-do of the 18O CS in Feb-2016 as it
+% was run the morning after the previous attempt was run in the afternoon
+% w/ diff=15 hr.
 csAliquotSeparation = duration(nan(size(aliquot_metadata.msDatetime,1),3));
 csAliquotSeparation(iCStoUse) = [diff(aliquot_metadata.msDatetime(iCStoUse,1,1)); hours(999)+minutes(59)+seconds(59)];
 
