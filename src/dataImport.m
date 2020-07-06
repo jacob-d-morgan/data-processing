@@ -197,7 +197,11 @@ x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_delta
 [CS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
 [CS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
 
+% Plot all the Chem Slope Experiments
+% Plot all the different chem slope experiments for all the different chem
+% slope effects
 
+% dO2/N2 Effect on d15N
 figure
 for ii=1:length(csStats_15N)
     subplot(1,length(csStats_15N),ii); hold on
@@ -210,6 +214,7 @@ for ii=1:length(csStats_15N)
     title(['\delta^{15}N CS: ' datestr(csStats_15N(ii).datetime,'yyyy-mmm-dd')])
 end
 
+% dO2/N2 Effect on dAr/N2
 figure
 for ii=1:length(csStats_ArN2)
     subplot(1,length(csStats_ArN2),ii); hold on
@@ -222,6 +227,7 @@ for ii=1:length(csStats_ArN2)
     title(['\deltaAr/N_2 CS: ' datestr(csStats_ArN2(ii).datetime,'yyyy-mmm-dd')])
 end
 
+% dN2/O2 Effect on d18O
 figure
 for ii=1:length(csStats_18O)
     subplot(1,length(csStats_18O),ii); hold on
@@ -234,6 +240,7 @@ for ii=1:length(csStats_18O)
     title(['\delta^{18}O CS: ' datestr(csStats_18O(ii).datetime,'yyyy-mmm-dd')])
 end
 
+% dN2/O2 Effect on d17O
 figure
 for ii=1:length(csStats_17O)
     subplot(1,length(csStats_17O),ii); hold on
@@ -246,6 +253,7 @@ for ii=1:length(csStats_17O)
     title(['\delta^{17}O CS: ' datestr(csStats_17O(ii).datetime,'yyyy-mmm-dd')])
 end
 
+% dN2/Ar and dO2/Ar Effects on d40/36Ar
 figure
 for ii=1:length(csStats_36Ar)
     subplot(1,length(csStats_36Ar),ii); hold on
@@ -269,6 +277,7 @@ pos=get(gca,'Position');
 colorbar;
 set(gca,'Position',pos);
 
+% dN2/Ar and dO2/Ar Effects on d40/38Ar
 figure
 for ii=1:length(csStats_38Ar)
     subplot(1,length(csStats_38Ar),ii); hold on
@@ -298,6 +307,7 @@ set(gca,'Position',pos);
 CS = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
 CS = fillmissing(CS,'previous',1);
 
+% Predictor Variables for Univariate Chem Slopes
 CS_predictors = [aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:) ... % O2N2 CS on d15N
     ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
     ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
@@ -308,6 +318,7 @@ CS_predictors = [aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:) ... % O2N2 CS
 
 aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
 
+% Argon Isotope CS Corrections
 CS_4036Ar = fillmissing(CS_4036Ar,'previous',1);
 aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) - (CS_4036Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4036Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
 
