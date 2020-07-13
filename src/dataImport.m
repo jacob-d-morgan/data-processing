@@ -335,80 +335,47 @@ aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4038Ar',:,:) = aliquot_deltas_pisC
 % Identify the LJA aliquots
 iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
 
-% Identify each batch of LJA measurements as separated in time by >5 days
-diffsLJA = duration(nan(size(aliquot_deltas_pisCorr_csCorr,1),3));
-diffsLJA(iLja) = [diff(aliquot_metadata.msDatetime(iLja,1,1)); hours(999)+minutes(59)+seconds(59)];
-
-iLjaEnd = diffsLJA > 5;
-
-% Increment an index by one each time its a new batch of LJA measurements
-idxLjaAliquotsEnd = nan(size(aliquot_deltas_pisCorr_csCorr,1),1);
-idxLjaAliquotsEnd(iLjaEnd) = cumsum(iLjaEnd(iLjaEnd));
-
-% Assign the same index to all the aliquots from each given batch
-idxLjaAliquots = zeros(size(aliquot_deltas_pisCorr_csCorr,1),1); % Create a vector of zeros
-idxLjaAliquots(iLja)=nan; % Assign NaN to the values I want to replace
-idxLjaAliquots(iLjaEnd) = idxLjaAliquotsEnd(iLjaEnd); % Fill in the indices of the end of each LJA aliquot
-idxLjaAliquots(iLja) = fillmissing(idxLjaAliquots(iLja),'next'); % Replace the nans for each aliquot with the next index - must fill only the (iLJA) subset otherwise it fills some indices with interspersed zeros that are then reassigned to NaN in the next line
-idxLjaAliquots = standardizeMissing(idxLjaAliquots,0); % Change the zeros to nans to properly represent the fact that they are missing values
+[calcLja,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
 
 % Plot the distribution of all LJA aliquot means
 figure
 for ii = 1:numel(delta_cols)
     subplot(1,numel(delta_cols),ii)
-    histogram(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))
+    histogram(mean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))
     axis('square');
     xlabel('\delta [per mil]'); ylabel('Counts')
     title(delta_cols(ii))
 end
 
-% Calculate stats for each batch and make box plots
-N = nan(sum(iLjaEnd),1);
-stdev = nan(sum(iLjaEnd),numel(delta_cols));
-for ii=1:sum(iLjaEnd)
-    N(ii) = sum(idxLjaAliquots==ii); % number of aliquots measured for each batch of LJA measurements
-    stdev(ii,:) = nanstd(nanmean(mean(aliquot_deltas_pisCorr_csCorr(idxLjaAliquots==ii,:,:,:),4),3)); % standard deviation of aliquot means for each batch of LJA measurements
-end
-SEM = stdev./sqrt(N); % standard error of aliquot means for each batch of LJA measurements
-
 % Make Box Plots
-labels = datestr(aliquot_metadata.msDatenum(iLjaEnd,1,1),'dd-mmm-yyyy');
+
+
 for ii = 1:numel(delta_cols)
+    allLjaAliquots = []; allLjaAliquotsGrp = [];
+    numAliquots = []; stdevAliquots = []; labels = strings;
+    for jj = 1:length(ljaStats)
+       allLjaAliquots =  [allLjaAliquots; ljaStats(jj).aliquots{ii}];
+       allLjaAliquotsGrp = [allLjaAliquotsGrp; repmat(jj,size(ljaStats(jj).aliquots{ii}))];
+       numAliquots(jj,:) = ljaStats(jj).N(ii);
+       stdevAliquots(jj,:) = ljaStats(jj).stdevs(ii);
+       labels(jj) = string(datestr(ljaStats(jj).datetime(ii),'yyyy-mmm-dd'));
+    end
     figure; hold on;
-    hBoxPlot=boxplot(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),idxLjaAliquots(iLja),'Labels',labels,'Notch','off');
-    plot(idxLjaAliquots(iLja),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),'.k');
-    text(1:sum(iLjaEnd),repmat(min(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))*1.05,1,sum(iLjaEnd)),compose(['N = %d\n\\sigma = %.3f' char(8240) '\nSEM = %.3f' char(8240)],N,stdev(:,ii),SEM(:,ii)));
+     hBoxPlot=boxplot(allLjaAliquots,allLjaAliquotsGrp,'Labels',labels,'Notch','off');
+    %hBoxPlot=boxplot(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),idxLjaAliquots(iLja),'Labels',labels,'Notch','off');
+     plot(allLjaAliquotsGrp,allLjaAliquots,'.k');
+    %plot(idxLjaAliquots(iLja),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),'.k');
+     text(1:max(allLjaAliquotsGrp),repmat(min(allLjaAliquots)*1.05,1,length(ljaStats)),compose(['N = %d\n \\sigma = %.3f' char(8240) '\nSEM = %.4f' char(8240)],numAliquots,stdevAliquots,stdevAliquots./numAliquots),'HorizontalAlignment','center');
     
     ylim('auto');
     ylabel('\delta_{LJA} [per mil]')
     title(['LJA ' delta_cols(ii)])
 end
 
-% Reject Outliers
-isoutlierAnonFn = @(x){(isoutlier(x,'quartiles'))};
-tf=splitapply(isoutlierAnonFn,nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,:,:,:),4),3),idxLjaAliquots(iLja));
-
-iLjaAfterRej = repmat(iLja,[1 numel(delta_cols)]);
-for ii=1:length(tf)
-    iLjaAfterRej(idxLjaAliquots==ii,:) = ~tf{ii};
-end
-
-% Calculate LJA Values for Normalization
-ljaValues = nan(size(aliquot_deltas_pisCorr_csCorr));
-ljaLoCI = nan(size(aliquot_deltas_pisCorr_csCorr));
-ljaHiCI = nan(size(aliquot_deltas_pisCorr_csCorr));
-
-for ii=1:7
-    [batchMean, batchMeanCI] = grpstats(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLjaAfterRej(:,ii),ii,:,:),4),3),idxLjaAliquots(iLjaAfterRej(:,ii)),{'mean','meanci'});
-    ljaValues(iLjaEnd,ii,:,:) = repmat(batchMean,[1 1 size(aliquot_deltas_pisCorr_csCorr,[3 4])]);
-    ljaLoCI(iLjaEnd,ii,:,:) = repmat(batchMeanCI(:,1),[1 1 size(aliquot_deltas_pisCorr_csCorr,[3 4])]);
-    ljaHiCI(iLjaEnd,ii,:,:) = repmat(batchMeanCI(:,2),[1 1 size(aliquot_deltas_pisCorr_csCorr,[3 4])]);
-end
-
 
 %% Make the LJA Correction
 
-LJA = ljaValues;
+LJA = calcLja;
 LJA = fillmissing(LJA,'previous',1);
 
 aliquot_deltas_pisCorr_csCorr_ljaCorr = ((aliquot_deltas_pisCorr_csCorr/1000+1)./(LJA/1000+1)-1)*1000;
