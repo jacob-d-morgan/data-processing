@@ -46,6 +46,7 @@ for jj = 1:max(ljaGroup)
         stats(jj).aliquots{ii} = aliquots;
         stats(jj).stdevs(ii) = std(aliquots);
         stats(jj).N(ii) = size(aliquots,1);
+        stats(jj).datetime(ii) = aliquot_metadata.msDatetime(idxLastAliquot(jj));
     end
 end
 
