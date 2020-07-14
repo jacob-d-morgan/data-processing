@@ -6,8 +6,8 @@
 % these lines back out and not clear the importedData variable as the files
 % take a long time to load in.
 
-% set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
-clearvars -EXCEPT importedData;
+set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
+clearvars;
 cluk; clc;
 
 filesToImport = [
@@ -15,95 +15,9 @@ filesToImport = [
     "XP-2017(excelExportIntensityJDM).csv"; ...
     "XP-2016(excelExportIntensityJDM).csv"
     ];
-
-%importedData = csvReadIsodat(filesToImport);
-
-%% Calculate Delta Values and Compile Useful Metadata
-% NOTE: The current method of interpolating onto the ~isRef indices
-% excludes the CO2 checks from the blocks I consider as they are recorded
-% in isRef as 'true'. This is probably the right way to do it but I have to
-% add them back in below, including their metadata.
-
-[cycle_deltas,cycle_metadata] = calcCycles(importedData,'IsRef__');
-
-delta_cols = string(cycle_deltas.Properties.VariableNames);
-delta_labels = string(cycle_deltas.Properties.VariableDescriptions);
-cycle_deltas = table2array(cycle_deltas);
-
-metadata_fields = fieldnames(cycle_metadata)'; % Transpose it to a row vector so that it works as a loop index
-
-%% Reject Erroneous Cycles
-% Get rid of some data that is of little use for evaluating the health of
-% the mass spec and which causes problems with PIS etc.
-%
-% First, discard all data with a gas config different to 'Air+'
-% This is mostly Jeff's neon experiments.
-    % N.B. Note that there is a difference between Gas Config and Gas Name!
-    % N.B. This does not reject the data from the CO2 check blocks as they
-    % are already misisng from the cycle deltas and metadata.
-
-iAirPlus = cycle_metadata.gasConfig == 'Air+';
-cycle_deltas(~iAirPlus,:) = [];
-for ii = 1:numel(metadata_fields)
-    cycle_metadata.(metadata_fields{ii})(~iAirPlus,:) = [];
-end
-
-% Could do something similar here with folder names e.g. only use data from
-% the "SPICE" Folders:
-% importedData = importedData(contains(importedData.FileHeader_Filename,'SPICE'),:);
-
-
-% Second, reject cycles where the mass 28 beam is saturated on the cup
-% (>9000 mV) or where it is less than 10 mV, presumably indicating some 
-% problem with the source.
-    % N.B. This also happens sometimes when measuring in an unusual gas
-    % configuration that doesn't focus the 28 beam into a cup but collects 
-    % the signal anyway. If the 28 beam isn't included in the gas config 
-    % then its value is recorded as NaN.
-
-iBeamReject = cycle_metadata.int28SA > 9000 | cycle_metadata.int28SA < 10 | cycle_metadata.int28ST > 9000 | cycle_metadata.int28ST < 10;
-
-cycle_deltas = cycle_deltas(~iBeamReject,:);
-for ii = 1:numel(metadata_fields)
-    cycle_metadata.(metadata_fields{ii}) = cycle_metadata.(metadata_fields{ii})(~iBeamReject);
-end
-
-
-%% Reshape to Isotope Ratio x Delta Value x Block x Cycle
-% Reshape the cycle deltas and their metadata into a more useable format.
-
-[aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS',true);
-%[~,~,aliquotDeltasAll,aliquotMetadataAll] = reshapeCycles(cycle_deltas,cycle_metadata,'includeAllData',true);
-
-%% Add the CO2 Check Data Back In
-% Find the Timestamp for the CO2 Check Blocks
-% I do this by interpolating to find the index/cycle number (y) of the
-% block nearest to the CO2 blocks in datetime (x). I then use this index to
-% find the datetime of these blocks.
-% I have to use the index as the interpolant as the 'nearest' neighbour is
-% calculated in the x variable and I want to interpolate to the nearest
-% neightbour in datetime, not in cycle number.
-
-iCO2 = importedData.Method=="CO2nonB" | importedData.Method=="CO2_non_B"; % Identify the CO2 blocks using the method name
-rCO2N2_SA = importedData.x1_CycleInt_Samp_40(iCO2)./importedData.x1_CycleInt_Samp_29(iCO2);
-rCO2N2_ST = importedData.x1_CycleInt_Ref_40(iCO2)./importedData.x1_CycleInt_Ref_29(iCO2);
-
-x_temp = importedData.datenum + cumsum(ones(size(importedData.datenum))).*importedData.datenum*eps; % Generate an x-variable with unique points by adding a quasi-infinitesimal increment (eps) to each row
-y_temp = 1:length(x_temp);
-
-idxCO2NearestBlocks = interp1(x_temp(~iCO2),y_temp(~iCO2),x_temp(iCO2),'nearest'); % Interpolate to find the index of the nearest blocks
-datetimeCO2NearestBlocks = importedData.datetime(idxCO2NearestBlocks); % Use the index to find the datetime of those blocks
-
-[iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquot_metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
-[idxCO2Aliquots,idx2,idx3] = ind2sub(size(aliquot_metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
-
-aliquot_metadata.rCO2N2_SA = nan(size(aliquot_metadata.msDatetime,1),1);
-aliquot_metadata.rCO2N2_ST = nan(size(aliquot_metadata.msDatetime,1),1);
-aliquot_metadata.dCO2N2 = nan(size(aliquot_metadata.msDatetime,1),1);
-
-aliquot_metadata.rCO2N2_SA(idxCO2Aliquots) = rCO2N2_SA(iA);
-aliquot_metadata.rCO2N2_ST(idxCO2Aliquots) = rCO2N2_ST(iA);
-aliquot_metadata.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
+[aliquot_deltas,md,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true);
+aliquot_metadata = md.metadata;
+delta_cols = md.delta_names;
 
 
 %% Make PIS Correction
