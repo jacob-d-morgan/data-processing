@@ -21,6 +21,10 @@ function [aliquotDeltas,aliquotMetadata,varargout] = reshapeCycles(cycle_deltas,
 %       - 'includeAllAliquots': Outputs two cell arrays containing all
 %                               aliquots and their metadata, regardless of
 %                               the number of blocks they are made up of.
+%       - 'includeAllData': Outputs two cell arrays containing all
+%                           aliquots and blocks, and their metadata, 
+%                           regardless of the number of blocks or cycles 
+%                           they are made up of.
 %
 % [...,PISDELTAS,PISMETADATA] = RESHAPECYCLES(...,'includePIS') outputs the
 % PIS experiment delta values and their metadata.
@@ -48,34 +52,47 @@ function [aliquotDeltas,aliquotMetadata,varargout] = reshapeCycles(cycle_deltas,
 
 % -------------------------------------------------------------------------
 
-%% Parse Inputs
-nargoutchk(2,6);
+%% Check Input/Outputs
+% Check the user-provided inputs are of the correct form.
 
-flagPIS = false;
-flagUseAllBlocks = false;
-flagUseAllAliquots = false;
+% Define Input Parser Scheme
+p = inputParser;
+p.StructExpand = false;
+p.FunctionName = mfilename;
 
-% Ouptut PIS Blocks?
-if any(contains(varargin,'includePIS','IgnoreCase',true))
-    flagPIS = true;
-    nargoutchk(4,6);
+addRequired(p,'cycle_deltas',@(x) validateattributes(x,{'numeric'},{'2d','real'}));
+addRequired(p,'cycle_metadata',@(x) validateattributes(x,{'struct'},{'scalar'}));
+addParameter(p,'includePIS',false,@(x) validateattributes(x,{'logical'},{'scalar'}));
+addParameter(p,'includeAllBlocks',false,@(x) validateattributes(x,{'logical'},{'scalar'}));
+addParameter(p,'includeAllAliquots',false,@(x) validateattributes(x,{'logical'},{'scalar'}));
+addParameter(p,'includeAllData',false,@(x) validateattributes(x,{'logical'},{'scalar'}));
+
+% Parse Inputs and Assign Results
+parse(p,cycle_deltas,cycle_metadata,varargin{:});
+
+cycle_deltas = p.Results.cycle_deltas;
+cycle_metadata = p.Results.cycle_metadata;
+includePIS = p.Results.includePIS;
+includeAllBlocks = p.Results.includeAllBlocks;
+includeAllAliquots = p.Results.includeAllAliquots;
+if p.Results.includeAllData
+    includeAllBlocks = true;
+    includeAllAliquots = true;
 end
 
-% Include All Blocks?
-if any(contains(varargin,'includeAllBlocks','IgnoreCase',true) | contains(varargin,'includeAllData','IgnoreCase',true))
-    flagUseAllBlocks = true;
-    nargoutchk(4,6)
-end
-
-% Include All Aliquots?
-if any(contains(varargin,'includeAllAliquots','IgnoreCase',true) | contains(varargin,'includeAllData','IgnoreCase',true))
-    flagUseAllAliquots = true;
-    nargoutchk(4,6)
-end
-
-if ~flagPIS && ~flagUseAllBlocks && ~flagUseAllAliquots
+% Check for Correct Number of Outputs
+if includePIS && (includeAllBlocks || includeAllAliquots)
+    nargoutchk(6,6);
+elseif includePIS && ~(includeAllBlocks || includeAllAliquots)
+    nargoutchk(4,4)
+elseif ~includePIS && (includeAllBlocks || includeAllAliquots)
+    nargoutchk(4,4)
+else
     nargoutchk(2,2);
 end
+
+clear p
+
 
 %% Calculate and Assign Outputs
 varargout = {};
@@ -88,8 +105,8 @@ varargout = {};
 % cycles and blocks respectively. This is the default behaviour of
 % reshapeCycles and is faster than including all of data.
 % Also, include the PIS blocks if requested by the function call.
-if flagPIS
-    [aliquotDeltas,aliquotMetadata,pis_aliquot_deltas,pis_aliquot_metadata] = reshapeModesToAliquots(cycle_deltas,cycle_metadata,flagPIS);
+if includePIS
+    [aliquotDeltas,aliquotMetadata,pis_aliquot_deltas,pis_aliquot_metadata] = reshapeModesToAliquots(cycle_deltas,cycle_metadata,includePIS);
     varargout = [varargout {pis_aliquot_deltas pis_aliquot_metadata}];
 else
     [aliquotDeltas,aliquotMetadata] = reshapeModesToAliquots(cycle_deltas,cycle_metadata,false);
@@ -101,8 +118,8 @@ end
 % output that can be requested by the function call and can be
 % significantly slower than the default behaviour, depending on the size of
 % the inputs.
-if flagUseAllAliquots || flagUseAllBlocks
-    [aliquotDeltasAll,aliquotMetadataAll] = reshapeAllToCell(cycle_deltas,cycle_metadata,flagUseAllBlocks,flagUseAllAliquots);
+if includeAllAliquots || includeAllBlocks
+    [aliquotDeltasAll,aliquotMetadataAll] = reshapeAllToCell(cycle_deltas,cycle_metadata,includeAllBlocks,includeAllAliquots);
     if ~exist('aliquotDeltasAll','var')
         warning('All blocks and aliquots were the same size. No cell array necessary.')
     end

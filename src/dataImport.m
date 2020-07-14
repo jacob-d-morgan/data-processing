@@ -72,8 +72,8 @@ end
 %% Reshape to Isotope Ratio x Delta Value x Block x Cycle
 % Reshape the cycle deltas and their metadata into a more useable format.
 
-[aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS');
-%[~,~,aliquotDeltasAll,aliquotMetadataAll] = reshapeCycles(cycle_deltas,cycle_metadata,'includeAllData');
+[aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS',true);
+%[~,~,aliquotDeltasAll,aliquotMetadataAll] = reshapeCycles(cycle_deltas,cycle_metadata,'includeAllData',true);
 
 %% Add the CO2 Check Data Back In
 % Find the Timestamp for the CO2 Check Blocks
