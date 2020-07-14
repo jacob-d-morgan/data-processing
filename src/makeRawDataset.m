@@ -199,7 +199,7 @@ aliquot_metadata.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
 deltaValues = aliquot_deltas;
 
 metadata.delta_names = delta_names;
-metadata.delta_lables = delta_labels;
+metadata.delta_labels = delta_labels;
 metadata.delta_units = delta_units;
 metadata.metadata = aliquot_metadata;
 
