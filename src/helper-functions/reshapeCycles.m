@@ -12,32 +12,32 @@ function [aliquotDeltas,aliquotMetadata,varargout] = reshapeCycles(cycle_deltas,
 %   rather than by filling a cell array in a for loop with many iterations.
 %
 %   The data ommitted from ALIQUOTDELTAS can be optionally outputted by
-%   including one or more of four optional flags (case-insensitive):
-%       - 'includePIS': Outputs the PIS blocks and their metadata as
-%                       separate variables.
-%       - 'includeAllBlocks': Outputs two cell arrays containing all blocks
-%                             and their metadata, regardless of the number
-%                             of cycles they are made up of.
-%       - 'includeAllAliquots': Outputs two cell arrays containing all
-%                               aliquots and their metadata, regardless of
-%                               the number of blocks they are made up of.
-%       - 'includeAllData': Outputs two cell arrays containing all
+%   setting one or more of four name-value parameters to true:
+%       - 'includePIS': If true, outputs the PIS blocks and their metadata 
+%                       as separate variables.
+%       - 'includeAllBlocks': If true, outputs two cell arrays containing
+%                             all blocks and their metadata, regardless of 
+%                             the number of cycles they are made up of.
+%       - 'includeAllAliquots': If true, outputs two cell arrays containing
+%                               all aliquots and their metadata, regardless
+%                               of the number of blocks they are made up of.
+%       - 'includeAllData': If true, outputs two cell arrays containing all
 %                           aliquots and blocks, and their metadata, 
 %                           regardless of the number of blocks or cycles 
 %                           they are made up of.
 %
-% [...,PISDELTAS,PISMETADATA] = RESHAPECYCLES(...,'includePIS') outputs the
-% PIS experiment delta values and their metadata.
+% [...,PISDELTAS,PISMETADATA] = RESHAPECYCLES(...,'includePIS',true) 
+% outputs the PIS experiment delta values and their metadata.
 %
-% [...,ALLBLOCKSDELTAS,ALLBLOCKSMETADATA] = RESHAPECYCLES(...,'includeAllBlocks')
+% [...,ALLBLOCKSDELTAS,ALLBLOCKSMETADATA] = RESHAPECYCLES(...,'includeAllBlocks',true)
 % outputs a cell array containing the aliquots composed of the mode number 
 % of blocks of any number of cycles.
 %
-% [...,ALLALIQUOTDELTAS,ALLALIQUOTMETADATA] = RESHAPECYCLES(...,'includeAllAliquots')
+% [...,ALLALIQUOTDELTAS,ALLALIQUOTMETADATA] = RESHAPECYCLES(...,'includeAllAliquots',true)
 % outputs a cell array containing aliquots of any number of blocks of the
 % mode number of cycles.
 %
-% [...,ALLDATADELTAS,ALLDATAMETADATA] = RESHAPECYCLES(...,'includeAllData')
+% [...,ALLDATADELTAS,ALLDATAMETADATA] = RESHAPECYCLES(...,'includeAllData',true)
 % outputs a cell array containing aliquots of any number of blocks of any
 % number of cycles.
 %
@@ -45,9 +45,9 @@ function [aliquotDeltas,aliquotMetadata,varargout] = reshapeCycles(cycle_deltas,
 % cell arrays of all the blocks/aliquots, e.g.:
 %
 % [...,PISDELTAS,PISMETADATA,ALLDATADELTAS,ALLDATAMETADATA] = 
-%   RESHAPECYCLES(...,'includePIS',includeAllData) outputs both the pis
-%   data and a cell array containing aliquots of any number of blocks of 
-%   any number of cycles.
+%   RESHAPECYCLES(...,'includePIS',true,'includeAllData',true) outputs both
+%   the pis data and a cell array containing aliquots of any number of 
+%   blocks of any number of cycles.
 
 
 % -------------------------------------------------------------------------
