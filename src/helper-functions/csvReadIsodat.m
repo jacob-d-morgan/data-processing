@@ -45,11 +45,11 @@ if numVars(1) ~= 38
 end
 
 if ~isequal(varNames{:})
-    error('Invalid Input: Input files appear to have different vairable names or a different order of variables.')
+    error('Invalid Input: Input files appear to have different variable names or a different order of variables.')
 end
 
 if ~isequal(varTypes{:})
-    error('Invalid Input: Input files appear to have different vairable types or a different order of variable types.')
+    warning('Input files appear to have different variable types or a different order of variable types. Variable types of the first file will be used.')
 end
 
 
@@ -68,10 +68,17 @@ optsToUse.VariableNames(string(optsToUse.VariableNames)=='TimeCode')={'datetime'
 
 % Read In Files
 importedData = table;
-for ii=1:length(filesToRead)
+for ii = 1:length(filesToRead)
     disp(compose('Reading File %i: Working...',ii))
     readFile = readtable(filesToRead(ii),optsToUse);
     importedData = [importedData; readFile];
+    
+    missingIsRef = isnan(importedData.IsRef__);
+    if any((missingIsRef))
+        importedData(isnan(importedData.IsRef__),:) = [];
+        warning(['Missing IsRef Data: Some integrations in file ' num2str(ii) ' are not recorded as either Sample or Reference. Omitting these ' num2str(sum(missingIsRef)) ' rows.'])
+    end
+    
     disp(compose('Reading File %i: Complete',ii))
 end
 
