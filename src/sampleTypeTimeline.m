@@ -123,15 +123,15 @@ cols = [
 
 % Plot a few extra categories that aren't in the plotting array
 figure; hold on;
-plot(cycle_metadata.msDatetime(~isIncluded),zeros(sum(~isIncluded),1),'^k','MarkerFaceColor','k')
+plot(cycle_metadata.msDatetime(~isIncluded),zeros(sum(~isIncluded),1),'^k','MarkerFaceColor','k','MarkerSize',3)
 
 plot(cycle_metadata.msDatetime(isIncluded & isundefined(sampleType)),0.1*ones(sum(isIncluded & isundefined(sampleType)),1),'.','Color',lineCol(9),'MarkerSize',20)
 plot(cycle_metadata.msDatetime(~isIncluded & isundefined(sampleType)),0.1*ones(sum(~isIncluded & isundefined(sampleType)),1),'x','Color',lineCol(9)*0.7,'MarkerSize',5)
 
 % Plot the categorical array
 for ii = 1:length(sampleTypeCatsToPlot)
-    plot(cycle_metadata.msDatetime(isIncluded & sampleType==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(isIncluded & sampleType==sampleTypeCatsToPlot(ii)),1),'.','Color',cols(ii,:),'MarkerSize',20)
-    plot(cycle_metadata.msDatetime(~isIncluded & sampleType==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(~isIncluded & sampleType==sampleTypeCatsToPlot(ii)),1),'x','Color',cols(ii,:)*0.7,'MarkerSize',5)
+    plot(cycle_metadata.msDatetime(isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),1),'.','Color',cols(ii,:),'MarkerSize',20)
+    plot(cycle_metadata.msDatetime(~isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(~isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),1),'x','Color',cols(ii,:)*0.7,'MarkerSize',5)
 end
 
 ax=gca;
