@@ -1,5 +1,5 @@
 %% Sample Type Timeline
-% Plots a 'timeline' of each sample type in the imported data. 
+% Plots a timeline of each sample type in the imported data. 
 % 
 % This allows me to identify the time intervals in which each ice core was
 % analyzed and to identify the different batches of CS, LJA, and see which
