@@ -1,23 +1,38 @@
 %% dataImport %%
 
-%% Import Data
-% Uncomment the csvReadIsodat line in this section when running the script 
-% for the first time in a session. It's easier and faster to then comment
-% these lines back out and not clear the importedData variable as the files
-% take a long time to load in.
+% clearvars;
+cluk; clc;
 
 set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
-clearvars;
-cluk; clc;
+
+%% Import Data
+% Imports the 'standard' raw dataset of aliquot delta values and their
+% metadata. Does not include any cycles with a gas configuration
+% different to Air+ or where the 28N2 beam is saturated or absent, or
+% cycles with a non-standard number of cycles or blocks.
+% Rather than reading in the files each time, it's easier to read them in
+% once using the makeRawDataset() line and then use the clearvars -EXCEPT
+% line to preserve the variables read in by this line for future runs.
+% Toggle the comments on the indicated line(s) to adjust whether or not the
+% files are re-read.
+
+clearvars -EXCEPT aliquot_deltas metadata aliquot_deltas_pis aliquot_metadata_pis;
 
 filesToImport = [
     "XP-2018(excelExportIntensityJDM).csv"; ...
     "XP-2017(excelExportIntensityJDM).csv"; ...
     "XP-2016(excelExportIntensityJDM).csv"
     ];
-[aliquot_deltas,md,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true);
-aliquot_metadata = md.metadata;
-delta_cols = md.delta_names;
+
+% Generate 'Standard' Raw Dataset
+[aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
+
+aliquot_metadata = metadata.metadata;
+delta_names = metadata.delta_names;
+delta_labels = metadata.delta_labels;
+delta_units = metadata.delta_units;
+
+metadata_fields = string(fieldnames(aliquot_metadata))';
 
 
 %% Make PIS Correction
@@ -45,18 +60,18 @@ xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
 
 % Plot R-Squared of each PIS Experiment
 stackedFigAx(1)
-for ii = 1:numel(delta_cols)
+for ii = 1:numel(delta_names)
     set(gca,'ColorOrderIndex',ii)
     plot(aliquot_metadata.msDatenum(iPIS,1,1),pisStats.rSq(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
     legH(ii)=plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii) & iPIS,1,1),pisStats.rSq(~pisStats.rejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
 end
-legend(legH,delta_cols,'Orientation','Horizontal','Location','South')
+legend(legH,delta_names,'Orientation','Horizontal','Location','South')
 ylabel('r^2');
 ylim([0.7 1]);
 
 % Plot PIS Value for each PIS Experiment
 stackedFigAx(2)
-for ii = 1:numel(delta_cols)
+for ii = 1:numel(delta_names)
     set(gca,'ColorOrderIndex',ii)
     plot(aliquot_metadata.msDatenum(iPIS,1,1),pisStats.measuredPis(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
     legH(ii)=plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii) & iPIS,1,1),pisStats.measuredPis(~pisStats.rejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
@@ -77,12 +92,12 @@ xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
 
 stackedFigReset
 
-stackedFig(numel(delta_cols))
-for ii=1:numel(delta_cols)
+stackedFig(numel(delta_names))
+for ii=1:numel(delta_names)
     stackedFigAx(ii)
     plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii),1,1),pisStats.measuredPis(~pisStats.rejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
     plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
-    ylabel(delta_cols{ii})
+    ylabel(delta_names{ii})
 end
 stackedFigAx
 title('PIS Values used for Correction')
@@ -222,22 +237,22 @@ CS = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS
 CS = fillmissing(CS,'previous',1);
 
 % Predictor Variables for Univariate Chem Slopes
-CS_predictors = [aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:) ... % O2N2 CS on d15N
-    ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
-    ((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
-    zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4036Ar CS Below
-    zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % d4038Ar CS Below
-    zeros(size(aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:))) ... % No CS Corr for dO2N2
-    aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)]; % O2N2 CS on dArN2
+CS_predictors = [aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:) ... % O2N2 CS on d15N
+    ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
+    ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
+    zeros(size(aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:))) ... % d4036Ar CS Below
+    zeros(size(aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:))) ... % d4038Ar CS Below
+    zeros(size(aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:))) ... % No CS Corr for dO2N2
+    aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)]; % O2N2 CS on dArN2
 
 aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
 
 % Argon Isotope CS Corrections
 CS_4036Ar = fillmissing(CS_4036Ar,'previous',1);
-aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4036Ar',:,:) - (CS_4036Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4036Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
+aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4036Ar',:,:) - (CS_4036Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4036Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000);
 
 CS_4038Ar = fillmissing(CS_4038Ar,'previous',1);
-aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4038Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_cols=='d4038Ar',:,:) - (CS_4038Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4038Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_cols=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_cols=='dArN2',:,:)/1000+1)-1)*1000);
+aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4038Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4038Ar',:,:) - (CS_4038Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4038Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000);
 
 
 %% Calculate the LJA Normalization Values
@@ -253,18 +268,18 @@ iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
 
 % Plot the distribution of all LJA aliquot means
 figure
-for ii = 1:numel(delta_cols)
-    subplot(1,numel(delta_cols),ii)
+for ii = 1:numel(delta_names)
+    subplot(1,numel(delta_names),ii)
     histogram(mean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))
     axis('square');
     xlabel('\delta [per mil]'); ylabel('Counts')
-    title(delta_cols(ii))
+    title(delta_names(ii))
 end
 
 % Make Box Plots
 
 
-for ii = 1:numel(delta_cols)
+for ii = 1:numel(delta_names)
     allLjaAliquots = []; allLjaAliquotsGrp = [];
     numAliquots = []; stdevAliquots = []; labels = strings;
     for jj = 1:length(ljaStats)
@@ -283,7 +298,7 @@ for ii = 1:numel(delta_cols)
     
     ylim('auto');
     ylabel('\delta_{LJA} [per mil]')
-    title(['LJA ' delta_cols(ii)])
+    title(['LJA ' delta_names(ii)])
 end
 
 
