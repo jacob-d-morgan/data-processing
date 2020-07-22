@@ -153,3 +153,18 @@ patch(xvals,yvals,[1 0.7 0.7])
 ax.Children = flipud(ax.Children);
 xlim(datenum([2013 2019],[01 01],[01 01]))
 datetick('x','KeepLimits')
+
+
+% Plot Mass Spec Events
+massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+massSpecEvents.Event = categorical(massSpecEvents.Event);
+
+iPlot = massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus";
+plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),'-r','LineWidth',2);
+text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color','r')
+
+iPlot = massSpecEvents.Event == "New Std Cans" | massSpecEvents.Event == "Swap Std Cans";
+plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),':','Color',lineCol(6),'LineWidth',3);
+text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color',lineCol(6))
+
+% xlim(datetime([2014 2019],[1 1],[1 1]))
