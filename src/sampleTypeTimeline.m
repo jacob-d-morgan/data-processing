@@ -123,19 +123,37 @@ cols = [
 
 % Plot a few extra categories that aren't in the plotting array
 figure; hold on;
-plot(cycle_metadata.msDatetime(~isIncluded),zeros(sum(~isIncluded),1),'^k','MarkerFaceColor','k','MarkerSize',3)
+plot(cycle_metadata.msDatenum(~isIncluded),zeros(sum(~isIncluded),1),'^k','MarkerFaceColor','k','MarkerSize',3)
 
-plot(cycle_metadata.msDatetime(isIncluded & isundefined(sampleType)),0.1*ones(sum(isIncluded & isundefined(sampleType)),1),'.','Color',lineCol(9),'MarkerSize',20)
-plot(cycle_metadata.msDatetime(~isIncluded & isundefined(sampleType)),0.1*ones(sum(~isIncluded & isundefined(sampleType)),1),'x','Color',lineCol(9)*0.7,'MarkerSize',5)
+plot(cycle_metadata.msDatenum(isIncluded & isundefined(sampleType)),0.1*ones(sum(isIncluded & isundefined(sampleType)),1),'.','Color',lineCol(9),'MarkerSize',20)
+plot(cycle_metadata.msDatenum(~isIncluded & isundefined(sampleType)),0.1*ones(sum(~isIncluded & isundefined(sampleType)),1),'x','Color',lineCol(9)*0.7,'MarkerSize',5)
 
 % Plot the categorical array
 for ii = 1:length(sampleTypeCatsToPlot)
-    plot(cycle_metadata.msDatetime(isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),1),'.','Color',cols(ii,:),'MarkerSize',20)
-    plot(cycle_metadata.msDatetime(~isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(~isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),1),'x','Color',cols(ii,:)*0.7,'MarkerSize',5)
+    plot(cycle_metadata.msDatenum(isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),1),'.','Color',cols(ii,:),'MarkerSize',20)
+    plot(cycle_metadata.msDatenum(~isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),yVal(ii)*ones(sum(~isIncluded & sampleTypeToPlot==sampleTypeCatsToPlot(ii)),1),'x','Color',cols(ii,:)*0.7,'MarkerSize',5)
 end
 
 ax=gca;
+ax.YGrid = 'on';
 ax.YTick = [0 0.1 yVal];
 ax.YTickLabel = ["Excluded Samples" "Unassigned" sampleTypeCatsToPlot'];
-ax.XLim = datetime([2013 2019],[01 01],[01 01]);
+ax.XLim = datenum([2013 2019],[01 01],[01 01]);
 
+% Plot the date ranges that do not fall within any of the known spreadsheets
+[spreadsheetRanges,missingIntervals] = getSpreadsheetRanges('spreadsheet_metadata.xlsx');
+missingIntervals = [missingIntervals; max(spreadsheetRanges.EndDate) datetime('now')];
+
+xvals = nan(4,length(missingIntervals));
+xvals([1 2],1:end) = repmat(datenum(missingIntervals(:,1))',2,1);
+xvals([3 4],1:end) = repmat(datenum(missingIntervals(:,2))',2,1);
+
+yvals = nan(4,length(missingIntervals));
+yvals([1 4],1:end) = ax.YLim(1);
+yvals([2 3],1:end) = ax.YLim(2);
+
+patch(xvals,yvals,[1 0.7 0.7])
+
+ax.Children = flipud(ax.Children);
+xlim(datenum([2013 2019],[01 01],[01 01]))
+datetick('x','KeepLimits')
