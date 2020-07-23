@@ -3,7 +3,7 @@
 % clearvars;
 cluk; clc;
 
-set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
+% set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
 
 %% Import Data
 % Imports the 'standard' raw dataset of aliquot delta values and their
@@ -25,7 +25,7 @@ filesToImport = [
     ];
 
 % Generate 'Standard' Raw Dataset
-% [aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
+[aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
 
 aliquot_metadata = metadata.metadata;
 delta_names = metadata.delta_names;
@@ -103,7 +103,7 @@ for ii=1:numel(delta_names)
     stackedFigAx(ii)
     plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii),1,1),pisStats.measuredPis(~pisStats.rejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
     plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
-    ylabel(delta_names{ii})
+    ylabel(delta_labels{ii})
 end
 
 % Add Date of Filament Changes/Refocusing
@@ -118,6 +118,7 @@ title('PIS Values used for Correction')
 xlabel('Date')
 xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
 datetick('x','keeplimits')
+drawnow;
 stackedFigReset
 
 
@@ -247,8 +248,30 @@ set(gca,'Position',pos);
 
 %% Make the CS Corrections
 
-CS = [CS_15N CS_18O CS_17O zeros(size(CS_15N)) zeros(size(CS_15N)) zeros(size(CS_15N)) CS_ArN2];
-CS = fillmissing(CS,'previous',1);
+CS = [CS_15N CS_18O CS_17O nan(size(CS_15N)) nan(size(CS_15N)) nan(size(CS_15N)) CS_ArN2];
+
+massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
+for ii = 1:height(newCorrections)
+idxStart = find(aliquot_metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii),1);
+idxEnd = find(aliquot_metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,7); CS(idxStart:end,:)]),2),1) - 1;
+CS(idxStart:idxEnd,:) = -99;
+CS_4036Ar(idxStart:idxEnd,:) = -99;
+CS_4038Ar(idxStart:idxEnd,:) = -99;
+end
+
+CS = fillmissing(CS,'previous');
+CS = standardizeMissing(CS,-99);
+CS = fillmissing(CS,'next');
+CS(:,4:6) = zeros(length(CS_15N),3);
+
+CS_4036Ar = fillmissing(CS_4036Ar,'previous');
+CS_4036Ar = standardizeMissing(CS_4036Ar,-99);
+CS_4036Ar = fillmissing(CS_4036Ar,'next');
+
+CS_4038Ar = fillmissing(CS_4038Ar,'previous');
+CS_4038Ar = standardizeMissing(CS_4038Ar,-99);
+CS_4038Ar = fillmissing(CS_4038Ar,'next');
 
 % Predictor Variables for Univariate Chem Slopes
 CS_predictors = [aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:) ... % O2N2 CS on d15N
@@ -259,15 +282,40 @@ CS_predictors = [aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:) ... % O2N2 C
     zeros(size(aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:))) ... % No CS Corr for dO2N2
     aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)]; % O2N2 CS on dArN2
 
+% Make the Correction
 aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
-
-% Argon Isotope CS Corrections
-CS_4036Ar = fillmissing(CS_4036Ar,'previous',1);
 aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4036Ar',:,:) - (CS_4036Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4036Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000);
-
-CS_4038Ar = fillmissing(CS_4038Ar,'previous',1);
 aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4038Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4038Ar',:,:) - (CS_4038Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4038Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000);
 
+%% Plot the Time-Series of the CS Used for Each Aliquot
+
+csToPlot = [CS(:,1:3) CS_4036Ar CS_4038Ar CS(:,7)];
+csNames = {'\delta^{15}N CS','\delta^{18}O CS','\delta^{17}O CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{38}Ar CS','\delta^{40}/_{38}Ar CS','\deltaAr/N_2 CS'};
+slopes_36Ar = [csStats_36Ar.slope]'; slopes_38Ar = [csStats_38Ar.slope]';
+csDatetimes = {[csStats_15N.datetime]' [csStats_18O.datetime]' [csStats_17O.datetime]' [csStats_36Ar.datetime]' [csStats_36Ar.datetime]' [csStats_38Ar.datetime]' [csStats_38Ar.datetime]' [csStats_ArN2.datetime]'};
+csSlopes = {[csStats_15N.slope]' [csStats_18O.slope]' [csStats_17O.slope]' slopes_36Ar(:,1) slopes_36Ar(:,2) slopes_38Ar(:,1) slopes_38Ar(:,2) [csStats_ArN2.slope]'};
+
+stackedFig(numel(csNames))
+for ii=1:numel(csNames)
+    stackedFigAx(ii)
+    plot(datenum([csDatetimes{ii}]),[csSlopes{ii}],'ok','MarkerFaceColor',lineCol(ii))
+    plot(aliquot_metadata.msDatenum(:,1,1),csToPlot(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
+    ylabel(csNames{ii})
+end
+
+% Add Date of Filament Changes/Refocusing
+stackedFigAx
+
+iPlot = massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus";
+plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),'-r');
+text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color','r')
+
+% Set Labels & Limits etc.
+title('CS Values used for Correction')
+xlabel('Date')
+xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
+datetick('x','keeplimits')
+stackedFigReset
 
 %% Calculate the LJA Normalization Values
 % Identified the aliquots that correspond to the different batches of LJA
@@ -287,7 +335,7 @@ for ii = 1:numel(delta_names)
     histogram(mean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))
     axis('square');
     xlabel('\delta [per mil]'); ylabel('Counts')
-    title(delta_names(ii))
+    title(delta_labels(ii))
 end
 
 % Make Box Plots
@@ -312,7 +360,7 @@ for ii = 1:numel(delta_names)
     
     ylim('auto');
     ylabel('\delta_{LJA} [per mil]')
-    title(['LJA ' delta_names(ii)])
+    title(['LJA ' delta_labels(ii)])
 end
 
 
