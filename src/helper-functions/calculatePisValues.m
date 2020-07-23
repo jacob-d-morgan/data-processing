@@ -1,4 +1,4 @@
-function [calcPis,varargout] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis)
+function [pisValues,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis)
 % CALCULATEPISVALUES calculates the pressure imbalance sensitivity
 %   Calculates the pressure imbalance sensitivity for each delta value and
 %   for each pressure imbalance sensitivity experiment in
@@ -7,19 +7,25 @@ function [calcPis,varargout] = calculatePisValues(aliquot_deltas,aliquot_metadat
 %   ALIQUOT_DELTAS and their respective pressure imbalances in
 %   ALIQUOT_METADATA_PIS and ALIQUOT_METADATA.
 % 
-%   CALCULATEPISVALUES can also optionally output the PIS values used to
-%   correct ALIQUOT_DELTAS and a structure of statistics relating to the
-%   fit for each PIS experiment.
+%   CALCULATEPISVALUES(ALIQUOT_DELTAS,ALIQUOT_METADATA,ALIQUOT_DELTAS_PIS,ALIQUOT_METADATA_PIS)
+%   gives the PIS for each delta value, for each PIS experiment.
 %
-%   [...,PIS_STATS] = CALCULATEPISVALUES(...) outputs the statistics of the
+%   [PISVALUES,PISSTATS] = CALCULATEPISVALUES(...) outputs the statistics of the
 %   fit for each PIS experiment, including:
 % 
-%   pisCalcVal - the calculated PIS value for each PIS experiment
-%   pisCalcRsq - the r-squared value for each PIS experiment linear fit
-%   pisCalcPval - the p-value of the correlation coefficient for each PIS
-%   experiment pisCaclImbal - the pressure imbalance of the PIS block for
-%   each PIS experiment
+%   measuredPis - the calculated PIS value for each PIS experiment
+%   rejections - the PIS values recommended for rejection (see below)
+%   rSq - the r-squared value for each PIS experiment linear fit
+%   pVal - the p-value of the correlation coefficient for each PIS
+%   pImbal - the pressure imbalance of the PIS block in each PIS experiment
 %   
+%   Rejections:
+%   A PIS Value is recommended for rejection if one of two criteria is met:
+%       (1) The pressure imbalance is <100 mV (PIS for all delta values
+%       recommened for rejection).
+%       (2) The PIS value falls far from the running median of PIS values
+%       for that delta value (PIS for specific delta value recommended for
+%       rejection).
 %  ------------------------------------------------------------------------
 
 %% Parse Inputs
@@ -79,10 +85,6 @@ end
 
 % Reject all PIS values where the P Imbalance is smaller than 100 mV
 iPisRejections = abs(calcPisImbal)<100;
-% calcPis(iPisRejections) = nan;
-% calcPisRsq(iPisRejections) = nan;
-% calcPisPval(iPisRejections) = nan;
-% calcPisImbal(iPisRejections) = nan;
 
 % Identify PIS values that differ significantly from the running median for a given delta value
 numRej = zeros(1,size(aliquot_deltas,2));
@@ -107,10 +109,10 @@ for ii = 1:size(aliquot_deltas,2)
 
 end
 
-%% Parse Outputs
-% Assign optional output if requested.
-
-varargout = {};
+%% Assign Outputs
+% Assign final outputs, including all the calculated PIS values in the
+% pisStats variable and the calculated PIS values without the rejected
+% values in the pisValues variable.
 
 pisStats.measuredPis = calcPis;
 pisStats.rejections = iPisRejections;
@@ -118,8 +120,6 @@ pisStats.rSq = calcPisRsq;
 pisStats.pVal = calcPisPval;
 pisStats.pImbal = calcPisImbal;
 
-if nargout==2
-    varargout = {pisStats};
-end
+pisValues = calcPis;
     
 end % end pisCorr
