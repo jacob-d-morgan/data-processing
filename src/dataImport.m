@@ -25,7 +25,7 @@ filesToImport = [
     ];
 
 % Generate 'Standard' Raw Dataset
-[aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
+% [aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
 
 aliquot_metadata = metadata.metadata;
 delta_names = metadata.delta_names;
@@ -45,6 +45,10 @@ metadata_fields = string(fieldnames(aliquot_metadata))';
 % This is useful to identify aliquots where the PIS block did no run
 % correctly or where the r-squared is low, suggesting a poor determination
 % of the PIS. These cases can be filtered out below.
+
+% Import Mass Spec Events to Annotate Figures
+massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+massSpecEvents.Event = categorical(massSpecEvents.Event);
 
 iPIS = ~isnan(aliquot_deltas_pis(:,:,1,1));
 if sum(any(iPIS,2)) ~= sum(all(iPIS,2)) % Check that all delta values identify each PIS experiment
@@ -86,12 +90,14 @@ text(aliquot_metadata.msDatenum(iPIS & any(~pisStats.rejections,2),1,1),pisStats
 ylabel('Pressure Imbalance [per mil]');
 ylim([-600 0])
 
+% Set Labels & Limits etc.
 stackedFigAx();
-datetick('x');
 xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
-
+datetick('x','keeplimits');
+drawnow;
 stackedFigReset
 
+% Plot Time Series of PIS Value Used for Each Aliquot
 stackedFig(numel(delta_names))
 for ii=1:numel(delta_names)
     stackedFigAx(ii)
@@ -99,7 +105,15 @@ for ii=1:numel(delta_names)
     plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
     ylabel(delta_names{ii})
 end
+
+% Add Date of Filament Changes/Refocusing
 stackedFigAx
+
+iPlot = massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus";
+plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),'-r');
+text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color','r')
+
+% Set Labels & Limits etc.
 title('PIS Values used for Correction')
 xlabel('Date')
 xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
