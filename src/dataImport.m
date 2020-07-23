@@ -25,7 +25,7 @@ filesToImport = [
     ];
 
 % Generate 'Standard' Raw Dataset
-[aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
+% [aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
 
 aliquot_metadata = metadata.metadata;
 delta_names = metadata.delta_names;
@@ -39,7 +39,12 @@ metadata_fields = string(fieldnames(aliquot_metadata))';
 % Correct the delta values in aliquot_deltas for the effect of pressure
 % imbalance in the bellows.
 
-[aliquot_deltas_pisCorr,PIS,pisStats] = pisCorr(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis);
+% Calculate PIS Values
+[calcPis,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis);
+
+% Make PIS Correction
+calcPis(pisStats.rejections) = nan;
+[aliquot_deltas_pisCorr,PIS] = makePisCorr(aliquot_deltas,aliquot_metadata.msDatetime,aliquot_metadata.pressureImbal,calcPis);
 
 %% Plot a time-series of the PIS and related parameters
 % This is useful to identify aliquots where the PIS block did no run
