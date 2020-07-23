@@ -113,11 +113,23 @@ end
 % Use the calculated and filtered Pressure Imbalance Sensitivities to make
 % the PIS correction.
 
+
 PIS = calcPis;
 PIS(iPisRejections) = nan;
-PIS = repmat(PIS,[1 1 size(aliquot_deltas,[3 4])]);
-PIS = fillmissing(PIS,'previous',1);
 
+massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
+for ii = 1:height(newCorrections)
+idxStart = find(aliquot_metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii),1);
+idxEnd = find(aliquot_metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii) & ~isnan([nan(idxStart-1,1); PIS(idxStart:end,1)]),1) - 1;
+PIS(idxStart:idxEnd,:) = -99;
+end
+
+PIS = fillmissing(PIS,'previous');
+PIS = standardizeMissing(PIS,-99);
+PIS = fillmissing(PIS,'next');
+
+PIS = repmat(PIS,[1 1 size(aliquot_deltas,[3 4])]);
 aliquot_deltas_pisCorr = aliquot_deltas - permute(aliquot_metadata.pressureImbal,[1 4 2 3]).*PIS;
 
 %% Parse Outputs
