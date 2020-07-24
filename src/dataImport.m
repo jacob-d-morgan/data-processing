@@ -304,11 +304,11 @@ for ii = 1:numel(delta_names)
     allLjaAliquots = []; allLjaAliquotsGrp = [];
     numAliquots = []; stdevAliquots = []; labels = strings;
     for jj = 1:length(ljaStats)
-       allLjaAliquots =  [allLjaAliquots; ljaStats(jj).aliquots{jj}];
-       allLjaAliquotsGrp = [allLjaAliquotsGrp; repmat(jj,size(ljaStats(jj).aliquots{jj}))];
-       numAliquots(jj,:) = ljaStats(jj).N(jj);
-       stdevAliquots(jj,:) = ljaStats(jj).stdevs(jj);
-       labels(jj) = string(datestr(ljaStats(jj).datetime(jj),'yyyy-mmm-dd'));
+       allLjaAliquots =  [allLjaAliquots; ljaStats(jj).aliquots{ii}];
+       allLjaAliquotsGrp = [allLjaAliquotsGrp; repmat(jj,size(ljaStats(jj).aliquots{ii}))];
+       numAliquots(jj,:) = ljaStats(jj).N(ii);
+       stdevAliquots(jj,:) = ljaStats(jj).stdevs(ii);
+       labels(jj) = string(datestr(ljaStats(jj).datetime(ii),'yyyy-mmm-dd'));
     end
     figure; hold on;
      hBoxPlot=boxplot(allLjaAliquots,allLjaAliquotsGrp,'Labels',labels,'Notch','off');
