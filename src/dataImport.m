@@ -127,12 +127,13 @@ drawnow;
 stackedFigReset
 
 
-%% Calculate the Chemical Slopes
+%% Make Chemical Slope Correction
 % Still need to:
 %   1) Weed out the questionable blocks/aliquots that mess up some of the
 %      chem slope experiments
 %   2) Figure out how I'm going to do the CS Correction for Ar isotopes
 
+% Calculate CS Values
 iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
 iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
 iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
@@ -146,165 +147,118 @@ x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_delta
 [CS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
 [CS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
 
-% Plot all the Chem Slope Experiments
+
+% Make CS Corrections
+csValues = [{CS_15N} {CS_18O} {CS_17O} {CS_ArN2} {CS_4036Ar} {CS_4038Ar}];
+csRegressors = [
+    {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
+    ];
+csPredictors = [
+    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
+    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
+    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
+    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
+    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
+    ];
+
+csCorr = cell(size(csValues)); CS = cell(size(csValues));
+for ii = 1:length(csValues)
+    [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{ii},aliquot_metadata.msDatetime,csPredictors{ii},csValues{ii});
+end
+
+aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
+aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
+
+%% Plot all the Chem Slope Experiments
 % Plot all the different chem slope experiments for all the different chem
 % slope effects
 
-% dO2/N2 Effect on d15N
-figure
-for ii=1:length(csStats_15N)
-    subplot(1,length(csStats_15N),ii); hold on
-    plot(csStats_15N(ii).xData,csStats_15N(ii).yData,'xk') % Plot the individual aliquots
-    plot(csStats_15N(ii).xData,polyval([csStats_15N(ii).slope csStats_15N(ii).intercept],csStats_15N(ii).xData),'-r') % Plot the fitted line
-    text(max(csStats_15N(ii).xData),min(csStats_15N(ii).yData),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',csStats_15N(ii).slope*1000,csStats_15N(ii).corrcoef(1,2).^2),'HorizontalAlignment','Right','VerticalAlignment','bottom')
-    axis([-10 350 -0.01 0.25]);
-    xlabel('\deltaO_2/N_2 [per mil]');
-    ylabel('\delta^{15}N [per mil]');
-    title(['\delta^{15}N CS: ' datestr(csStats_15N(ii).datetime,'yyyy-mmm-dd')])
+% Make Variables for Plotting
+csStats = [csStats_15N csStats_18O csStats_17O csStats_ArN2];
+csXLabels = {delta_labels(delta_names=='dO2N2') ['\deltaN_2/O_2 [' char(8240) ']'] ['\deltaN_2/O_2 [' char(8240) ']'] delta_labels(delta_names=='dO2N2')};
+csYLabels = {delta_labels(delta_names=='d15N') delta_labels(delta_names=='d18O') delta_labels(delta_names=='d17O') delta_labels(delta_names=='dArN2')};
+
+% Plot the Univariate Chem Slopes
+for ii = 1:length(csStats)
+    figure
+    idx_csExperiments = find(~isnat(csStats(ii).csDatetime));
+    for jj=1:length(idx_csExperiments)
+        subplot(1,length(idx_csExperiments),jj); hold on
+        plot(csStats(ii).xData{idx_csExperiments(jj)},csStats(ii).yData{idx_csExperiments(jj)},'xk') % Plot the individual aliquots
+        plot(csStats(ii).xData{idx_csExperiments(jj)},polyval([csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))],csStats(ii).xData{idx_csExperiments(jj)}),'-r') % Plot the fitted line
+        text(max(csStats(ii).xData{idx_csExperiments(jj)}),min(csStats(ii).yData{idx_csExperiments(jj)}),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',csStats(ii).slope(idx_csExperiments(jj),:)*1000,csStats(ii).corrcoef(idx_csExperiments(jj)).^2),'HorizontalAlignment','Right','VerticalAlignment','bottom')
+        
+        xlabel(csXLabels{ii});
+        ylabel(csYLabels{ii});
+        
+        title(datestr(csStats(ii).csDatetime(idx_csExperiments(jj)),'yyyy-mmm-dd'))
+    end
+    ax = get(gcf,'Children');
+    set(ax,'XLim',[min([ax.XLim]) max([ax.XLim])]);
+    set(ax,'YLim',[min([ax.YLim]) max([ax.YLim])]);
+    suptitle([csYLabels{ii} ' Chem Slopes'])
 end
 
-% dO2/N2 Effect on dAr/N2
-figure
-for ii=1:length(csStats_ArN2)
-    subplot(1,length(csStats_ArN2),ii); hold on
-    plot(csStats_ArN2(ii).xData,csStats_ArN2(ii).yData,'xk') % Plot the individual aliquots
-    plot(csStats_ArN2(ii).xData,polyval([csStats_ArN2(ii).slope csStats_ArN2(ii).intercept],csStats_ArN2(ii).xData),'-r') % Plot the fitted line
-    text(max(csStats_ArN2(ii).xData),min(csStats_ArN2(ii).yData),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',csStats_ArN2(ii).slope*1000,csStats_ArN2(ii).corrcoef(1,2).^2),'HorizontalAlignment','Right','VerticalAlignment','bottom')
-    axis([-10 350 -0.1 1.2]);
-    xlabel('\deltaO_2/N_2 [per mil]');
-    ylabel('\deltaAr/N_2 [per mil]');
-    title(['\deltaAr/N_2 CS: ' datestr(csStats_ArN2(ii).datetime,'yyyy-mmm-dd')])
-end
+% Plot the Bivariate Chem Slopes
+csStats = [csStats_36Ar csStats_38Ar];
+csXLabels = {['\deltaN_2/Ar [' char(8240) ']'] ['\deltaN_2/Ar [' char(8240) ']']};
+csYLabels = {['\deltaO_2/Ar [' char(8240) ']'] ['\deltaO_2/Ar [' char(8240) ']']};
+csZLabels = {delta_labels(delta_names=='d4036Ar') delta_labels(delta_names=='d4038Ar')};
 
-% dN2/O2 Effect on d18O
-figure
-for ii=1:length(csStats_18O)
-    subplot(1,length(csStats_18O),ii); hold on
-    plot(csStats_18O(ii).xData,csStats_18O(ii).yData,'xk') % Plot the individual aliquots
-    plot(csStats_18O(ii).xData,polyval([csStats_18O(ii).slope csStats_18O(ii).intercept],csStats_18O(ii).xData),'-r') % Plot the fitted line
-    text(max(csStats_18O(ii).xData),min(csStats_18O(ii).yData),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',csStats_18O(ii).slope*1000,csStats_18O(ii).corrcoef(1,2).^2),'HorizontalAlignment','Right','VerticalAlignment','bottom')
-    axis([-10 350 -0.1 0.1]);
-    xlabel('\deltaN_2/O_2 [per mil]');
-    ylabel('\delta^{18}O [per mil]');
-    title(['\delta^{18}O CS: ' datestr(csStats_18O(ii).datetime,'yyyy-mmm-dd')])
-end
-
-% dN2/O2 Effect on d17O
-figure
-for ii=1:length(csStats_17O)
-    subplot(1,length(csStats_17O),ii); hold on
-    plot(csStats_17O(ii).xData,csStats_17O(ii).yData,'xk') % Plot the individual aliquots
-    plot(csStats_17O(ii).xData,polyval([csStats_17O(ii).slope csStats_17O(ii).intercept],csStats_17O(ii).xData),'-r') % Plot the fitted line
-    text(max(csStats_17O(ii).xData),min(csStats_17O(ii).yData),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',csStats_17O(ii).slope*1000,csStats_17O(ii).corrcoef(1,2).^2),'HorizontalAlignment','Right','VerticalAlignment','bottom')
-    axis([-10 350 -0.1 1]);
-    xlabel('\deltaN_2/O_2 [per mil]');
-    ylabel('\delta^{17}O [per mil]');
-    title(['\delta^{17}O CS: ' datestr(csStats_17O(ii).datetime,'yyyy-mmm-dd')])
-end
-
-% dN2/Ar and dO2/Ar Effects on d40/36Ar
-figure
-for ii=1:length(csStats_36Ar)
-    subplot(1,length(csStats_36Ar),ii); hold on
-    plot3(csStats_36Ar(ii).xData(:,1),csStats_36Ar(ii).xData(:,2),csStats_36Ar(ii).yData,'xk'); % Plot the individual aliquots
-    [X1,X2]=meshgrid(linspace(min(csStats_36Ar(ii).xData(:,1)),max(csStats_36Ar(ii).xData(:,1)),20),linspace(min(csStats_36Ar(ii).xData(:,2)),max(csStats_36Ar(ii).xData(:,2)),20)); % Create a regularly spaced grid
-    surf(X1,X2,X1.*csStats_36Ar(ii).slope(1) + X2*csStats_36Ar(ii).slope(2) + csStats_36Ar(ii).intercept);  % Plot the fitted surface on the grid
+for ii = 1:length(csStats)
+    figure
+    idx_csExperiments = find(~isnat(csStats(ii).csDatetime));
+    for jj=1:length(idx_csExperiments)
+        subplot(1,length(idx_csExperiments),jj); hold on
+        plot3(csStats(ii).xData{idx_csExperiments(jj)}(:,1),csStats(ii).xData{idx_csExperiments(jj)}(:,2),csStats(ii).yData{idx_csExperiments(jj)},'xk'); % Plot the individual aliquots
+        [X1,X2]=meshgrid(linspace(min(csStats(ii).xData{idx_csExperiments(jj)}(:,1)),max(csStats(ii).xData{idx_csExperiments(jj)}(:,1)),20),linspace(min(csStats(ii).xData{idx_csExperiments(jj)}(:,2)),max(csStats(ii).xData{idx_csExperiments(jj)}(:,2)),20)); % Create a regularly spaced grid
+        surf(X1,X2,X1.*csStats(ii).slope(idx_csExperiments(jj),1) + X2*csStats(ii).slope(idx_csExperiments(jj),2) + csStats(ii).intercept(idx_csExperiments(jj)));  % Plot the fitted surface on the grid
+        
+        text(max(csStats(ii).xData{idx_csExperiments(jj)}(:,1)),min(csStats(ii).xData{idx_csExperiments(jj)}(:,2)),min(csStats(ii).yData{idx_csExperiments(jj)}),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',csStats(ii).slope(idx_csExperiments(ii),1)*1000,csStats(ii).slope(idx_csExperiments(ii),2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+        
+        xlabel(csXLabels(ii))
+        ylabel(csYLabels(ii))
+        zlabel(csZLabels(ii))
+        title(datestr(csStats(ii).csDatetime(idx_csExperiments(jj)),'yyyy-mmm-dd'))
+        
+        colormap(cbrewer('seq','Greens',20));
+        view([40 45]);
+    end
+    pos=get(gca,'Position');
+    colorbar;
+    set(gca,'Position',pos);
     
-    text(max(csStats_36Ar(ii).xData(:,1)),min(csStats_36Ar(ii).xData(:,2)),min(csStats_36Ar(ii).yData),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',csStats_36Ar(ii).slope(1)*1000,csStats_36Ar(ii).slope(2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+    ax = get(gcf,'Children');
+    set(ax(2:end),'XLim',[min([ax(2:end).XLim]) max([ax(2:end).XLim])]);
+    set(ax(2:end),'YLim',[min([ax(2:end).YLim]) max([ax(2:end).YLim])]);
+    set(ax(2:end),'ZLim',[min([ax(2:end).ZLim]) max([ax(2:end).ZLim])]);
+    set(ax(2:end),'CLim',[min([ax(2:end).CLim]) max([ax(2:end).CLim])]);
     
-    xlabel('\deltaN_2/Ar [per mil]')
-    ylabel('\deltaO_2/Ar [per mil]')
-    zlabel('\delta^{40}/_{36}Ar [per mil]')
-    title(['\delta^{40}/_{36}Ar CS: ' datestr(csStats_36Ar(ii).datetime,'yyyy-mmm-dd')])
+    set(ax(1),'Limits',[min([ax(2:end).CLim]) max([ax(2:end).CLim])]);
     
-    colormap(cbrewer('seq','Greens',20));
-    axis([-20 350 -20 350 -8 1]);
-    caxis([-8 0]);
-    view([40 45]);
-end
-pos=get(gca,'Position');
-colorbar;
-set(gca,'Position',pos);
-
-% dN2/Ar and dO2/Ar Effects on d40/38Ar
-figure
-for ii=1:length(csStats_38Ar)
-    subplot(1,length(csStats_38Ar),ii); hold on
-    plot3(csStats_38Ar(ii).xData(:,1),csStats_38Ar(ii).xData(:,2),csStats_38Ar(ii).yData,'xk'); % Plot the individual aliquots
-    [X1,X2]=meshgrid(linspace(min(csStats_38Ar(ii).xData(:,1)),max(csStats_38Ar(ii).xData(:,1)),20),linspace(min(csStats_38Ar(ii).xData(:,2)),max(csStats_38Ar(ii).xData(:,2)),20)); % Create a regularly spaced grid
-    surf(X1,X2,X1.*csStats_38Ar(ii).slope(1) + X2*csStats_38Ar(ii).slope(2) + csStats_38Ar(ii).intercept);  % Plot the fitted surface on the grid
-    
-    text(max(csStats_38Ar(ii).xData(:,1)),min(csStats_38Ar(ii).xData(:,2)),min(csStats_38Ar(ii).yData),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',csStats_38Ar(ii).slope(1)*1000,csStats_38Ar(ii).slope(2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
-    
-    xlabel('\deltaN_2/Ar [per mil]')
-    ylabel('\deltaO_2/Ar [per mil]')
-    zlabel('\delta^{40}/_{38}Ar [per mil]')
-    title(['\delta^{40}/_{38}Ar CS: ' datestr(csStats_38Ar(ii).datetime,'yyyy-mmm-dd')])
-    
-    colormap(cbrewer('seq','Greens',20));
-    axis([-50 350 -50 350 -16 1]);
-    caxis([-8 0]);
-    view([40 45]);
-end
-pos=get(gca,'Position');
-colorbar;
-set(gca,'Position',pos);
-
-
-%% Make the CS Corrections
-
-CS = [CS_15N CS_18O CS_17O nan(size(CS_15N)) nan(size(CS_15N)) nan(size(CS_15N)) CS_ArN2];
-
-massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
-newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
-for ii = 1:height(newCorrections)
-idxStart = find(aliquot_metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii),1);
-idxEnd = find(aliquot_metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,7); CS(idxStart:end,:)]),2),1) - 1;
-CS(idxStart:idxEnd,:) = -99;
-CS_4036Ar(idxStart:idxEnd,:) = -99;
-CS_4038Ar(idxStart:idxEnd,:) = -99;
+    suptitle([csZLabels{ii} ' Chem Slopes'])
 end
 
-CS = fillmissing(CS,'previous');
-CS = standardizeMissing(CS,-99);
-CS = fillmissing(CS,'next');
-CS(:,4:6) = zeros(length(CS_15N),3);
-
-CS_4036Ar = fillmissing(CS_4036Ar,'previous');
-CS_4036Ar = standardizeMissing(CS_4036Ar,-99);
-CS_4036Ar = fillmissing(CS_4036Ar,'next');
-
-CS_4038Ar = fillmissing(CS_4038Ar,'previous');
-CS_4038Ar = standardizeMissing(CS_4038Ar,-99);
-CS_4038Ar = fillmissing(CS_4038Ar,'next');
-
-% Predictor Variables for Univariate Chem Slopes
-CS_predictors = [aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:) ... % O2N2 CS on d15N
-    ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d18O
-    ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000 ... % N2O2 CS on d17O
-    zeros(size(aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:))) ... % d4036Ar CS Below
-    zeros(size(aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:))) ... % d4038Ar CS Below
-    zeros(size(aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:))) ... % No CS Corr for dO2N2
-    aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)]; % O2N2 CS on dArN2
-
-% Make the Correction
-aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr - CS.*CS_predictors;
-aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4036Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4036Ar',:,:) - (CS_4036Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4036Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000);
-aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4038Ar',:,:) = aliquot_deltas_pisCorr_csCorr(:,delta_names=='d4038Ar',:,:) - (CS_4038Ar(:,1,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000) - (CS_4038Ar(:,2,:,:).*((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000);
 
 %% Plot the Time-Series of the CS Used for Each Aliquot
 
-csToPlot = [CS(:,1:3) CS_4036Ar CS_4038Ar CS(:,7)];
-csNames = {'\delta^{15}N CS','\delta^{18}O CS','\delta^{17}O CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{38}Ar CS','\delta^{40}/_{38}Ar CS','\deltaAr/N_2 CS'};
-slopes_36Ar = [csStats_36Ar.slope]'; slopes_38Ar = [csStats_38Ar.slope]';
-csDatetimes = {[csStats_15N.datetime]' [csStats_18O.datetime]' [csStats_17O.datetime]' [csStats_36Ar.datetime]' [csStats_36Ar.datetime]' [csStats_38Ar.datetime]' [csStats_38Ar.datetime]' [csStats_ArN2.datetime]'};
-csSlopes = {[csStats_15N.slope]' [csStats_18O.slope]' [csStats_17O.slope]' slopes_36Ar(:,1) slopes_36Ar(:,2) slopes_38Ar(:,1) slopes_38Ar(:,2) [csStats_ArN2.slope]'};
+csToPlot = [CS{:}];
+csNames = {'\delta^{15}N CS','\delta^{18}O CS','\delta^{17}O CS','\deltaAr/N_2 CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{38}Ar CS','\delta^{40}/_{38}Ar CS'};
+slopes_36Ar = [csStats_36Ar.slope]; slopes_38Ar = [csStats_38Ar.slope];
+csDatetimes = {[csStats_15N.csDatetime] [csStats_18O.csDatetime] [csStats_17O.csDatetime] [csStats_ArN2.csDatetime] [csStats_36Ar.csDatetime] [csStats_36Ar.csDatetime] [csStats_38Ar.csDatetime] [csStats_38Ar.csDatetime]};
+csSlopes = {[csStats_15N.slope] [csStats_18O.slope] [csStats_17O.slope] [csStats_ArN2.slope] slopes_36Ar(:,1) slopes_36Ar(:,2) slopes_38Ar(:,1) slopes_38Ar(:,2)};
 
 stackedFig(numel(csNames))
 for ii=1:numel(csNames)
     stackedFigAx(ii)
     plot(datenum([csDatetimes{ii}]),[csSlopes{ii}],'ok','MarkerFaceColor',lineCol(ii))
-    plot(aliquot_metadata.msDatenum(:,1,1),csToPlot(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
+    plot(aliquot_metadata.msDatenum(:,1,1),csToPlot(:,ii),'.','Color',lineCol(ii)*0.5)
     ylabel(csNames{ii})
 end
 
@@ -350,11 +304,11 @@ for ii = 1:numel(delta_names)
     allLjaAliquots = []; allLjaAliquotsGrp = [];
     numAliquots = []; stdevAliquots = []; labels = strings;
     for jj = 1:length(ljaStats)
-       allLjaAliquots =  [allLjaAliquots; ljaStats(jj).aliquots{ii}];
-       allLjaAliquotsGrp = [allLjaAliquotsGrp; repmat(jj,size(ljaStats(jj).aliquots{ii}))];
-       numAliquots(jj,:) = ljaStats(jj).N(ii);
-       stdevAliquots(jj,:) = ljaStats(jj).stdevs(ii);
-       labels(jj) = string(datestr(ljaStats(jj).datetime(ii),'yyyy-mmm-dd'));
+       allLjaAliquots =  [allLjaAliquots; ljaStats(jj).aliquots{jj}];
+       allLjaAliquotsGrp = [allLjaAliquotsGrp; repmat(jj,size(ljaStats(jj).aliquots{jj}))];
+       numAliquots(jj,:) = ljaStats(jj).N(jj);
+       stdevAliquots(jj,:) = ljaStats(jj).stdevs(jj);
+       labels(jj) = string(datestr(ljaStats(jj).datetime(jj),'yyyy-mmm-dd'));
     end
     figure; hold on;
      hBoxPlot=boxplot(allLjaAliquots,allLjaAliquotsGrp,'Labels',labels,'Notch','off');
