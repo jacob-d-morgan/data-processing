@@ -1,4 +1,4 @@
-function [calcCS, stats] = calculateChemSlope(x,y,aliquot_metadata,iCStoUse,flagAr)
+function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCStoUse,flagAr)
 % CALCULATECHEMSLOPE calculates the chemical slope for a given delta value,
 % Y using the predictor variable(s) X. The Chem Slope experiment data are 
 % identified in X, and Y by iCSTOUSE and are split into the different
@@ -60,8 +60,8 @@ stats.xData = cell(size(x,1),1);
 stats.yData = cell(size(x,1),1);
 stats.slope = nan(size(x,[1 2]));
 stats.intercept = nan(size(x,1),1);
-stats.calcCsRsq = nan(size(x,[1 2]));
-stats.calcCsPval = nan(size(x,[1 2]));
+stats.rSq = nan(size(x,[1 2]));
+stats.pVal = nan(size(x,[1 2]));
 
 for ii = min(csGroup):max(csGroup)
     x_temp = mean(mean(x(csGroup==ii,:,:,:),4),3);
@@ -81,8 +81,16 @@ for ii = min(csGroup):max(csGroup)
     stats.yData{idxLastAliquot(ii)} = y_temp;
     stats.slope(idxLastAliquot(ii),:) = csFit(1:end-1,:);
     stats.intercept(idxLastAliquot(ii)) = csFit(end,:);
-    stats.corrcoef(idxLastAliquot(ii)) = r(1,2);
-    stats.pValCorrcoef(idxLastAliquot(ii)) = pVal(1,2);
+    stats.rSq(idxLastAliquot(ii)) = r(1,2).^2;
+    stats.pVal(idxLastAliquot(ii)) = pVal(1,2);
     
 end
+
+%% Assign Outputs
+% Assign final outputs: the calculated CS values, the recommended
+% rejections, and the regression stats.
+
+csValues = calcCS;
+csStats = stats;
+
 end % end calculateChemSlope

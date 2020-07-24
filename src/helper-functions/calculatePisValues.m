@@ -47,12 +47,18 @@ else
     iPIS = iPIS(:,1); % Otherwise, just make iPIS a vector by taking the first column.
 end
 
-
 % Calculate the PIS for each experiment for each of the delta values
 calcPis = nan(size(aliquot_deltas,[1 2]));
-calcPisRsq = nan(size(aliquot_deltas,[1 2]));
-calcPisPval = nan(size(aliquot_deltas,[1 2]));
-calcPisImbal = nan(size(aliquot_deltas,[1 2]));
+
+stats = struct();
+stats.pisDatetime = NaT(size(aliquot_deltas,1),1);
+stats.xData = nan(size(aliquot_deltas,[1 2 3]) + [0 0 1]);
+stats.yData = nan(size(aliquot_deltas,[1 2 3]) + [0 0 1]);
+stats.slope = nan(size(aliquot_deltas,[1 2]));
+stats.intercept = nan(size(aliquot_deltas,[1 2]));
+stats.rSq = nan(size(aliquot_deltas,[1 2]));
+stats.pVal = nan(size(aliquot_deltas,[1 2]));
+stats.pisImbal = nan(size(aliquot_deltas,[1 2]));
 
 for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
     for jj=1:size(aliquot_deltas,2) % loop all through delta values, skip the first three columns as these are voltages and pressure imbalance
@@ -61,7 +67,7 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
         x_temp = [nanmean(aliquot_metadata.pressureImbal(ii,:,:),3)'; nanmean(aliquot_metadata_pis.pressureImbal(ii,:,:),3)']; % predictor variable = the pressure imbalance (col 3) from the looped variable
         m_temp = [ones(size(y_temp)) x_temp]\y_temp; % Calculate the PIS and Intercept
         
-        [R_corr,pVal] = corrcoef(x_temp,y_temp); % Find the r-squared correlation coefficient for the PIS test
+        [R_corr,pVal] = corrcoef(x_temp,y_temp); % Calculate the correlation coefficient for the PIS test
         [pImbal, idx] = max(abs(x_temp)); % Find the block with the max P Imbalance
         
         if idx ~= 5
@@ -69,10 +75,16 @@ for ii=find(iPIS)' % find the indices of the PIS aliquots and loop through them
         end
         
         calcPis(ii,jj)=m_temp(2);
-        calcPisRsq(ii,jj) = R_corr(1,2).^2;
-        calcPisPval(ii,jj) = pVal(1,2);
-        calcPisImbal(ii,jj) = pImbal * sign(x_temp(idx));
+        
+        stats.xData(ii,jj,:) = x_temp;
+        stats.yData(ii,jj,:) = y_temp;
+        stats.slope(ii,jj) = m_temp(2);
+        stats.intercept(ii,jj) = m_temp(1);
+        stats.rSq(ii,jj) = R_corr(1,2).^2;
+        stats.pVal(ii,jj) = pVal(1,2);
+        stats.pisImbal(ii,jj) = pImbal * sign(x_temp(idx));
     end
+    stats.pisDatetime(ii) = aliquot_metadata.msDatetime(ii);
 end
 
 
@@ -84,7 +96,7 @@ end
 %pisRejectionMethodTesting; % Run to test different rejection criteria
 
 % Reject all PIS values where the P Imbalance is smaller than 100 mV
-iPisRejections = abs(calcPisImbal)<100;
+iPisRejections = abs(stats.pisImbal)<100;
 
 % Identify PIS values that differ significantly from the running median for a given delta value
 numRej = zeros(1,size(aliquot_deltas,2));
@@ -110,16 +122,11 @@ for ii = 1:size(aliquot_deltas,2)
 end
 
 %% Assign Outputs
-% Assign final outputs, including all the calculated PIS values in the
-% pisStats variable and the calculated PIS values without the rejected
-% values in the pisValues variable.
-
-pisStats.measuredPis = calcPis;
-pisStats.rejections = iPisRejections;
-pisStats.rSq = calcPisRsq;
-pisStats.pVal = calcPisPval;
-pisStats.pImbal = calcPisImbal;
+% Assign final outputs: the calculated CS values, the recommended
+% rejections, and the regression stats.
 
 pisValues = calcPis;
+pisStats = stats;
+pisStats.rejections = iPisRejections;
     
 end % end pisCorr
