@@ -3,9 +3,9 @@ function [deltas_pisCorr,PIS] = makePisCorr(deltas_raw,aliquotDates,pImbal,pisVa
 %   For an array of delta values, DELTAS_RAW, a pressure imbalance
 %   correction is performed using the pressure imbalances and the
 %   calculated  pressure imbalance sensitivities given in PIMBAL and
-%   CALCPIS respectively.
+%   PISVALUES respectively.
 %   
-%   CALCPIS should be an M-by-N matrix where M and N are the size of
+%   PISVALUES should be an M-by-N matrix where M and N are the size of
 %   DELTAS_RAW along the first two dimensions. Missing (NaN) values are
 %   filled with the previous non-missing value, except for delta values
 %   whose DATETIME indicates that they were measured immediately after a
@@ -28,20 +28,23 @@ function [deltas_pisCorr,PIS] = makePisCorr(deltas_raw,aliquotDates,pImbal,pisVa
 % Use the calculated and filtered Pressure Imbalance Sensitivities to make
 % the PIS correction.
 
-
 PIS = pisValues;
 
+% Flag Samples Run After Filament Change & Before First PIS Experiment
 massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
 newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
 for ii = 1:height(newCorrections)
-idxStart = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii),1);
-idxEnd = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,7); PIS(idxStart:end,:)]),2),1) - 1;
-PIS(idxStart:idxEnd,:) = -99;
+    idxStart = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii),1);
+    idxEnd = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,size(PIS,2)); PIS(idxStart:end,:)]),2),1) - 1;
+    PIS(idxStart:idxEnd,:) = -99;
 end
 
+% Fill Most Samples with Previous PIS Value
 PIS = fillmissing(PIS,'previous');
+
+% Fill Flagged Samples with First Available PIS Value
 PIS = standardizeMissing(PIS,-99);
 PIS = fillmissing(PIS,'next');
 
-PIS = repmat(PIS,[1 1 size(deltas_raw,[3 4])]);
+% Make PIS Correction
 deltas_pisCorr = deltas_raw - permute(pImbal,[1 4 2 3]).*PIS;
