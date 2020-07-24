@@ -53,7 +53,16 @@ csGroup = standardizeMissing(csGroup,0); % Change the zeros to nans to properly 
 
 % Calculate the Chem Slope
 calcCS = nan(size(x,[1 2]));
-stats(max(csGroup)) = struct();
+
+stats = struct();
+stats.csDatetime = NaT(size(x,1),1);
+stats.xData = cell(size(x,1),1);
+stats.yData = cell(size(x,1),1);
+stats.slope = nan(size(x,[1 2]));
+stats.intercept = nan(size(x,1),1);
+stats.calcCsRsq = nan(size(x,[1 2]));
+stats.calcCsPval = nan(size(x,[1 2]));
+
 for ii = min(csGroup):max(csGroup)
     x_temp = mean(mean(x(csGroup==ii,:,:,:),4),3);
     y_temp = mean(mean(y(csGroup==ii,:,:,:),4),3);
@@ -62,18 +71,18 @@ for ii = min(csGroup):max(csGroup)
     if size(x,2)==1
         [r,pVal] = corrcoef(x_temp,y_temp);
     else
-        r = nan; pVal = nan;
+        r = nan(2); pVal = nan(2);
     end
     
     calcCS(idxLastAliquot(ii),:) = csFit(1:end-1,:);
     
-    stats(ii).datetime = aliquot_metadata.msDatetime(idxLastAliquot(ii));
-    stats(ii).xData = x_temp;
-    stats(ii).yData = y_temp;
-    stats(ii).slope = csFit(1:end-1,:);
-    stats(ii).intercept = csFit(end,:);
-    stats(ii).corrcoef = r;
-    stats(ii).pValCorrcoef = pVal;
+    stats.csDatetime(idxLastAliquot(ii)) = aliquot_metadata.msDatetime(idxLastAliquot(ii));
+    stats.xData{idxLastAliquot(ii)} = x_temp;
+    stats.yData{idxLastAliquot(ii)} = y_temp;
+    stats.slope(idxLastAliquot(ii),:) = csFit(1:end-1,:);
+    stats.intercept(idxLastAliquot(ii)) = csFit(end,:);
+    stats.corrcoef(idxLastAliquot(ii)) = r(1,2);
+    stats.pValCorrcoef(idxLastAliquot(ii)) = pVal(1,2);
     
 end
 end % end calculateChemSlope
