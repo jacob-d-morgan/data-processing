@@ -82,16 +82,16 @@ ylim([0.7 1]);
 stackedFigAx(2)
 for ii = 1:numel(delta_names)
     set(gca,'ColorOrderIndex',ii)
-    plot(aliquot_metadata.msDatenum(iPIS,1,1),pisStats.measuredPis(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
-    legH(ii)=plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii) & iPIS,1,1),pisStats.measuredPis(~pisStats.rejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
+    plot(aliquot_metadata.msDatenum(iPIS,1,1),pisStats.slope(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
+    legH(ii)=plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii) & iPIS,1,1),pisStats.slope(~pisStats.rejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
 end
 ylabel('PIS [per mil/per mil]');
 ylim([-0.01 0.005]);
 
 % Plot Pressure Imbalance for each PIS Experiment
 stackedFigAx(3)
-plot(aliquot_metadata.msDatenum(iPIS & any(~pisStats.rejections,2),1,1),pisStats.pImbal(iPIS & any(~pisStats.rejections,2),:),'-^','Color',lineCol(9));
-text(aliquot_metadata.msDatenum(iPIS & any(~pisStats.rejections,2),1,1),pisStats.pImbal(iPIS & any(~pisStats.rejections,2)),aliquot_metadata_pis.ID1(iPIS & any(~pisStats.rejections,2),1,1));
+plot(aliquot_metadata.msDatenum(iPIS & any(~pisStats.rejections,2),1,1),pisStats.pisImbal(iPIS & any(~pisStats.rejections,2),:),'-^','Color',lineCol(9));
+text(aliquot_metadata.msDatenum(iPIS & any(~pisStats.rejections,2),1,1),pisStats.pisImbal(iPIS & any(~pisStats.rejections,2)),aliquot_metadata_pis.ID1(iPIS & any(~pisStats.rejections,2),1,1));
 ylabel('Pressure Imbalance [per mil]');
 ylim([-600 0])
 
@@ -106,7 +106,7 @@ stackedFigReset
 stackedFig(numel(delta_names))
 for ii=1:numel(delta_names)
     stackedFigAx(ii)
-    plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii),1,1),pisStats.measuredPis(~pisStats.rejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
+    plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii),1,1),pisStats.slope(~pisStats.rejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
     plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
     ylabel(delta_labels{ii})
 end
@@ -138,18 +138,22 @@ iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
 iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
 iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
 
-[CS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
-[CS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
-[CS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
-[CS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
+% == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
+iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
+% ======================================================================= %
+
+[calcCS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
+[calcCS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
+[calcCS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
+[calcCS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
 
 x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-[CS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-[CS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
 
 
 % Make CS Corrections
-csValues = [{CS_15N} {CS_18O} {CS_17O} {CS_ArN2} {CS_4036Ar} {CS_4038Ar}];
+csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_ArN2} {calcCS_4036Ar} {calcCS_4038Ar}];
 csRegressors = [
     {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
     {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
@@ -183,6 +187,7 @@ aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
 csStats = [csStats_15N csStats_18O csStats_17O csStats_ArN2];
 csXLabels = {delta_labels(delta_names=='dO2N2') ['\deltaN_2/O_2 [' char(8240) ']'] ['\deltaN_2/O_2 [' char(8240) ']'] delta_labels(delta_names=='dO2N2')};
 csYLabels = {delta_labels(delta_names=='d15N') delta_labels(delta_names=='d18O') delta_labels(delta_names=='d17O') delta_labels(delta_names=='dArN2')};
+csColors = [lineCol(1:3); lineCol(7)];
 
 % Plot the Univariate Chem Slopes
 for ii = 1:length(csStats)
@@ -190,9 +195,19 @@ for ii = 1:length(csStats)
     idx_csExperiments = find(~isnat(csStats(ii).csDatetime));
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
-        plot(csStats(ii).xData{idx_csExperiments(jj)},csStats(ii).yData{idx_csExperiments(jj)},'xk') % Plot the individual aliquots
-        plot(csStats(ii).xData{idx_csExperiments(jj)},polyval([csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))],csStats(ii).xData{idx_csExperiments(jj)}),'-r') % Plot the fitted line
-        text(max(csStats(ii).xData{idx_csExperiments(jj)}),min(csStats(ii).yData{idx_csExperiments(jj)}),compose('CS = %.2f per meg/per mil\nr^2 = %.4f',csStats(ii).slope(idx_csExperiments(jj),:)*1000,csStats(ii).corrcoef(idx_csExperiments(jj)).^2),'HorizontalAlignment','Right','VerticalAlignment','bottom')
+        
+        iRej = csStats(ii).rejections{idx_csExperiments(jj)};
+        xToPlot = csStats(ii).xData{idx_csExperiments(jj)};
+        yToPlot = csStats(ii).yData{idx_csExperiments(jj)};
+        pToPlot = [csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))];
+        strToPlot = compose('CS = %.2f per meg/per mil\nr^2 = %.4f',pToPlot(1)*1000,csStats(ii).rSq(idx_csExperiments(jj)));
+        
+        plot(xToPlot(iRej),yToPlot(iRej),'xk') % Plot the individual aliquots, without rejections
+        plot(xToPlot(~iRej),yToPlot(~iRej),'ok','MarkerFaceColor',csColors(ii,:)) % Plot the individual aliquots, without rejections
+        plot(xToPlot,polyval(pToPlot,xToPlot),'-','Color',csColors(ii,:)*0.7) % Plot the fitted line
+        set(gca,'Children',flipud(get(gca,'Children')));
+        
+        text(max(xToPlot),min(yToPlot),strToPlot,'HorizontalAlignment','Right','VerticalAlignment','bottom')
         
         xlabel(csXLabels{ii});
         ylabel(csYLabels{ii});
@@ -210,24 +225,33 @@ csStats = [csStats_36Ar csStats_38Ar];
 csXLabels = {['\deltaN_2/Ar [' char(8240) ']'] ['\deltaN_2/Ar [' char(8240) ']']};
 csYLabels = {['\deltaO_2/Ar [' char(8240) ']'] ['\deltaO_2/Ar [' char(8240) ']']};
 csZLabels = {delta_labels(delta_names=='d4036Ar') delta_labels(delta_names=='d4038Ar')};
+csColors = flipud(cat(3,cbrewer('seq','Purples',20),cbrewer('seq','Oranges',20)));
 
 for ii = 1:length(csStats)
     figure
     idx_csExperiments = find(~isnat(csStats(ii).csDatetime));
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
-        plot3(csStats(ii).xData{idx_csExperiments(jj)}(:,1),csStats(ii).xData{idx_csExperiments(jj)}(:,2),csStats(ii).yData{idx_csExperiments(jj)},'xk'); % Plot the individual aliquots
-        [X1,X2]=meshgrid(linspace(min(csStats(ii).xData{idx_csExperiments(jj)}(:,1)),max(csStats(ii).xData{idx_csExperiments(jj)}(:,1)),20),linspace(min(csStats(ii).xData{idx_csExperiments(jj)}(:,2)),max(csStats(ii).xData{idx_csExperiments(jj)}(:,2)),20)); % Create a regularly spaced grid
-        surf(X1,X2,X1.*csStats(ii).slope(idx_csExperiments(jj),1) + X2*csStats(ii).slope(idx_csExperiments(jj),2) + csStats(ii).intercept(idx_csExperiments(jj)));  % Plot the fitted surface on the grid
         
-        text(max(csStats(ii).xData{idx_csExperiments(jj)}(:,1)),min(csStats(ii).xData{idx_csExperiments(jj)}(:,2)),min(csStats(ii).yData{idx_csExperiments(jj)}),compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',csStats(ii).slope(idx_csExperiments(ii),1)*1000,csStats(ii).slope(idx_csExperiments(ii),2)*1000),'HorizontalAlignment','Right','VerticalAlignment','bottom');
+        xToPlot = csStats(ii).xData{idx_csExperiments(jj)}(:,1);
+        yToPlot = csStats(ii).xData{idx_csExperiments(jj)}(:,2);
+        zToPlot = csStats(ii).yData{idx_csExperiments(jj)};
+        pToPlot = [csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))];
+        strToPlot = compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',pToPlot(1)*1000,pToPlot(2)*1000);
+        [X1,X2]=meshgrid(linspace(min(xToPlot),max(xToPlot),20),linspace(min(yToPlot),max(yToPlot),20)); % Create a regularly spaced grid
+        
+        plot3(xToPlot,yToPlot,zToPlot,'xk'); % Plot the individual aliquots
+        surf(X1,X2,X1.*pToPlot(1) + X2.*pToPlot(2) + pToPlot(3));  % Plot the fitted surface on the grid
+        
+        text(max(xToPlot),min(yToPlot),min(zToPlot),strToPlot,'HorizontalAlignment','Right','VerticalAlignment','bottom');
         
         xlabel(csXLabels(ii))
         ylabel(csYLabels(ii))
         zlabel(csZLabels(ii))
+        
         title(datestr(csStats(ii).csDatetime(idx_csExperiments(jj)),'yyyy-mmm-dd'))
         
-        colormap(cbrewer('seq','Greens',20));
+        colormap(csColors(:,:,ii));
         view([40 45]);
     end
     pos=get(gca,'Position');
@@ -258,7 +282,7 @@ stackedFig(numel(csNames))
 for ii=1:numel(csNames)
     stackedFigAx(ii)
     plot(datenum([csDatetimes{ii}]),[csSlopes{ii}],'ok','MarkerFaceColor',lineCol(ii))
-    plot(aliquot_metadata.msDatenum(:,1,1),csToPlot(:,ii),'.','Color',lineCol(ii)*0.5)
+    plot(aliquot_metadata.msDatenum(:,1,1),csToPlot(:,ii),'.','Color',lineCol(ii)*0.7)
     ylabel(csNames{ii})
 end
 
