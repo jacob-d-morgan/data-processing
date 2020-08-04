@@ -1,4 +1,4 @@
-function [calcLja, stats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLjaToUse)
+function [ljaValues, ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLjaToUse)
 % CALCULATELJAVALUES calculates the mean of each set of LJA samples run in
 % order to calibrate a standard can to the ultimate atmospheric standard.
 %
@@ -58,22 +58,30 @@ for ii = min(ljaGroup):max(ljaGroup)
     x_temp = aliquot_metadata.msDatetime(ljaGroup==ii,1,1);
     y_temp = mean(mean(aliquot_deltas(ljaGroup==ii,:,:,:),4),3);
     
+    % Identify aliquots to be rejected
     iRej = isoutlier(y_temp,'quartiles');
     
+    % Pre allocate variables to be filled in the loop
+    meanOfAliquots = nan(1,size(y_temp,2));
     p_time = nan(2,size(y_temp,2));
+    mu = nan(2,size(y_temp,2));
     rSq = nan(1,size(y_temp,2));
     pVal = nan(1,size(y_temp,2));
+    
+    % Loop through the different delta values to calculate...
     for jj = 1:size(y_temp,2)
         x_tempAfterRej = x_temp((~iRej(:,jj)));
         y_tempAfterRej = y_temp((~iRej(:,jj)),jj);
                 
-        meanOfAliquots(jj) = mean(y_tempAfterRej);
-        p_time(:,jj) = polyfit(datenum(x_tempAfterRej),y_tempAfterRej,1)';
-        [r_corr,p_val] = corrcoef(datenum(x_tempAfterRej),y_tempAfterRej);
+        meanOfAliquots(jj) = mean(y_tempAfterRej); % ...the mean of the set of aliquots
+        
+        [p_time(:,jj),~,mu(:,jj)] = polyfit(datenum(x_tempAfterRej),y_tempAfterRej,1); % ...the trend in LJA values through time (fit after centering and scaling the nearly repeated x-values)
+        [r_corr,p_val] = corrcoef(datenum(x_tempAfterRej),y_tempAfterRej); % ...the correlation and significance of the temporal trend
         rSq(jj) = r_corr(1,2).^2;
         pVal(jj) = p_val(1,2);
     end
     
+    % Assign temp variables to outputs
     calcLja(idxLastAliquot(ii),:) = meanOfAliquots;
     
     stats.ljaDatetime(idxLastAliquot(ii)) = aliquot_metadata.msDatetime(idxLastAliquot(ii),1,1);
@@ -81,21 +89,19 @@ for ii = min(ljaGroup):max(ljaGroup)
     stats.aliquotDates{idxLastAliquot(ii)} = aliquot_metadata.msDatetime(ljaGroup==ii,1,1);
     stats.aliquotMeans{idxLastAliquot(ii)} = y_temp;
     stats.rejections{idxLastAliquot(ii)} = iRej;
-    stats.slope(idxLastAliquot(ii),:) = p_time(1,:);
-    stats.intercept(idxLastAliquot(ii),:) = p_time(2,:);
+    stats.slope(idxLastAliquot(ii),:) = p_time(1,:)./mu(2,:); % Convert back from centered and scaled fit parameters
+    stats.intercept(idxLastAliquot(ii),:) = p_time(2,:) - p_time(1,1).*mu(1,:)./mu(2,:); % Convert back from centered and scaled fit parameters
     stats.rSq(idxLastAliquot(ii),:) = rSq;
     stats.pVal(idxLastAliquot(ii),:) = pVal;
         
 end
 
 
+%% Assign Outputs
+% Assign final outputs: the calculated CS values, the recommended
+% rejections, and the regression stats.
 
+ljaValues = calcLja;
+ljaStats = stats;
 
-
-
-
-
-
-
-
-
+end %end calculateLjaValues
