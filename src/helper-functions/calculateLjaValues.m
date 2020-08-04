@@ -3,52 +3,90 @@ function [calcLja, stats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,i
 % order to calibrate a standard can to the ultimate atmospheric standard.
 %
 % -------------------------------------------------------------------------
-%calculateLjaValues(aliquot_deltas_pisCorr_csCorr, aliquot_metadata, iLja)
 
-% Identify each set of aliquots as separated in time by >5 days
-ljaAliquotSeparation = duration(nan(size(aliquot_deltas,1),3));
-ljaAliquotSeparation(iLjaToUse) = [diff(aliquot_metadata.msDatetime(iLjaToUse,1,1)); hours(999)+minutes(59)+seconds(59)];
+%% Parse Inputs
 
-isLastAliquot = ljaAliquotSeparation > 5;
-idxLastAliquot = find(isLastAliquot);
+narginchk(3,3)
+nargoutchk(1,2)
 
-% Increment an index by one each time its a new set of aliquots
-ljaCount = nan(size(aliquot_deltas,1),1);
-ljaCount(isLastAliquot) = cumsum(isLastAliquot(isLastAliquot));
+massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+newCorrections = massSpecEvents(...
+    massSpecEvents.Event == "New Filament" | ...
+    massSpecEvents.Event == "Refocus" | ...
+    massSpecEvents.Event == "New Std Cans" | ...
+    massSpecEvents.Event == "Swap Std Cans",:);
 
-% Assign the same index to all the aliquots from each set of aliquots
-ljaGroup = zeros(size(aliquot_deltas,1),1); % Create a vector of zeros
-ljaGroup(iLjaToUse)=nan; % Assign NaN to the values I want to replace
-ljaGroup(isLastAliquot) = ljaCount(isLastAliquot); % Fill in the indices of the end of each LJA aliquot
-ljaGroup(iLjaToUse) = fillmissing(ljaGroup(iLjaToUse),'next'); % Replace the nans for each aliquot with the next index - must fill only the (iLJA) subset otherwise it fills some indices with interspersed zeros that are then reassigned to NaN in the next line
-ljaGroup = standardizeMissing(ljaGroup,0); % Change the zeros to nans to properly represent the fact that they are missing values
-
-% Reject Outliers from each set of aliquots
-isoutlierAnonFn = @(x){(isoutlier(x,'quartiles'))};
-tf=splitapply(isoutlierAnonFn,nanmean(mean(aliquot_deltas(iLjaToUse,:,:,:),4),3),ljaGroup(iLjaToUse));
-
-iLjaAfterRej = repmat(iLjaToUse,[1 size(aliquot_deltas,2)]);
-for ii=1:length(tf)
-    iLjaAfterRej(ljaGroup==ii,:) = ~tf{ii};
+% Identify each set of aliquots measured against the same std can
+edges = newCorrections.EndDate;
+if min(aliquot_metadata.msDatetime(:,1,1)) < edges(1)
+    warning('Some samples fall earlier than the start of the information from the spreadsheets.')
+    edges = [min(aliquot_metadata.msDatetime(:,1,1)); edges];
 end
 
-% Calculate LJA Values for Normalization and Stats for each Set of Aliquots
+if max(aliquot_metadata.msDatetime(:,1,1)) > edges(end)
+   warning('Some samples fall later than the end of the information from the spreadsheets.')
+   edges = [edges; max(aliquot_metadata.msDatetime(:,1,1))];
+end
+
+corrPeriodCounts = histcounts(aliquot_metadata.msDatetime(iLjaToUse,1,1),edges)';
+edgesToUse = [edges(corrPeriodCounts>0); edges(end)];
+corrPeriod = discretize(aliquot_metadata.msDatetime(iLjaToUse,1,1),edgesToUse);
+
+for ii = 1:length(edgesToUse)-1
+    idxLastAliquot(ii) = find(aliquot_metadata.msDatetime(:,1,1) < edgesToUse(ii+1) & iLjaToUse,1,'last');
+end
+ljaGroup = nan(size(iLjaToUse,1),1); % Create a vector of zeros
+ljaGroup(iLjaToUse) = corrPeriod;
+
+% Pre-allocate variables to be filled in the loop
 calcLja = nan(size(aliquot_deltas,[1 2]));
-stats(max(ljaGroup)) = struct();
-for jj = 1:max(ljaGroup)
-    for ii=1:7
-        iAliquotsToUse = iLjaAfterRej(:,ii) & ljaGroup == jj;
-        aliquots = mean(mean(aliquot_deltas(iAliquotsToUse,ii,:,:),4),3);
-        
-        calcLja(idxLastAliquot(jj),ii,:,:) = mean(aliquots);
 
-        stats(jj).means(ii) = mean(aliquots);
-        stats(jj).aliquots{ii} = aliquots;
-        stats(jj).stdevs(ii) = std(aliquots);
-        stats(jj).N(ii) = size(aliquots,1);
-        stats(jj).datetime(ii) = aliquot_metadata.msDatetime(idxLastAliquot(jj));
+stats = struct();
+stats.ljaDatetime = NaT(size(aliquot_deltas,1),1);
+stats.lja = nan(size(aliquot_deltas,[1 2]));
+stats.aliquotDates = cell(size(aliquot_deltas,1),1);
+stats.aliquotMeans = cell(size(aliquot_deltas,1),1);
+stats.rejections = cell(size(aliquot_deltas,1),1);
+stats.slope = nan(size(aliquot_deltas,[1 2]));
+stats.intercept = nan(size(aliquot_deltas,[1 2]));
+stats.rSq = nan(size(aliquot_deltas,[1 2]));
+stats.pVal = nan(size(aliquot_deltas,[1 2]));
+
+% Loop through different LJA Sets
+for ii = min(ljaGroup):max(ljaGroup)
+    x_temp = aliquot_metadata.msDatetime(ljaGroup==ii,1,1);
+    y_temp = mean(mean(aliquot_deltas(ljaGroup==ii,:,:,:),4),3);
+    
+    iRej = isoutlier(y_temp,'quartiles');
+    
+    p_time = nan(2,size(y_temp,2));
+    rSq = nan(1,size(y_temp,2));
+    pVal = nan(1,size(y_temp,2));
+    for jj = 1:size(y_temp,2)
+        x_tempAfterRej = x_temp((~iRej(:,jj)));
+        y_tempAfterRej = y_temp((~iRej(:,jj)),jj);
+                
+        meanOfAliquots(jj) = mean(y_tempAfterRej);
+        p_time(:,jj) = polyfit(datenum(x_tempAfterRej),y_tempAfterRej,1)';
+        [r_corr,p_val] = corrcoef(datenum(x_tempAfterRej),y_tempAfterRej);
+        rSq(jj) = r_corr(1,2).^2;
+        pVal(jj) = p_val(1,2);
     end
+    
+    calcLja(idxLastAliquot(ii),:) = meanOfAliquots;
+    
+    stats.ljaDatetime(idxLastAliquot(ii)) = aliquot_metadata.msDatetime(idxLastAliquot(ii),1,1);
+    stats.lja(idxLastAliquot(ii),:) = meanOfAliquots;
+    stats.aliquotDates{idxLastAliquot(ii)} = aliquot_metadata.msDatetime(ljaGroup==ii,1,1);
+    stats.aliquotMeans{idxLastAliquot(ii)} = y_temp;
+    stats.rejections{idxLastAliquot(ii)} = iRej;
+    stats.slope(idxLastAliquot(ii),:) = p_time(1,:);
+    stats.intercept(idxLastAliquot(ii),:) = p_time(2,:);
+    stats.rSq(idxLastAliquot(ii),:) = rSq;
+    stats.pVal(idxLastAliquot(ii),:) = pVal;
+        
 end
+
 
 
 
