@@ -102,12 +102,12 @@ datetick('x','keeplimits');
 drawnow;
 stackedFigReset
 
-% Plot Time Series of PIS Value Used for Each Aliquot
+%% Plot Time Series of PIS Value Used for Each Aliquot
 stackedFig(numel(delta_names))
 for ii=1:numel(delta_names)
     stackedFigAx(ii)
     plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii),1,1),pisStats.slope(~pisStats.rejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
-    plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii,1,1),'.','Color',lineCol(ii)*0.5)
+    plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii),'.','Color',lineCol(ii)*0.5)
     ylabel(delta_labels{ii})
 end
 
@@ -181,7 +181,7 @@ aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
 
 %% Plot all the Chem Slope Experiments
 % Plot all the different chem slope experiments for all the different chem
-% slope effects
+% slope effects.
 
 % Make Variables for Plotting
 csStats = [csStats_15N csStats_18O csStats_17O csStats_ArN2];
@@ -300,59 +300,98 @@ xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
 datetick('x','keeplimits')
 stackedFigReset
 
-%% Calculate the LJA Normalization Values
-% Identified the aliquots that correspond to the different batches of LJA
-% measurements. Plots the distribution (box plots) of aliquot means for
-% each batch and identifies and removes any outliers. Calculates the mean
-% of aliquot means for each batch to use for LJA normalization.
-
-% Identify the LJA aliquots
-iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
-
-[calcLja,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
-
-% Plot the distribution of all LJA aliquot means
-figure
-for ii = 1:numel(delta_names)
-    subplot(1,numel(delta_names),ii)
-    histogram(mean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3))
-    axis('square');
-    xlabel('\delta [per mil]'); ylabel('Counts')
-    title(delta_labels(ii))
-end
-
-% Make Box Plots
-
-
-for ii = 1:numel(delta_names)
-    allLjaAliquots = []; allLjaAliquotsGrp = [];
-    numAliquots = []; stdevAliquots = []; labels = strings;
-    for jj = 1:length(ljaStats)
-       allLjaAliquots =  [allLjaAliquots; ljaStats(jj).aliquots{ii}];
-       allLjaAliquotsGrp = [allLjaAliquotsGrp; repmat(jj,size(ljaStats(jj).aliquots{ii}))];
-       numAliquots(jj,:) = ljaStats(jj).N(ii);
-       stdevAliquots(jj,:) = ljaStats(jj).stdevs(ii);
-       labels(jj) = string(datestr(ljaStats(jj).datetime(ii),'yyyy-mmm-dd'));
-    end
-    figure; hold on;
-     hBoxPlot=boxplot(allLjaAliquots,allLjaAliquotsGrp,'Labels',labels,'Notch','off');
-    %hBoxPlot=boxplot(nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),idxLjaAliquots(iLja),'Labels',labels,'Notch','off');
-     plot(allLjaAliquotsGrp,allLjaAliquots,'.k');
-    %plot(idxLjaAliquots(iLja),nanmean(mean(aliquot_deltas_pisCorr_csCorr(iLja,ii,:,:),4),3),'.k');
-     text(1:max(allLjaAliquotsGrp),repmat(min(allLjaAliquots)*1.05,1,length(ljaStats)),compose(['N = %d\n \\sigma = %.3f' char(8240) '\nSEM = %.4f' char(8240)],numAliquots,stdevAliquots,stdevAliquots./numAliquots),'HorizontalAlignment','center');
-    
-    ylim('auto');
-    ylabel('\delta_{LJA} [per mil]')
-    title(['LJA ' delta_labels(ii)])
-end
-
-
 %% Make the LJA Correction
+% Identifies the aliquots that correspond to LJA measurements during
+% identical MS conditions (i.e. same filament, std can etc.) and calculates
+% the mean of the aliquots, after rejecting outliers. The mean of all the
+% aliquots is used to normalize all aliquots measured under identical MS
+% conditions, unless there is a trend in the LJA values. In this case, the
+% extrapolated values are used.
 
-LJA = calcLja;
-LJA = fillmissing(LJA,'previous',1);
+% Calculate LJA Values
+iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
+[ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
 
-aliquot_deltas_pisCorr_csCorr_ljaCorr = ((aliquot_deltas_pisCorr_csCorr/1000+1)./(LJA/1000+1)-1)*1000;
+% Make LJA Correction
+[deltas_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
+
+
+%% Plot All the LJA Aliquots and Values
+% For each delta value, plot a time-series of the aliquots averaged for
+% each set of LJA values. Also plot shading, indicating the standard
+% deviation of the individual aliquots from their mean and the
+% linear least-squares fit to the aliquots.
+
+% Loop through each delta value and...
+for ii = 1:numel(delta_names)
+    figure;
+    hold on;
+    idx_ljaExperiments = find(~isnat(ljaStats.ljaDatetime));
+    for jj = 1:length(idx_ljaExperiments)
+        iRej = ljaStats.rejections{idx_ljaExperiments(jj)}(:,ii);
+        aliquotTimeRange = [min(ljaStats.aliquotDates{idx_ljaExperiments(jj)}) max(ljaStats.aliquotDates{idx_ljaExperiments(jj)})];
+        p_fit = [ljaStats.slope(idx_ljaExperiments(jj),ii) ljaStats.intercept(idx_ljaExperiments(jj),ii)];
+        fittedLine = polyval(p_fit,datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}(~iRej,:)));
+        
+        % ...plot mean and std dev of aliquots
+        shadedErrorBar(datenum(aliquotTimeRange),repmat(ljaStats.lja(idx_ljaExperiments(jj),ii),2,1),repmat(std(ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(~iRej,ii)),2,1),{'-','Color',lineCol(jj)})
+        % ...plot fitted line
+        plot(datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}(~iRej,:)),fittedLine,':','color',lineCol(jj)*0.7);
+        
+        % ...plot included and rejected aliquots
+        plot(datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}),ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(:,ii),'.','Color',lineCol(jj))
+        plot(datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}(iRej,:)),ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(iRej,ii),'xk')
+        
+    end
+    
+    % Add Date of Filament Changes/Refocusing/New Std Cans
+    iPlot = massSpecEvents.Event == "New Filament" | ...
+        massSpecEvents.Event == "Refocus" | ...
+        massSpecEvents.Event == "New Std Cans" | ...
+        massSpecEvents.Event == "Swap Std Cans" | ...
+        massSpecEvents.Event == "MS Change";
+    plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),'-','Color',lineCol(10));
+    text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color',lineCol(10));
+    
+    xlim(datenum([2016 2019],[01 01],[01 01]))
+    datetick('x','mmm-yyyy','keeplimits')
+    ylabel(delta_labels{ii});
+    title(['LJA: ' delta_names{ii}]);
+    
+end
+
+
+% Plot the Time-Series of the LJA Values Used for Each Aliquot
+stackedFig(numel(delta_names))
+for ii=1:numel(delta_names)
+    stackedFigAx(ii)
+    for jj = 1:length(idx_ljaExperiments)
+        iRej = ljaStats.rejections{idx_ljaExperiments(jj)}(:,ii);
+        aliquotTimeRange = [min(ljaStats.aliquotDates{idx_ljaExperiments(jj)}) max(ljaStats.aliquotDates{idx_ljaExperiments(jj)})];
+        shadedErrorBar(datenum(aliquotTimeRange),repmat(ljaStats.lja(idx_ljaExperiments(jj),ii),2,1),repmat(std(ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(~iRej,ii)),2,1),{'-','Color',lineCol(ii)});
+    end
+    
+    plot(datenum(aliquot_metadata.msDatetime(:,1,1)),LJA(:,ii),'.','Color',lineCol(ii)*0.5)
+    ylabel(delta_labels{ii})
+end
+
+% Add Date of Filament Changes/Refocusing/Can Swaps/MS Changes
+stackedFigAx
+
+iPlot = massSpecEvents.Event == "New Filament" | ...
+        massSpecEvents.Event == "Refocus" | ...
+        massSpecEvents.Event == "New Std Cans" | ...
+        massSpecEvents.Event == "Swap Std Cans" | ...
+        massSpecEvents.Event == "MS Change";
+plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),'-','Color',lineCol(10));
+text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color',lineCol(10))
+
+% Set Labels & Limits etc.
+title('LJA Values used for Correction')
+xlabel('Date')
+xlim(datenum([2016 2019],[01 01],[01 01]))
+datetick('x','mmm-yyyy','keeplimits')
+stackedFigReset
 
 
 %%
