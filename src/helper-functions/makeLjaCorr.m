@@ -1,4 +1,4 @@
-function [deltasLjaCorr,LJA] = makeLjaCorr(deltasRaw,aliquotDates,ljaValues)
+function [deltasLjaCorr,LJA] = makeLjaCorr(deltasRaw,aliquotDates,ljaStats,ljaValues)
 % MAKELJACORR normalizes delta values to measurements of La Jolla Air
 %   For an array of delta values, DELTAS_RAW, measured against a standard
 %   can, each delta value is normalized to La Jolla Air using measurements
@@ -19,3 +19,45 @@ function [deltasLjaCorr,LJA] = makeLjaCorr(deltasRaw,aliquotDates,ljaValues)
 %   e.g. [DELTAS_CSCORR,CSS] = MAKELJACORR(DELTAS_RAW,ALIQUOTDATES,LJAVALUES) 
 %
 % -------------------------------------------------------------------------
+
+LJA = ljaValues;
+
+massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+newCorrections = massSpecEvents(...
+    massSpecEvents.Event == "New Filament" | ...
+    massSpecEvents.Event == "Refocus" | ...
+    massSpecEvents.Event == "New Std Cans" | ...
+    massSpecEvents.Event == "Swap Std Cans" | ...
+    massSpecEvents.Event == "MS Change",:);
+
+idxLjas = find(~isnat(ljaStats.ljaDatetime));
+for ii = 1:length(idxLjas)
+    ljaDate = ljaStats.ljaDatetime(idxLjas(ii));
+    startDate = newCorrections.EndDate(find(newCorrections.EndDate < ljaDate,1,'last'));
+    endDate = newCorrections.StartDate(find(newCorrections.EndDate > ljaDate,1,'first'));
+    firstLjaDate = min(ljaStats.aliquotDates{idxLjas(ii)});
+    lastLjaDate = max(ljaStats.aliquotDates{idxLjas(ii)});
+    
+    effect = ljaStats.slope(idxLjas(ii),:).*days(lastLjaDate - firstLjaDate);
+    
+    alsToUse = ljaStats.aliquotMeans{idxLjas(ii)};
+    alsToUse(ljaStats.rejections{idxLjas(ii)})=nan;
+    
+    ljaAtMidpoint = ljaStats.intercept(idxLjas(ii),:) + ljaStats.slope(idxLjas(ii),:).*datenum(mean([startDate endDate]));
+    ljaPolyval = ljaStats.intercept(idxLjas(ii)) + ljaStats.slope(idxLjas(ii),:).*datenum(ljaStats.aliquotDates{idxLjas(ii)});
+    
+    detrended = alsToUse +  ljaAtMidpoint - ljaPolyval;
+    stdDetrended = nanstd(detrended);
+    
+    effectSize = effect./stdDetrended;
+    iTemporalValues = abs(effectSize) > 1.1;
+    
+    LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues) = fillmissing(LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues),'nearest');
+    LJA(aliquotDates > startDate & aliquotDates < endDate,iTemporalValues) = ljaAtMidpoint(iTemporalValues) + ljaStats.slope(idxLjas(ii),iTemporalValues).*(datenum(aliquotDates(aliquotDates > startDate & aliquotDates < endDate) - mean([startDate endDate])));
+    
+end
+
+LJA = fillmissing(LJA,'next');
+
+
+deltasLjaCorr = ((deltasRaw/1000+1)./(LJA/1000+1)-1)*1000;
