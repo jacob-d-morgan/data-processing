@@ -90,7 +90,7 @@ for ii = min(ljaGroup):max(ljaGroup)
     stats.aliquotMeans{idxLastAliquot(ii)} = y_temp;
     stats.rejections{idxLastAliquot(ii)} = iRej;
     stats.slope(idxLastAliquot(ii),:) = p_time(1,:)./mu(2,:); % Convert back from centered and scaled fit parameters
-    stats.intercept(idxLastAliquot(ii),:) = p_time(2,:) - p_time(1,1).*mu(1,:)./mu(2,:); % Convert back from centered and scaled fit parameters
+    stats.intercept(idxLastAliquot(ii),:) = p_time(2,:) - p_time(1,:).*mu(1,:)./mu(2,:); % Convert back from centered and scaled fit parameters
     stats.rSq(idxLastAliquot(ii),:) = rSq;
     stats.pVal(idxLastAliquot(ii),:) = pVal;
         
