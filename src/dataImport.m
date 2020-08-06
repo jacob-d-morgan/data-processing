@@ -313,7 +313,7 @@ iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
 [ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
 
 % Make LJA Correction
-[deltas_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
+[aliquot_deltas_pisCorr_csCorr_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
 
 
 %% Plot All the LJA Aliquots and Values
