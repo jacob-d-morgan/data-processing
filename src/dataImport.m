@@ -5,11 +5,12 @@ cluk; clc;
 
 % set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
 
-%% Import Data
+%% Import Raw Data
 % Imports the 'standard' raw dataset of aliquot delta values and their
-% metadata. Does not include any cycles with a gas configuration
-% different to Air+ or where the 28N2 beam is saturated or absent, or
-% cycles with a non-standard number of cycles or blocks.
+% metadata. Does not include any cycles with a gas configuration different
+% to Air+ or where the 28N2 beam is either saturated or absent, or cycles
+% with a non-standard (different than the mode) number of cycles or blocks.
+%
 % Rather than reading in the files each time, it's easier to read them in
 % once using the makeRawDataset() line and then use the clearvars -EXCEPT
 % line to preserve the variables read in by this line for future runs.
@@ -36,8 +37,8 @@ metadata_fields = string(fieldnames(aliquot_metadata))';
 
 
 %% Make PIS Correction
-% Correct the delta values in aliquot_deltas for the effect of pressure
-% imbalance in the bellows.
+% Correct the delta values in aliquot_deltas for the effect of imbalance in
+% the total pressure of gas in the source.
 
 % Calculate PIS Values
 [calcPis,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis);
@@ -45,6 +46,76 @@ metadata_fields = string(fieldnames(aliquot_metadata))';
 % Make PIS Correction
 calcPis(pisStats.rejections) = nan;
 [aliquot_deltas_pisCorr,PIS] = makePisCorr(aliquot_deltas,aliquot_metadata.msDatetime,aliquot_metadata.pressureImbal,calcPis);
+
+%% Make Chemical Slope Correction
+% Correct the delta values in aliquot_deltas_pisCorr for the effect of
+% different gas ratios in the source.
+
+% Identify the CS Experiment Aliquots
+iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
+iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
+iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
+
+% == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
+iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
+% ======================================================================= %
+
+% Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
+[calcCS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
+[calcCS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
+[calcCS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
+[calcCS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
+
+% Calculate the Bivariate (Ar Isotopes) Chem Slopes
+x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+[calcCS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+
+% Make CS Corrections
+csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_ArN2} {calcCS_4036Ar} {calcCS_4038Ar}];
+csRegressors = [
+    {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
+    ];
+csPredictors = [
+    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
+    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
+    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
+    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
+    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
+    ];
+
+csCorr = cell(size(csValues)); CS = cell(size(csValues));
+for ii = 1:length(csValues)
+    [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{ii},aliquot_metadata.msDatetime,csPredictors{ii},csValues{ii});
+end
+
+aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
+aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
+
+
+%% Make the LJA Correction
+% Correct the delta values in aliquot_deltas_pisCorr_csCorr so that they
+% are measured relative to La Jolla Air.
+%
+% Identifies analyses of LJA made during identical MS conditions (i.e. same
+% filament, std can etc.) and calculates the mean of these aliquots, after
+% rejecting outliers. The mean of all the aliquots is used to normalize all
+% aliquots measured under identical MS conditions, unless there is a trend
+% in the LJA values. In this case, the extrapolated values are used.
+
+% Calculate LJA Values
+iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
+[ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
+
+% Make LJA Correction
+[aliquot_deltas_pisCorr_csCorr_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
+
 
 %% Plot a time-series of the PIS and related parameters
 % This is useful to identify aliquots where the PIS block did no run
@@ -126,58 +197,6 @@ datetick('x','keeplimits')
 drawnow;
 stackedFigReset
 
-
-%% Make Chemical Slope Correction
-% Still need to:
-%   1) Weed out the questionable blocks/aliquots that mess up some of the
-%      chem slope experiments
-%   2) Figure out how I'm going to do the CS Correction for Ar isotopes
-
-% Calculate CS Values
-iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
-iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
-iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
-
-% == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
-iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
-% ======================================================================= %
-
-[calcCS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
-[calcCS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
-
-x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-[calcCS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-[calcCS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-
-
-% Make CS Corrections
-csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_ArN2} {calcCS_4036Ar} {calcCS_4038Ar}];
-csRegressors = [
-    {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
-    ];
-csPredictors = [
-    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-    ];
-
-csCorr = cell(size(csValues)); CS = cell(size(csValues));
-for ii = 1:length(csValues)
-    [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{ii},aliquot_metadata.msDatetime,csPredictors{ii},csValues{ii});
-end
-
-aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
-aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
 
 %% Plot all the Chem Slope Experiments
 % Plot all the different chem slope experiments for all the different chem
@@ -299,21 +318,6 @@ xlabel('Date')
 xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
 datetick('x','keeplimits')
 stackedFigReset
-
-%% Make the LJA Correction
-% Identifies the aliquots that correspond to LJA measurements during
-% identical MS conditions (i.e. same filament, std can etc.) and calculates
-% the mean of the aliquots, after rejecting outliers. The mean of all the
-% aliquots is used to normalize all aliquots measured under identical MS
-% conditions, unless there is a trend in the LJA values. In this case, the
-% extrapolated values are used.
-
-% Calculate LJA Values
-iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
-[ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
-
-% Make LJA Correction
-[aliquot_deltas_pisCorr_csCorr_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
 
 
 %% Plot All the LJA Aliquots and Values
