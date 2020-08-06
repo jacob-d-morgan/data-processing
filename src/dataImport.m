@@ -196,14 +196,14 @@ for ii = 1:length(csStats)
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
         
-        iRej = csStats(ii).rejections{idx_csExperiments(jj)};
+        iLjaRej = csStats(ii).rejections{idx_csExperiments(jj)};
         xToPlot = csStats(ii).xData{idx_csExperiments(jj)};
         yToPlot = csStats(ii).yData{idx_csExperiments(jj)};
         pToPlot = [csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))];
         strToPlot = compose('CS = %.2f per meg/per mil\nr^2 = %.4f',pToPlot(1)*1000,csStats(ii).rSq(idx_csExperiments(jj)));
         
-        plot(xToPlot(iRej),yToPlot(iRej),'xk') % Plot the individual aliquots, without rejections
-        plot(xToPlot(~iRej),yToPlot(~iRej),'ok','MarkerFaceColor',csColors(ii,:)) % Plot the individual aliquots, without rejections
+        plot(xToPlot(iLjaRej),yToPlot(iLjaRej),'xk') % Plot the individual aliquots, without rejections
+        plot(xToPlot(~iLjaRej),yToPlot(~iLjaRej),'ok','MarkerFaceColor',csColors(ii,:)) % Plot the individual aliquots, without rejections
         plot(xToPlot,polyval(pToPlot,xToPlot),'-','Color',csColors(ii,:)*0.7) % Plot the fitted line
         set(gca,'Children',flipud(get(gca,'Children')));
         
@@ -322,28 +322,52 @@ iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
 % deviation of the individual aliquots from their mean and the
 % linear least-squares fit to the aliquots.
 
-% Loop through each delta value and...
+% Loop through each delta value
 for ii = 1:numel(delta_names)
-    figure;
+    stackedFig(2,'Overlap',30);
     hold on;
     idx_ljaExperiments = find(~isnat(ljaStats.ljaDatetime));
     for jj = 1:length(idx_ljaExperiments)
-        iRej = ljaStats.rejections{idx_ljaExperiments(jj)}(:,ii);
-        aliquotTimeRange = [min(ljaStats.aliquotDates{idx_ljaExperiments(jj)}) max(ljaStats.aliquotDates{idx_ljaExperiments(jj)})];
-        p_fit = [ljaStats.slope(idx_ljaExperiments(jj),ii) ljaStats.intercept(idx_ljaExperiments(jj),ii)];
-        fittedLine = polyval(p_fit,datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}(~iRej,:)));
+        % Plot LJA Data:
+        stackedFigAx(1)
+        iLjaRej = ljaStats.ljaRejections{idx_ljaExperiments(jj)}(:,ii);
+        ljaSetTimeRange = [min(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}) max(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)})];
+        ljaP = [ljaStats.ljaSlope(idx_ljaExperiments(jj),ii) ljaStats.ljaIntercept(idx_ljaExperiments(jj),ii)];
+        fittedLine = polyval(ljaP,datenum(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}(~iLjaRej,:)));
         
-        % ...plot mean and std dev of aliquots
-        shadedErrorBar(datenum(aliquotTimeRange),repmat(ljaStats.lja(idx_ljaExperiments(jj),ii),2,1),repmat(std(ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(~iRej,ii)),2,1),{'-','Color',lineCol(jj)})
-        % ...plot fitted line
-        plot(datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}(~iRej,:)),fittedLine,':','color',lineCol(jj)*0.7);
+        % plot mean and std dev of LJA aliquots
+        shadedErrorBar(datenum(ljaSetTimeRange),repmat(ljaStats.ljaValues(idx_ljaExperiments(jj),ii),2,1),repmat(std(ljaStats.ljaAliquotSetDeltas{idx_ljaExperiments(jj)}(~iLjaRej,ii)),2,1),{'-','Color',lineCol(jj)})
+        % plot fitted line
+        plot(datenum(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}(~iLjaRej,:)),fittedLine,':','color',lineCol(jj)*0.7);
         
-        % ...plot included and rejected aliquots
-        plot(datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}),ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(:,ii),'.','Color',lineCol(jj))
-        plot(datenum(ljaStats.aliquotDates{idx_ljaExperiments(jj)}(iRej,:)),ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(iRej,ii),'xk')
+        % plot included and rejected LJA aliquots
+        plot(datenum(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}),ljaStats.ljaAliquotSetDeltas{idx_ljaExperiments(jj)}(:,ii),'.','Color',lineCol(jj))
+        plot(datenum(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}(iLjaRej,:)),ljaStats.ljaAliquotSetDeltas{idx_ljaExperiments(jj)}(iLjaRej,ii),'xk')
+        
+        ylabel(['LJA' delta_labels(ii)])
+        yl = ylim;
+        
+        % Plot Can Data:
+        stackedFigAx(2)
+        iCanRej = ljaStats.canRejections{idx_ljaExperiments(jj)}(:,ii);
+        canSetTimeRange = [min(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}) max(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)})];
+        canP = [ljaStats.canSlope(idx_ljaExperiments(jj),ii) ljaStats.canIntercept(idx_ljaExperiments(jj),ii)];
+        fittedLine = polyval(canP,datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}(~iCanRej,:)));
+        
+        % plot mean and std dev of aliquots
+        shadedErrorBar(datenum(canSetTimeRange),repmat(mean(ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(~iCanRej,ii)),2,1),repmat(std(ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(~iCanRej,ii)),2,1),{'-','Color',lineCol(jj)})
+        % plot fitted line
+        plot(datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}(~iCanRej,:)),fittedLine,':','color',lineCol(jj)*0.7);
+        
+        % plot included and rejected aliquots
+        plot(datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}),ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(:,ii),'.','Color',lineCol(jj))
+        plot(datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}(iCanRej,:)),ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(iCanRej,ii),'xk')
+        
+        ylabel(['LJA' delta_labels(ii)])
         
     end
     
+    stackedFigAx
     % Add Date of Filament Changes/Refocusing/New Std Cans
     iPlot = massSpecEvents.Event == "New Filament" | ...
         massSpecEvents.Event == "Refocus" | ...
@@ -358,6 +382,11 @@ for ii = 1:numel(delta_names)
     ylabel(delta_labels{ii});
     title(['LJA: ' delta_names{ii}]);
     
+    yls = [ylim(stackedFigAx(1)) ylim(stackedFigAx(2))];
+    linkaxes([stackedFigAx(1) stackedFigAx(2)],'y')
+    
+    stackedFigReset;
+    
 end
 
 
@@ -366,9 +395,9 @@ stackedFig(numel(delta_names))
 for ii=1:numel(delta_names)
     stackedFigAx(ii)
     for jj = 1:length(idx_ljaExperiments)
-        iRej = ljaStats.rejections{idx_ljaExperiments(jj)}(:,ii);
-        aliquotTimeRange = [min(ljaStats.aliquotDates{idx_ljaExperiments(jj)}) max(ljaStats.aliquotDates{idx_ljaExperiments(jj)})];
-        shadedErrorBar(datenum(aliquotTimeRange),repmat(ljaStats.lja(idx_ljaExperiments(jj),ii),2,1),repmat(std(ljaStats.aliquotMeans{idx_ljaExperiments(jj)}(~iRej,ii)),2,1),{'-','Color',lineCol(ii)});
+        iLjaRej = ljaStats.ljaRejections{idx_ljaExperiments(jj)}(:,ii);
+        ljaSetTimeRange = [min(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}) max(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)})];
+        shadedErrorBar(datenum(ljaSetTimeRange),repmat(ljaStats.ljaValues(idx_ljaExperiments(jj),ii),2,1),repmat(std(ljaStats.ljaAliquotSetDeltas{idx_ljaExperiments(jj)}(~iLjaRej,ii)),2,1),{'-','Color',lineCol(ii)});
     end
     
     plot(datenum(aliquot_metadata.msDatetime(:,1,1)),LJA(:,ii),'.','Color',lineCol(ii)*0.5)
