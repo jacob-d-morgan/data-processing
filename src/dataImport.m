@@ -196,14 +196,14 @@ for ii = 1:length(csStats)
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
         
-        iLjaRej = csStats(ii).rejections{idx_csExperiments(jj)};
+        iRej = csStats(ii).rejections{idx_csExperiments(jj)};
         xToPlot = csStats(ii).xData{idx_csExperiments(jj)};
         yToPlot = csStats(ii).yData{idx_csExperiments(jj)};
         pToPlot = [csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))];
         strToPlot = compose('CS = %.2f per meg/per mil\nr^2 = %.4f',pToPlot(1)*1000,csStats(ii).rSq(idx_csExperiments(jj)));
         
-        plot(xToPlot(iLjaRej),yToPlot(iLjaRej),'xk') % Plot the individual aliquots, without rejections
-        plot(xToPlot(~iLjaRej),yToPlot(~iLjaRej),'ok','MarkerFaceColor',csColors(ii,:)) % Plot the individual aliquots, without rejections
+        plot(xToPlot(iRej),yToPlot(iRej),'xk') % Plot the individual aliquots, without rejections
+        plot(xToPlot(~iRej),yToPlot(~iRej),'ok','MarkerFaceColor',csColors(ii,:)) % Plot the individual aliquots, without rejections
         plot(xToPlot,polyval(pToPlot,xToPlot),'-','Color',csColors(ii,:)*0.7) % Plot the fitted line
         set(gca,'Children',flipud(get(gca,'Children')));
         
