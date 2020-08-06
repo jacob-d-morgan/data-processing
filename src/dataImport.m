@@ -363,7 +363,7 @@ for ii = 1:numel(delta_names)
         plot(datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}),ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(:,ii),'.','Color',lineCol(jj))
         plot(datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}(iCanRej,:)),ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(iCanRej,ii),'xk')
         
-        ylabel(['LJA' delta_labels(ii)])
+        ylabel(['Std. Can' delta_labels(ii)])
         
     end
     
