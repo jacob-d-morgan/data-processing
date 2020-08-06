@@ -35,16 +35,16 @@ for ii = 1:length(idxLjas)
     ljaDate = ljaStats.ljaDatetime(idxLjas(ii));
     startDate = newCorrections.EndDate(find(newCorrections.EndDate < ljaDate,1,'last'));
     endDate = newCorrections.StartDate(find(newCorrections.EndDate > ljaDate,1,'first'));
-    firstLjaDate = min(ljaStats.aliquotDates{idxLjas(ii)});
-    lastLjaDate = max(ljaStats.aliquotDates{idxLjas(ii)});
+    firstLjaDate = min(ljaStats.ljaAliquotSetDates{idxLjas(ii)});
+    lastLjaDate = max(ljaStats.ljaAliquotSetDates{idxLjas(ii)});
     
-    effect = ljaStats.slope(idxLjas(ii),:).*days(lastLjaDate - firstLjaDate);
+    effect = ljaStats.ljaSlope(idxLjas(ii),:).*days(lastLjaDate - firstLjaDate);
     
-    alsToUse = ljaStats.aliquotMeans{idxLjas(ii)};
-    alsToUse(ljaStats.rejections{idxLjas(ii)})=nan;
+    alsToUse = ljaStats.ljaAliquotSetDeltas{idxLjas(ii)};
+    alsToUse(ljaStats.ljaRejections{idxLjas(ii)})=nan;
     
-    ljaAtMidpoint = ljaStats.intercept(idxLjas(ii),:) + ljaStats.slope(idxLjas(ii),:).*datenum(mean([startDate endDate]));
-    ljaPolyval = ljaStats.intercept(idxLjas(ii)) + ljaStats.slope(idxLjas(ii),:).*datenum(ljaStats.aliquotDates{idxLjas(ii)});
+    ljaAtMidpoint = ljaStats.ljaIntercept(idxLjas(ii),:) + ljaStats.ljaSlope(idxLjas(ii),:).*datenum(mean([startDate endDate]));
+    ljaPolyval = ljaStats.ljaIntercept(idxLjas(ii)) + ljaStats.ljaSlope(idxLjas(ii),:).*datenum(ljaStats.ljaAliquotSetDates{idxLjas(ii)});
     
     detrended = alsToUse +  ljaAtMidpoint - ljaPolyval;
     stdDetrended = nanstd(detrended);
@@ -53,7 +53,7 @@ for ii = 1:length(idxLjas)
     iTemporalValues = abs(effectSize) > 1.1;
     
     LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues) = fillmissing(LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues),'nearest');
-    LJA(aliquotDates > startDate & aliquotDates < endDate,iTemporalValues) = ljaAtMidpoint(iTemporalValues) + ljaStats.slope(idxLjas(ii),iTemporalValues).*(datenum(aliquotDates(aliquotDates > startDate & aliquotDates < endDate) - mean([startDate endDate])));
+    LJA(aliquotDates > startDate & aliquotDates < endDate,iTemporalValues) = ljaAtMidpoint(iTemporalValues) + ljaStats.ljaSlope(idxLjas(ii),iTemporalValues).*(datenum(aliquotDates(aliquotDates > startDate & aliquotDates < endDate) - mean([startDate endDate])));
     
 end
 
