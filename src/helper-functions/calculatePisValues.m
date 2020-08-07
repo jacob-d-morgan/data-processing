@@ -2,9 +2,9 @@ function [pisValues,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metada
 % CALCULATEPISVALUES Calculate the Pressure Imbalance Sensitivities
 %   Calculates the pressure imbalance sensitivity for each delta value, for
 %   each pressure imbalance sensitivity experiment in ALIQUOT_DELTAS_PIS.
-%   The PIS is calculated by fitting a straight line to the delta values as
-%   a function of their pressure imbalance,for each aliquot run as a PIS
-%   experiment.
+%   The PIS is calculated by fitting a straight line to the mean delta
+%   value of each block as a function of the pressure imbalance of that
+%   block, for each aliquot run as a PIS experiment.
 % 
 %   CALCULATEPISVALUES(ALIQUOT_DELTAS,ALIQUOT_METADATA,ALIQUOT_DELTAS_PIS,ALIQUOT_METADATA_PIS)
 %   returns the PIS for each delta value, for each PIS experiment. The
@@ -75,7 +75,7 @@ for ii=find(iPIS)'
     
     % Find the Pressure Imbalances for the PIS Experiment
     imbal = cat(2,aliquot_metadata.pressureImbal(ii,:,:),aliquot_metadata_pis.pressureImbal(ii,:,:));
-    x_temp = mean(imbal,3)'; % predictor variable = pressure imbalance
+    x_temp = mean(imbal,3)'; % predictor variable = block mean pressure imbalance
     
     % Warn if the Largest Imbalance is NOT the PIS Block
     [pImbal, idx] = max(abs(x_temp));
@@ -92,7 +92,7 @@ for ii=find(iPIS)'
     for jj=1:size(aliquot_deltas,2)
         
         delta = cat(3,aliquot_deltas(ii,jj,:,:),aliquot_deltas_pis(ii,jj,1,:));
-        y_temp = squeeze(mean(delta,4)); % response variable = delta value
+        y_temp = squeeze(mean(delta,4)); % response variable = block mean delta value
         
         m_temp = [x_temp ones(size(x_temp))]\y_temp; % calculate the PIS and Intercept
         [R_corr,pVal] = corrcoef(x_temp,y_temp); % calculate the correlation coefficient for the PIS test
