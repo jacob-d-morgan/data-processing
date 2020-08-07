@@ -12,22 +12,26 @@ function [pisValues,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metada
 %   function in the variables ALIQUOT_DELTAS_PIS and ALIQUOT_METADATA_PIS,
 %   and for the non-PIS blocks in ALIQUOT_DELTAS and ALIQUOT_METADATA.
 %
-%   [PISVALUES,PISSTATS] = CALCULATEPISVALUES(...) also outputs statistics
-%   other useful information relating to each PIS experiment, including:
+%   [PISVALUES,PISSTATS] = CALCULATEPISVALUES(...) also outputs a structure
+%   of statistics and other information for each PIS experiment, including:
 % 
-%   measuredPis - the calculated PIS value for each PIS experiment
+%   pisDatetime - the datetime of the first block in the PIS experiment
+%   pressureImbal - the predictor data used to calculate the PIS
+%   deltas - the regressor data used to calculate the PIS
+%   slope - the slope of the fit, i.e. the PIS
+%   intercept - the intercept of the fit
+%   rSq - the r-squared value of the linear fit
+%   pVal - the p-value of the correlation coefficient
+%   pisImbal - the pressure imbalance of the PIS block
 %   rejections - the PIS values recommended for rejection (see below)
-%   rSq - the r-squared value for each PIS experiment linear fit
-%   pVal - the p-value of the correlation coefficient for each PIS
-%   pImbal - the pressure imbalance of the PIS block in each PIS experiment
 %   
 %   Rejections:
 %   A PIS Value is recommended for rejection if one of two criteria is met:
-%       (1) The pressure imbalance is <100 mV (PIS for all delta values
-%       recommened for rejection).
-%       (2) The PIS value falls far from the running median of PIS values
-%       for that delta value (PIS for specific delta value recommended for
-%       rejection).
+%       (1) The magnitiude of the largest pressure imbalance is <100 mV
+%       (PIS for all delta values recommened for rejection).
+%       (2) The PIS values has a deviation from the running median more
+%       extreme than the the 1st and 99th percentile (PIS for specific
+%       delta value recommended for rejection).
 %
 %  ------------------------------------------------------------------------
 
