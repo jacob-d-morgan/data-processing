@@ -55,46 +55,53 @@ iPIS = any(iPIS,2); % ...but calculate a PIS for these experiments anyway
 % Calculate the PIS for each experiment, for each of the delta values
 calcPis = nan(size(aliquot_deltas,[1 2]));
 
+% Pre-allocate variables to be filled in the loop
 stats = struct();
 stats.pisDatetime = NaT(size(aliquot_deltas,1),1);
-stats.pressureImbal = nan(size(aliquot_deltas) + [0 0 1 0]);
+stats.pressureImbal = nan(size(aliquot_metadata.pressureImbal) + [0 1 0]);
 stats.deltas = nan(size(aliquot_deltas) + [0 0 1 0]);
 stats.slope = nan(size(aliquot_deltas,[1 2]));
 stats.intercept = nan(size(aliquot_deltas,[1 2]));
 stats.rSq = nan(size(aliquot_deltas,[1 2]));
 stats.pVal = nan(size(aliquot_deltas,[1 2]));
-stats.pisImbal = nan(size(aliquot_deltas,[1 2]));
+stats.pisImbal = nan(size(aliquot_deltas,1),1);
 
-for ii=find(iPIS)' % loop through the indices of the PIS aliquots
-    for jj=1:size(aliquot_deltas,2) % loop through the delta values
+% Loop Through the Indices of the PIS Aliquots
+for ii=find(iPIS)'
+    
+    % Find the Pressure Imbalances for the PIS Experiment
+    imbal = cat(2,aliquot_metadata.pressureImbal(ii,:,:),aliquot_metadata_pis.pressureImbal(ii,:,:));
+    x_temp = mean(imbal,3)'; % predictor variable = pressure imbalance
+    
+    % Warn if the Largest Imbalance is NOT the PIS Block
+    [pImbal, idx] = max(abs(x_temp));
+    if idx ~= 5
+        warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy HH:MM') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
+    end
+    
+    % Place Pressure Imbalance Data in Final Output
+    stats.pisDatetime(ii) = aliquot_metadata.msDatetime(ii);
+    stats.pressureImbal(ii,:,:) = imbal;
+    stats.pisImbal(ii) = pImbal * sign(x_temp(idx));
+    
+    % Loop Through the Delta Values
+    for jj=1:size(aliquot_deltas,2)
         
-        imbal = cat(2,aliquot_metadata.pressureImbal(ii,:,:),aliquot_metadata_pis.pressureImbal(ii,:,:));
         delta = cat(3,aliquot_deltas(ii,jj,:,:),aliquot_deltas_pis(ii,jj,1,:));
-        
-        x_temp = mean(imbal,3)'; % predictor variable = pressure imbalance
         y_temp = squeeze(mean(delta,4)); % response variable = delta value
+        
         m_temp = [x_temp ones(size(x_temp))]\y_temp; % calculate the PIS and Intercept
-        
         [R_corr,pVal] = corrcoef(x_temp,y_temp); % calculate the correlation coefficient for the PIS test
-        [pImbal, idx] = max(abs(x_temp)); % find the block with the max P Imbalance
         
-        % Warn if the largest imbalance is NOT the PIS block
-        if idx ~= 5
-            warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy HH:MM') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
-        end
-        
-        % Place Values in Final Output
+        % Place Fit Data in Final Outputs
         calcPis(ii,jj)=m_temp(1);
         
-        stats.pressureImbal(ii,jj,:,:) = imbal;
         stats.deltas(ii,jj,:,:) = delta;
         stats.slope(ii,jj) = m_temp(1);
         stats.intercept(ii,jj) = m_temp(2);
         stats.rSq(ii,jj) = R_corr(1,2).^2;
         stats.pVal(ii,jj) = pVal(1,2);
-        stats.pisImbal(ii,jj) = pImbal * sign(x_temp(idx));
     end
-    stats.pisDatetime(ii) = aliquot_metadata.msDatetime(ii);
 end
 
 
@@ -105,15 +112,16 @@ end
 
 %pisRejectionMethodTesting; % Run to test different rejection criteria
 
+% Pre-allocate Logical Variable to Log Rejections
+stats.rejections = false(size(stats.slope));
+
 % Reject all PIS values where the P Imbalance is smaller than 100 mV
-iPisRejections = abs(stats.pisImbal)<100;
+stats.rejections(abs(stats.pisImbal)<100,:) = true;
 
 % Identify PIS values that differ significantly from the running median for a given delta value
-numRej = zeros(1,size(aliquot_deltas,2));
 movWindow=49; % Moving median window = 7 weeks
 
-% Determine rejections for each delta value
-for ii = 1:size(aliquot_deltas,2)
+for ii = 1:size(aliquot_deltas,2) % loop through the delta values
     x_temp = aliquot_metadata.msDatenum(iPIS,1,1);
     y_temp = calcPis(iPIS,ii,1,1);
 
@@ -126,17 +134,14 @@ for ii = 1:size(aliquot_deltas,2)
     upp = cen + edges(find(CDF>0.99,1,'first')); % Upper Bound = Median + Ninety Ninth Percentile Deviation
     iRej = (y_temp > upp) | (y_temp < low);
 
-    iPisRejections(iPIS,ii) = iPisRejections(iPIS,ii) | iRej; % assign the rejections back to the full-size variable
-    numRej(ii) = sum(iRej); % tally the number of rejections for each delta value
+    stats.rejections(iPIS,ii) = stats.rejections(iPIS,ii) | iRej; % assign the rejections back to the full-size variable
 
 end
 
 %% Assign Outputs
-% Assign final outputs: the calculated CS values, the recommended
-% rejections, and the regression stats.
+% Assign final output variables.
 
 pisValues = calcPis;
 pisStats = stats;
-pisStats.rejections = iPisRejections;
     
 end % end pisCorr
