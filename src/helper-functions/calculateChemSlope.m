@@ -1,10 +1,22 @@
 function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCStoUse,flagAr)
-% CALCULATECHEMSLOPE calculates the chemical slope for a given delta value,
-% Y using the predictor variable(s) X. The Chem Slope experiment data are 
-% identified in X, and Y by iCSTOUSE and are split into the different
-% experiments based on their separation in time. A separation of 10 or more
-% hours indicates a different chem slope experiment unless FLAGAR is set to
-% TRUE, in which case a separation of 24 hours is used instead.
+% CALCULATECHEMSLOPE Calculates the Chemical Slope for a set of experiments
+%   Calculates the chemical slope for a given delta value, for each
+%   chemical slope experiment in iCSTOUSE. The Chem Slope is calculated by
+%   fitting a straight line to the mean delta value of each aliquot in Y as
+%   a function of the mean delta value in X, for each of the sets of
+%   aliquots in X and Y identified by iCSTOUSE.
+%
+%   CALCULATECSVALUES(X,Y,ALIQUOT_METADATA,iCSTOUSE,FLAGAR) returns the
+%   Chemical Slope, i.e. the dependence of Y on X, for each CS experiment.
+%   The aliquots identified in iCSTOUSE are split into the different
+%   experiments based on their separation in time. A separation of 10 or
+%   more hours indicates a different chem slope experiment unless the
+%   optional input, FLAGAR, is set to TRUE, in which case a separation of
+%   24 hours is used instead.
+%
+%   [CSVALUES,CSSTATS] = CALCULATECSVALUES(...) also outputs statistics
+%   other useful information relating to each PIS experiment, including:
+% 
 %
 % -------------------------------------------------------------------------
 
@@ -16,7 +28,7 @@ if nargin==4
     flagAr = false;
 end
 
-%% Find the different CS experiments
+%% Find the Different CS Experiments
 % Finding the CS aliquots separated by more than 10 hours or with a
 % decrease in the replicate identifier (assumes CS 0 - CS 30 are measured
 % in that order). N.B. It's important to not use too big a number here.
@@ -52,9 +64,9 @@ csGroup(iCStoUse) = fillmissing(csGroup(iCStoUse),'next'); % Replace the nans fo
 csGroup = standardizeMissing(csGroup,0); % Change the zeros to nans to properly represent the fact that they are missing values
 
 %% Calculate the Chem Slope
-% Loops through the different chem slope experiments and calculate the chem
-% slope and associated statistics. No rejection of anomalous looking
-% aliquots at this stage, see below.
+% Loop through the different chem slope experiments and calculate the chem
+% slope and associated statistics. Rejection of anomalous aliquots is not
+% performed in this section, see below.
 
 % Pre-allocate variables to be filled in the loop
 calcCS = nan(size(x,[1 2]));
@@ -84,8 +96,8 @@ for ii = min(csGroup):max(csGroup)
     calcCS(idxLastAliquot(ii),:) = csFit(1:end-1,:);
     
     stats.csDatetime(idxLastAliquot(ii)) = aliquot_metadata.msDatetime(idxLastAliquot(ii));
-    stats.xData{idxLastAliquot(ii)} = x_temp;
-    stats.yData{idxLastAliquot(ii)} = y_temp;
+    stats.xData{idxLastAliquot(ii)} = x(csGroup==ii,:,:,:);
+    stats.yData{idxLastAliquot(ii)} = y(csGroup==ii,:,:,:);
     stats.rejections{idxLastAliquot(ii)} = false(size(x_temp));
     stats.slope(idxLastAliquot(ii),:) = csFit(1:end-1,:);
     stats.intercept(idxLastAliquot(ii)) = csFit(end,:);
@@ -96,10 +108,11 @@ end
 
 
 %% Identify Anomalous CS Values
-% For CS experiments with an r-squared value less than 0.99, see if we can
-% improve things by rejecting one of the aliquots and recalculating the
-% r-squared. If this results in a better r-squared value that is greater
-% than 0.95, reject the problem aliquot and use the recalculated values.
+% For CS experiments with an r-squared value less than 0.99, reject each of
+% the aliquots, one by one, and recalculate the r-squared. If this results
+% in an r-squared value that is better than the original value, and is
+% greater than 0.95, reject the problem aliquot and recalculate the chem
+% slope, r-squared, and p-value.
 
 % Identify any Chem Slope Experiments with a 'Bad' r-squared Value
 idxBadCs = find(stats.rSq < 0.99);
@@ -137,7 +150,7 @@ for ii=1:length(idxBadCs)
         stats.rSq(idxBadCs(ii)) = r_afterRej(1,2).^2;
         stats.pVal(idxBadCs(ii)) = pVal_afterRej(1,2).^2;
     else
-        % Consider rejecting all data? At least give a warning or something
+        % Consider rejecting all data? Or give a warning maybe?
     end        
 end
 
