@@ -161,4 +161,4 @@ end
 csValues = calcCS;
 csStats = stats;
 
-end % end calculateChemSlope
+end % end calculateCsValues
