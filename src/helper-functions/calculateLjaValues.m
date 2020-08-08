@@ -1,6 +1,37 @@
 function [ljaValues, ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLjaToUse)
-% CALCULATELJAVALUES calculates the mean of each set of LJA samples run in
-% order to calibrate a standard can to the ultimate atmospheric standard.
+% CALCULATELJAVALUES Calculates the LJA Normalization values
+%   Calculates the mean of each delta value for sets of LJA aliquots
+%   analyzed in time intervals of identical Mass Spectrometer conditions.
+%
+%   CALCULATELJAVALUES(ALIQUOT_DELTAS,ALIQUOT_METADATA,iLJATOUSE) returns
+%   the mean of each delta value, for each set of LJA anaylses. The
+%   aliquots identified in iLJATOUSE are split into different sets based on
+%   the changes to the Mass Spectrometer, documented in the Excel file
+%   'spreadsheet_metadata.xlsx'. Only aliquots measured on the same
+%   filament, with the same source focusing, against the same standard can
+%   are averaged together.
+%
+%   [LJAVALUES,LJASTATS] = CALCULATELJAVALUES(...) also outputs a structure
+%   of statistics and other information for each set of LJA aliquots,
+%   including:
+%
+%   ljaDatetime - the datetime of the first block of the last aliquot in a set of LJA aliquots
+%   ljaValues - the mean of all aliquots
+%   ljaAliquotSetDates - the datetime of each aliquot
+%   ljaAliquotSetDeltas - the mean delta values of each aliquot
+%   ljaRejections - the aliquots that are rejected when calculating the mean LJA values (see below)
+%   ljaSlope - the slope of a linear fit to the set aliquot means through time
+%   ljaIntercept - the intercept of a linear fit to the set aliquot means through time
+%   ljaRSq - the r-squared of the linear fit
+%   ljaPVal - the p-value of the corelation coefficient
+%   
+%   canAliquotSetDates - as above but for the standard can aliquots
+%   canAliquotSetDeltas - as above but for the standard can aliquots
+%   canRejections - as above but for the standard can aliquots
+%   canSlope - as above but for the standard can aliquots
+%   canIntercept - as above but for the standard can aliquots
+%   canRSq - as above but for the standard can aliquots
+%   canPVal - as above but for the standard can aliquots
 %
 % -------------------------------------------------------------------------
 
@@ -50,7 +81,7 @@ canGroup(iCanToUse) = corrPeriod(iCanToUse);
 
 %% Calculate the LJA Values
 % Calculate the mean of all aliquots measured under identical MS
-% conditions. Also calculate std and linear trend of each set of aliquots.
+% conditions. Also fit a linear trend of each set of aliquots.
 
 % Pre-allocate variables to be filled in the loop
 calcLja = nan(size(aliquot_deltas,[1 2]));
