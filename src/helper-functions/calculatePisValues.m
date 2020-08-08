@@ -122,23 +122,26 @@ stats.rejections = false(size(stats.slope));
 % Reject all PIS values where the P Imbalance is smaller than 100 mV
 stats.rejections(abs(stats.pisImbal)<100,:) = true;
 
-% Identify PIS values that differ significantly from the running median for a given delta value
+% Reject PIS values with Largest Deviations from Running Median
 movWindow=49; % Moving median window = 7 weeks
 
 for ii = 1:size(aliquot_deltas,2) % loop through the delta values
     x_temp = aliquot_metadata.msDatenum(iPIS,1,1);
     y_temp = calcPis(iPIS,ii,1,1);
 
-    cen = movmedian(y_temp,movWindow,'omitnan','SamplePoints',x_temp); % Calculate moving median for given window width
-    dev = y_temp-cen; % Detrend time-series by calculating deviation of each point from moving median
+    % Calculate Deviations from Running Median
+    cen = movmedian(y_temp,movWindow,'omitnan','SamplePoints',x_temp);
+    dev = y_temp-cen;
 
-    [CDF,edges] = histcounts(dev,'BinMethod','fd','Normalization','cdf'); % Calculate CDF of the deviations, using Freedman-Diaconis rule for bin widths
+    % Calculate CDF of the deviations, using Freedman-Diaconis rule for bin widths
+    [CDF,edges] = histcounts(dev,'BinMethod','fd','Normalization','cdf');
 
-    low = cen + edges(find(CDF>0.01,1,'first')); % Lower Bound = Median - First Percentile Deviation
-    upp = cen + edges(find(CDF>0.99,1,'first')); % Upper Bound = Median + Ninety Ninth Percentile Deviation
+    low = cen + edges(find(CDF>0.01,1,'first')); % Lower Bound = Median - 1st Percentile Deviation
+    upp = cen + edges(find(CDF>0.99,1,'first')); % Upper Bound = Median + 99th Percentile Deviation
     iRej = (y_temp > upp) | (y_temp < low);
 
-    stats.rejections(iPIS,ii) = stats.rejections(iPIS,ii) | iRej; % assign the rejections back to the full-size variable
+    % Assign the Rejections Back to the Full-size Variable
+    stats.rejections(iPIS,ii) = stats.rejections(iPIS,ii) | iRej;
 
 end
 
@@ -148,4 +151,4 @@ end
 pisValues = calcPis;
 pisStats = stats;
     
-end % end pisCorr
+end % end calculatePisValues
