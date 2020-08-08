@@ -16,7 +16,23 @@ function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCStoUse,
 %
 %   [CSVALUES,CSSTATS] = CALCULATECSVALUES(...) also outputs statistics
 %   other useful information relating to each PIS experiment, including:
-% 
+%
+%   csDatetime - the datetime of the first block in the PIS experiment
+%   xData - the predictor data used to calculate the CS
+%   yData - the regressor data used to calculate the CS
+%   rejections - the aliquots recommended for rejection (see below)
+%   slope - the slope of the fit, i.e. the CS
+%   intercept - the intercept of the fit
+%   rSq - the r-squared value of the linear fit
+%   pVal - the p-value of the correlation coefficient
+%   
+%   Rejections:
+%   An aliquot is rejected from the fitting of the line, i.e. the
+%   caluclation of the chem slope, if the r-squared value with the aliquot
+%   included is <0.99, and the r-squared value without the aliquot included
+%   is >0.95 and greater than the r-squared with the aliquot included.
+%   Rejected aliquots are included in the 'xData' and 'yData' of csStats,
+%   but are indicated by the 'rejections' variable.
 %
 % -------------------------------------------------------------------------
 
