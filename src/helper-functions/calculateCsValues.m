@@ -17,7 +17,7 @@ function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCStoUse,
 %   [CSVALUES,CSSTATS] = CALCULATECSVALUES(...) also outputs statistics
 %   other useful information relating to each PIS experiment, including:
 %
-%   csDatetime - the datetime of the first block in the PIS experiment
+%   csDatetime - the datetime of the first block in the CS experiment
 %   xData - the predictor data used to calculate the CS
 %   yData - the regressor data used to calculate the CS
 %   rejections - the aliquots recommended for rejection (see below)
