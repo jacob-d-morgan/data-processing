@@ -57,33 +57,33 @@ iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
 % ======================================================================= %
 
 % Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
-[calcCS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
-[calcCS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
+[calcCS_15N,csStats_15N] = calculateCsValues(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
+[calcCS_ArN2,csStats_ArN2] = calculateCsValues(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
+[calcCS_18O,csStats_18O] = calculateCsValues((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
+[calcCS_17O,csStats_17O] = calculateCsValues((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
 
 % Calculate the Bivariate (Ar Isotopes) Chem Slopes
 x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-[calcCS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-[calcCS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4036Ar,csStats_36Ar] = calculateCsValues(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4038Ar,csStats_38Ar] = calculateCsValues(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
 
 % Make CS Corrections
-csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_ArN2} {calcCS_4036Ar} {calcCS_4038Ar}];
+csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_4036Ar} {calcCS_4038Ar} {calcCS_ArN2} ];
 csRegressors = [
     {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
     {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
     {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
     {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
     {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
+    {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
     ];
 csPredictors = [
     {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
     {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
     {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
+    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
+    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
     {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
     ];
 
 csCorr = cell(size(csValues));
@@ -93,7 +93,7 @@ for ii = 1:length(csValues)
 end
 
 aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
-aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
+aliquot_deltas_pisCorr_csCorr(:,[1:5 7],:,:) = [csCorr{:}];
 
 
 %% Make the LJA Correction
@@ -134,7 +134,7 @@ for ii = 1:numel(delta_names)
 end
 
 % Make Tables of PIS, CS, and LJA Values Used
-cs_names = delta_names([1:3 7 4:5]);
+cs_names = delta_names([1:5 7]);
 csLog = table;
 for ii = 1:numel(cs_names)
     csLog = [csLog table(CS{ii},'VariableNames',cellstr(cs_names(ii)))];
@@ -142,9 +142,23 @@ end
 
 pisLog = array2table(PIS,'VariableNames',cellstr(delta_names));
 ljaLog = array2table(LJA,'VariableNames',cellstr(delta_names));
-corrections = table(pisLog,csLog,ljaLog,'VariableNames',{'PIS','CS','LJA'});
-    
+correctionCoeffs = table(pisLog,csLog,ljaLog,'VariableNames',{'PIS','CS','LJA'});
 
-masterSheet = table(metadata,deltas_raw,deltas_corr,corrections,'VariableNames',{'metadata','deltas_raw','deltas_corr','corrections'});
+% Make Tables of PIS, CS, and LJA Diagnostics
+pisDiagnostics = struct2table(pisStats);
+csDiagnostics = table(...
+    struct2table(csStats_15N), ...
+    struct2table(csStats_18O), ...
+    struct2table(csStats_17O), ...
+    struct2table(csStats_36Ar), ...
+    struct2table(csStats_38Ar), ...
+    struct2table(csStats_ArN2), ...
+    'VariableNames',cs_names);
+ljaDiagnostics = struct2table(ljaStats);
+
+correctionDiagnostics = table(pisDiagnostics,csDiagnostics,ljaDiagnostics,'VariableNames',{'PIS','CS','LJA'});
+    
+% Make the Master Table
+masterSheet = table(metadata,deltas_raw,deltas_corr,correctionCoeffs,correctionDiagnostics,'VariableNames',{'metadata','deltas_raw','deltas_corr','correctionCoeffs','correctionDiagnostics'});
 
 end
