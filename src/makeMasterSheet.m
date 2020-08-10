@@ -122,26 +122,52 @@ iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
 metadata = struct2table(aliquot_metadata);
 
 % Make Table of Raw Delta Values
-deltas_raw = table();
+deltas_raw = table;
 for ii = 1:numel(delta_names)
-    deltas_raw = [deltas_raw table(aliquot_deltas(:,ii,:,:),'VariableNames',cellstr(delta_names(ii)))];
+    deltas_raw.(delta_names(ii)) = aliquot_deltas(:,ii,:,:);
 end
+deltas_raw.Properties.VariableUnits = delta_units;
+deltas_raw.Properties.VariableDescriptions = delta_labels;
+deltas_raw.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
+deltas_raw.Properties.Description = "Table of raw delta values, calculated using the measured ratio of beam voltages on sample and standard sides. No analytical corrections performed. ";
 
 % Make Table fo Fully Corrected Delta Values
-deltas_corr = table();
+deltas_corr = table;
 for ii = 1:numel(delta_names)
-    deltas_corr = [deltas_corr table(aliquot_deltas_pisCorr_csCorr_ljaCorr(:,ii,:,:),'VariableNames',cellstr(delta_names(ii)))];
+    deltas_corr.(delta_names(ii)) = aliquot_deltas_pisCorr_csCorr_ljaCorr(:,ii,:,:);
 end
+deltas_raw.Properties.VariableUnits = delta_units;
+deltas_raw.Properties.VariableDescriptions = delta_labels;
+deltas_raw.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
+deltas_raw.Properties.Description = "Table of delta values, calculated using the measured ratio of beam voltages on sample and standard sides. Corrected for analytical effects (pressure imbalance and chemical slope) and normalized to La Jolla Air.";
+
 
 % Make Tables of PIS, CS, and LJA Values Used
+pisLog = array2table(PIS);
+pisLog.Properties.VariableNames = cellstr(delta_names);
+pisLog.Properties.VariableUnits = repmat({[char(8240) '/' char(8240)]},1,numel(delta_names));
+pisLog.Properties.VariableDescriptions = delta_labels;
+pisLog.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
+pisLog.Properties.Description = "Table of Pressure Imbalance Sensitivities, the coefficients used to correct each sample measurement for the effect of total gas pressure imbalance between the sample and standard bellows.";
+
 cs_names = delta_names([1:5 7]);
 csLog = table;
 for ii = 1:numel(cs_names)
-    csLog = [csLog table(CS{ii},'VariableNames',cellstr(cs_names(ii)))];
+    csLog.(cs_names(ii)) = CS{ii};
 end
+csLog.Properties.VariableNames = cellstr(cs_names);
+csLog.Properties.VariableUnits = repmat({[char(8240) '/' char(8240)]},1,numel(cs_names));
+%csLog.Properties.VariableDescriptions = delta_labels;
+csLog.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
+csLog.Properties.Description = "Table of Chemical Slopes, the coefficients used to correct each sample measurement for the effect of partial gas pressure imbalances between the sample and standard bellows.";
 
-pisLog = array2table(PIS,'VariableNames',cellstr(delta_names));
 ljaLog = array2table(LJA,'VariableNames',cellstr(delta_names));
+ljaLog.Properties.VariableNames = cellstr(delta_names);
+ljaLog.Properties.VariableUnits = repmat({char(8240)},1,numel(delta_names));
+ljaLog.Properties.VariableDescriptions = delta_labels;
+ljaLog.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
+ljaLog.Properties.Description = "Table of La Jolla Air values, the measured composition of La Jolla Air (relative to a standard can) used to normalize each sample measurement to the composition of the modern atmosphere.";
+
 correctionCoeffs = struct('PIS',pisLog,'CS',csLog,'LJA',ljaLog);
 
 % Make Tables of PIS, CS, and LJA Diagnostics
