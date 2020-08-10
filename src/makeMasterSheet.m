@@ -142,7 +142,7 @@ end
 
 pisLog = array2table(PIS,'VariableNames',cellstr(delta_names));
 ljaLog = array2table(LJA,'VariableNames',cellstr(delta_names));
-correctionCoeffs = table(pisLog,csLog,ljaLog,'VariableNames',{'PIS','CS','LJA'});
+correctionCoeffs = struct('PIS',pisLog,'CS',csLog,'LJA',ljaLog);
 
 % Make Tables of PIS, CS, and LJA Diagnostics
 pisDiagnostics = struct2table(pisStats);
@@ -156,9 +156,14 @@ csDiagnostics = table(...
     'VariableNames',cs_names);
 ljaDiagnostics = struct2table(ljaStats);
 
-correctionDiagnostics = table(pisDiagnostics,csDiagnostics,ljaDiagnostics,'VariableNames',{'PIS','CS','LJA'});
+correctionDiagnostics = struct('PIS',pisDiagnostics,'CS',csDiagnostics,'LJA',ljaDiagnostics);
     
-% Make the Master Table
-masterSheet = table(metadata,deltas_raw,deltas_corr,correctionCoeffs,correctionDiagnostics,'VariableNames',{'metadata','deltas_raw','deltas_corr','correctionCoeffs','correctionDiagnostics'});
+% Make the Master Data Structure
+masterSheet = struct( ...
+    'metadata',metadata, ...
+    'deltas_raw',deltas_raw, ...
+    'deltas_corr',deltas_corr, ...
+    'correctionCoeffs',correctionCoeffs, ...
+    'correctionDiagnostics', correctionDiagnostics);
 
 end
