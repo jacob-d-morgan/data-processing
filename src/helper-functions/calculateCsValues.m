@@ -157,8 +157,12 @@ for ii=1:length(idxBadCs)
         iRej = false(size(x_temp));
         iRej(idxBestRsq) = true;
         
+        % Recalculate Slope and Intercept
         m_afterRej = [x_temp(~iRej) ones(size(x_temp(~iRej)))]\y_temp(~iRej);
         [r_afterRej,pVal_afterRej] = corrcoef(x_temp(~iRej),y_temp(~iRej));
+        
+        % Reassign to Relevant Output Variables
+        calcCS(idxBadCs(ii)) = m_afterRej(1:end-1,:);
         
         stats.rejections{idxBadCs(ii)} = iRej;
         stats.slope(idxBadCs(ii)) = m_afterRej(1:end-1,:);
