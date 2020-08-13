@@ -1,151 +1,153 @@
 %% dataImport %%
 
-% clearvars;
+clearvars;
 cluk; clc;
 
 % set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
 
-%% Import Raw Data
-% Imports the 'standard' raw dataset of aliquot delta values and their
-% metadata. Does not include any cycles with a gas configuration different
-% to Air+ or where the 28N2 beam is either saturated or absent, or cycles
-% with a non-standard (different than the mode) number of cycles or blocks.
-%
-% Rather than reading in the files each time, it's easier to read them in
-% once using the makeRawDataset() line and then use the clearvars -EXCEPT
-% line to preserve the variables read in by this line for future runs.
-% Toggle the comments on the indicated line(s) to adjust whether or not the
-% files are re-read.
-
-clearvars -EXCEPT aliquot_deltas metadata aliquot_deltas_pis aliquot_metadata_pis;
-
+% %% Import Raw Data
+% % Imports the 'standard' raw dataset of aliquot delta values and their
+% % metadata. Does not include any cycles with a gas configuration different
+% % to Air+ or where the 28N2 beam is either saturated or absent, or cycles
+% % with a non-standard (different than the mode) number of cycles or blocks.
+% %
+% % Rather than reading in the files each time, it's easier to read them in
+% % once using the makeRawDataset() line and then use the clearvars -EXCEPT
+% % line to preserve the variables read in by this line for future runs.
+% % Toggle the comments on the indicated line(s) to adjust whether or not the
+% % files are re-read.
+% 
+% clearvars -EXCEPT aliquot_deltas metadata aliquot_deltas_pis aliquot_metadata_pis;
+% 
 filesToImport = [
     "XP-2018(excelExportIntensityJDM).csv"; ...
     "XP-2017(excelExportIntensityJDM).csv"; ...
-    "XP-2016(excelExportIntensityJDM).csv"
+    "XP-2016(excelExportIntensityJDM).csv"; ...
+%     "XP-2015(excelExportIntensityJDM-REMAKE).csv"; ...
+%     "XP-2014(excelExportIntensityJDM-REMAKE).csv"; ...
+%     "XP-2013(excelExportIntensityJDM-REMAKE).csv"; ...
     ];
+% 
+% % Generate 'Standard' Raw Dataset
+% % [aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
+% 
+% aliquot_metadata = metadata.metadata;
+% delta_names = metadata.delta_names;
+% delta_labels = metadata.delta_labels;
+% delta_units = metadata.delta_units;
+% 
+% metadata_fields = string(fieldnames(aliquot_metadata))';
+% 
+% 
+% %% Make PIS Correction
+% % Correct the delta values in aliquot_deltas for the effect of imbalance in
+% % the total pressure of gas in the source.
+% 
+% % Calculate PIS Values
+% [calcPis,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis);
+% 
+% % Make PIS Correction
+% calcPis(pisStats.rejections) = nan;
+% [aliquot_deltas_pisCorr,PIS] = makePisCorr(aliquot_deltas,aliquot_metadata.msDatetime,aliquot_metadata.pressureImbal,calcPis);
+% 
+% %% Make Chemical Slope Correction
+% % Correct the delta values in aliquot_deltas_pisCorr for the effect of
+% % different gas ratios in the source.
+% 
+% % Identify the CS Experiment Aliquots
+% iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
+% iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
+% iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
+% 
+% % == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
+% iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
+% % ======================================================================= %
+% 
+% % Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
+% [calcCS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
+% [calcCS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
+% [calcCS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
+% [calcCS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
+% 
+% % Calculate the Bivariate (Ar Isotopes) Chem Slopes
+% x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+% [calcCS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+% [calcCS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+% 
+% % Make CS Corrections
+% csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_ArN2} {calcCS_4036Ar} {calcCS_4038Ar}];
+% csRegressors = [
+%     {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
+%     {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
+%     {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
+%     {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
+%     {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
+%     {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
+%     ];
+% csPredictors = [
+%     {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
+%     {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
+%     {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
+%     {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
+%     {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
+%     {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
+%     ];
+% 
+% csCorr = cell(size(csValues)); CS = cell(size(csValues));
+% for ii = 1:length(csValues)
+%     [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{ii},aliquot_metadata.msDatetime,csPredictors{ii},csValues{ii});
+% end
+% 
+% aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
+% aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
+% 
+% 
+% %% Make the LJA Correction
+% % Correct the delta values in aliquot_deltas_pisCorr_csCorr so that they
+% % are measured relative to La Jolla Air.
+% %
+% % Identifies analyses of LJA made during identical MS conditions (i.e. same
+% % filament, std can etc.) and calculates the mean of these aliquots, after
+% % rejecting outliers. The mean of all the aliquots is used to normalize all
+% % aliquots measured under identical MS conditions, unless there is a trend
+% % in the LJA values. In this case, the extrapolated values are used.
+% 
+% % Calculate LJA Values
+% iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
+% [ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
+% 
+% % Make LJA Correction
+% [aliquot_deltas_pisCorr_csCorr_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
 
-% Generate 'Standard' Raw Dataset
-% [aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
-
-aliquot_metadata = metadata.metadata;
-delta_names = metadata.delta_names;
-delta_labels = metadata.delta_labels;
-delta_units = metadata.delta_units;
-
-metadata_fields = string(fieldnames(aliquot_metadata))';
-
-
-%% Make PIS Correction
-% Correct the delta values in aliquot_deltas for the effect of imbalance in
-% the total pressure of gas in the source.
-
-% Calculate PIS Values
-[calcPis,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis);
-
-% Make PIS Correction
-calcPis(pisStats.rejections) = nan;
-[aliquot_deltas_pisCorr,PIS] = makePisCorr(aliquot_deltas,aliquot_metadata.msDatetime,aliquot_metadata.pressureImbal,calcPis);
-
-%% Make Chemical Slope Correction
-% Correct the delta values in aliquot_deltas_pisCorr for the effect of
-% different gas ratios in the source.
-
-% Identify the CS Experiment Aliquots
-iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
-iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
-iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
-
-% == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
-iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
-% ======================================================================= %
-
-% Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
-[calcCS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
-[calcCS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
-
-% Calculate the Bivariate (Ar Isotopes) Chem Slopes
-x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-[calcCS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-[calcCS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-
-% Make CS Corrections
-csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_ArN2} {calcCS_4036Ar} {calcCS_4038Ar}];
-csRegressors = [
-    {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
-    ];
-csPredictors = [
-    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-    ];
-
-csCorr = cell(size(csValues)); CS = cell(size(csValues));
-for ii = 1:length(csValues)
-    [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{ii},aliquot_metadata.msDatetime,csPredictors{ii},csValues{ii});
-end
-
-aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
-aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
-
-
-%% Make the LJA Correction
-% Correct the delta values in aliquot_deltas_pisCorr_csCorr so that they
-% are measured relative to La Jolla Air.
-%
-% Identifies analyses of LJA made during identical MS conditions (i.e. same
-% filament, std can etc.) and calculates the mean of these aliquots, after
-% rejecting outliers. The mean of all the aliquots is used to normalize all
-% aliquots measured under identical MS conditions, unless there is a trend
-% in the LJA values. In this case, the extrapolated values are used.
-
-% Calculate LJA Values
-iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
-[ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
-
-% Make LJA Correction
-[aliquot_deltas_pisCorr_csCorr_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
-
+masterSheet = makeMasterSheet(filesToImport);
 
 %% Plot a time-series of the PIS and related parameters
 % This is useful to identify aliquots where the PIS block did no run
 % correctly or where the r-squared is low, suggesting a poor determination
 % of the PIS. These cases can be filtered out below.
 
+pisStats = masterSheet.correctionDiagnostics.PIS;
+delta_names = string(masterSheet.deltas_corr.Properties.VariableNames);
+delta_labels = string(masterSheet.deltas_corr.Properties.VariableDescriptions);
+delta_units = string(masterSheet.deltas_corr.Properties.VariableUnits);
+
 % Import Mass Spec Events to Annotate Figures
 massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
 massSpecEvents.Event = categorical(massSpecEvents.Event);
 
-iPIS = ~isnan(aliquot_deltas_pis(:,:,1,1));
-if sum(any(iPIS,2)) ~= sum(all(iPIS,2)) % Check that all delta values identify each PIS experiment
-    warning('Warning: Some delta values are misisng a PIS block for one or more experiments')
-    iPIS = any(iPIS,2); % If some delta values are missing a PIS block somehow, calculate the PIS for the other delta values anyway
-else
-    iPIS = iPIS(:,1); % Otherwise, just make iPis a vector (from a matrix) by taking the first column.
-end
+iPIS = ~isnat(pisStats.pisDatetime);
 
 stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
-stackedFigAx
-xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
+xlim(stackedFigAx,datenum(['01 Jan 2016'; '31 Dec 2018']))
 
 % Plot R-Squared of each PIS Experiment
 stackedFigAx(1)
 for ii = 1:numel(delta_names)
     set(gca,'ColorOrderIndex',ii)
-    plot(aliquot_metadata.msDatenum(iPIS,1,1),pisStats.rSq(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
-    legH(ii)=plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii) & iPIS,1,1),pisStats.rSq(~pisStats.rejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
+    plot(datenum(pisStats.pisDatetime(iPIS,:)),pisStats.rSq(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
+    legH(ii)=plot(datenum(pisStats.pisDatetime(iPIS & ~pisStats.rejections(:,ii),:)),pisStats.rSq(iPIS & ~pisStats.rejections(:,ii),ii),'-s','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
 end
-legend(legH,delta_names,'Orientation','Horizontal','Location','South')
+legend(legH,delta_labels,'Orientation','Horizontal','Location','South')
 ylabel('r^2');
 ylim([0.7 1]);
 
@@ -153,21 +155,20 @@ ylim([0.7 1]);
 stackedFigAx(2)
 for ii = 1:numel(delta_names)
     set(gca,'ColorOrderIndex',ii)
-    plot(aliquot_metadata.msDatenum(iPIS,1,1),pisStats.slope(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
-    legH(ii)=plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii) & iPIS,1,1),pisStats.slope(~pisStats.rejections(:,ii) & iPIS,ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
+    plot(datenum(pisStats.pisDatetime(iPIS,:)),pisStats.slope(iPIS,ii),'-ok','MarkerIndices',find(pisStats.rejections(iPIS,ii)),'MarkerFaceColor',lineCol(ii)); % Plot all the r-squared values with markers for rejected values 
+    legH(ii)=plot(datenum(pisStats.pisDatetime(iPIS & ~pisStats.rejections(:,ii),:)),pisStats.slope(iPIS & ~pisStats.rejections(:,ii),ii),'s-','MarkerFaceColor',lineCol(ii)); % Replot as overlay, omitting rejected aliquots
 end
-ylabel('PIS [per mil/per mil]');
+ylabel(['PIS [' char(8240) '/' char(8240) ']']);
 ylim([-0.01 0.005]);
 
 % Plot Pressure Imbalance for each PIS Experiment
 stackedFigAx(3)
-plot(aliquot_metadata.msDatenum(iPIS & any(~pisStats.rejections,2),1,1),pisStats.pisImbal(iPIS & any(~pisStats.rejections,2),:),'-^','Color',lineCol(9));
-text(aliquot_metadata.msDatenum(iPIS & any(~pisStats.rejections,2),1,1),pisStats.pisImbal(iPIS & any(~pisStats.rejections,2)),aliquot_metadata_pis.ID1(iPIS & any(~pisStats.rejections,2),1,1));
+plot(datenum(pisStats.pisDatetime(iPIS & any(~pisStats.rejections,2),:)),pisStats.pisImbal(iPIS & any(~pisStats.rejections,2),:),'-^','Color',lineCol(9));
 ylabel('Pressure Imbalance [per mil]');
 ylim([-600 0])
 
 % Set Labels & Limits etc.
-stackedFigAx();
+stackedFigAx;
 xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
 datetick('x','keeplimits');
 drawnow;
@@ -177,9 +178,9 @@ stackedFigReset
 stackedFig(numel(delta_names))
 for ii=1:numel(delta_names)
     stackedFigAx(ii)
-    plot(aliquot_metadata.msDatenum(~pisStats.rejections(:,ii),1,1),pisStats.slope(~pisStats.rejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
-    plot(aliquot_metadata.msDatenum(:,1,1),PIS(:,ii),'.','Color',lineCol(ii)*0.5)
-    ylabel(delta_labels{ii})
+    plot(datenum(pisStats.pisDatetime(~pisStats.rejections(:,ii),:)),pisStats.slope(~pisStats.rejections(:,ii),ii),'o','Color','none','MarkerFaceColor',lineCol(ii))
+    plot(masterSheet.metadata.msDatenum(:,1,1),masterSheet.correctionCoeffs.PIS{:,ii},'.','Color',lineCol(ii)*0.5)
+    ylabel([delta_labels{ii} ' [' delta_units{ii} '/mV]'])
 end
 
 % Add Date of Filament Changes/Refocusing
@@ -191,7 +192,6 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('PIS Values used for Correction')
-xlabel('Date')
 xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
 datetick('x','keeplimits')
 drawnow;
@@ -202,24 +202,29 @@ stackedFigReset
 % Plot all the different chem slope experiments for all the different chem
 % slope effects.
 
+% Plot the Univariate Chem Slopes
+csUnivar = {'d15N','d18O','d17O','dArN2'};
+
 % Make Variables for Plotting
-csStats = [csStats_15N csStats_18O csStats_17O csStats_ArN2];
-csXLabels = {delta_labels(delta_names=='dO2N2') ['\deltaN_2/O_2 [' char(8240) ']'] ['\deltaN_2/O_2 [' char(8240) ']'] delta_labels(delta_names=='dO2N2')};
-csYLabels = {delta_labels(delta_names=='d15N') delta_labels(delta_names=='d18O') delta_labels(delta_names=='d17O') delta_labels(delta_names=='dArN2')};
+csStats = masterSheet.correctionDiagnostics.CS;
+csXLabels = [delta_labels(delta_names=='dO2N2') '\deltaN_2/O_2 ' '\deltaN_2/O_2' delta_labels(delta_names=='dO2N2')];
+csYLabels = [delta_labels(delta_names=='d15N') delta_labels(delta_names=='d18O') delta_labels(delta_names=='d17O') delta_labels(delta_names=='dArN2')];
+csXLabels = append(csXLabels,[' [' delta_units{delta_names=='dO2N2'} ']']);
+csYLabels = append(csYLabels,[' [' delta_units{delta_names=='dO2N2'} ']']);
 csColors = [lineCol(1:3); lineCol(7)];
 
-% Plot the Univariate Chem Slopes
-for ii = 1:length(csStats)
+% Loop Through Different Isotope Ratio Chem Slopes 
+for ii = 1:length(csUnivar)
     figure
-    idx_csExperiments = find(~isnat(csStats(ii).csDatetime));
+    idx_csExperiments = find(~isnat(csStats.(csUnivar{ii}).csDatetime));
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
         
-        iRej = csStats(ii).rejections{idx_csExperiments(jj)};
-        xToPlot = csStats(ii).xData{idx_csExperiments(jj)};
-        yToPlot = csStats(ii).yData{idx_csExperiments(jj)};
-        pToPlot = [csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))];
-        strToPlot = compose('CS = %.2f per meg/per mil\nr^2 = %.4f',pToPlot(1)*1000,csStats(ii).rSq(idx_csExperiments(jj)));
+        iRej = csStats.(csUnivar{ii}).rejections{idx_csExperiments(jj)};
+        xToPlot = mean(csStats.(csUnivar{ii}).xData{idx_csExperiments(jj)},[4 3]);
+        yToPlot = mean(csStats.(csUnivar{ii}).yData{idx_csExperiments(jj)},[4 3]);
+        pToPlot = [csStats.(csUnivar{ii}).slope(idx_csExperiments(jj),:) csStats.(csUnivar{ii}).intercept(idx_csExperiments(jj))];
+        strToPlot = compose('CS = %.2f per meg/per mil\nr^2 = %.4f',pToPlot(1)*1000,csStats.(csUnivar{ii}).rSq(idx_csExperiments(jj)));
         
         plot(xToPlot(iRej),yToPlot(iRej),'xk') % Plot the individual aliquots, without rejections
         plot(xToPlot(~iRej),yToPlot(~iRej),'ok','MarkerFaceColor',csColors(ii,:)) % Plot the individual aliquots, without rejections
@@ -231,7 +236,7 @@ for ii = 1:length(csStats)
         xlabel(csXLabels{ii});
         ylabel(csYLabels{ii});
         
-        title(datestr(csStats(ii).csDatetime(idx_csExperiments(jj)),'yyyy-mmm-dd'))
+        title(datestr(csStats.(csUnivar{ii}).csDatetime(idx_csExperiments(jj)),'yyyy-mmm-dd'))
     end
     ax = get(gcf,'Children');
     set(ax,'XLim',[min([ax.XLim]) max([ax.XLim])]);
@@ -240,22 +245,26 @@ for ii = 1:length(csStats)
 end
 
 % Plot the Bivariate Chem Slopes
-csStats = [csStats_36Ar csStats_38Ar];
+csBivar = {'d4036Ar','d4038Ar'};
+
+% Make Variables For Plotting
 csXLabels = {['\deltaN_2/Ar [' char(8240) ']'] ['\deltaN_2/Ar [' char(8240) ']']};
 csYLabels = {['\deltaO_2/Ar [' char(8240) ']'] ['\deltaO_2/Ar [' char(8240) ']']};
-csZLabels = {delta_labels(delta_names=='d4036Ar') delta_labels(delta_names=='d4038Ar')};
+csZLabels = [delta_labels(delta_names=='d4036Ar') delta_labels(delta_names=='d4038Ar')];
+csZLabels = append(csZLabels,[' [' delta_units{delta_names=='d4036Ar'} ']']);
 csColors = flipud(cat(3,cbrewer('seq','Purples',20),cbrewer('seq','Oranges',20)));
 
-for ii = 1:length(csStats)
+% Loop Through Different Isotope Ratio Chem Slopes
+for ii = 1:length(csBivar)
     figure
-    idx_csExperiments = find(~isnat(csStats(ii).csDatetime));
+    idx_csExperiments = find(~isnat(csStats.(csBivar{ii}).csDatetime));
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
         
-        xToPlot = csStats(ii).xData{idx_csExperiments(jj)}(:,1);
-        yToPlot = csStats(ii).xData{idx_csExperiments(jj)}(:,2);
-        zToPlot = csStats(ii).yData{idx_csExperiments(jj)};
-        pToPlot = [csStats(ii).slope(idx_csExperiments(jj),:) csStats(ii).intercept(idx_csExperiments(jj))];
+        xToPlot = mean(csStats.(csBivar{ii}).xData{idx_csExperiments(jj)}(:,1),[4 3]);
+        yToPlot = mean(csStats.(csBivar{ii}).xData{idx_csExperiments(jj)}(:,2),[4 3]);
+        zToPlot = mean(csStats.(csBivar{ii}).yData{idx_csExperiments(jj)},[4 3]);
+        pToPlot = [csStats.(csBivar{ii}).slope(idx_csExperiments(jj),:) csStats.(csBivar{ii}).intercept(idx_csExperiments(jj))];
         strToPlot = compose('CS N_2/Ar = %.2f per meg/per mil\nCS O_2/Ar = %.2f per meg/per mil',pToPlot(1)*1000,pToPlot(2)*1000);
         [X1,X2]=meshgrid(linspace(min(xToPlot),max(xToPlot),20),linspace(min(yToPlot),max(yToPlot),20)); % Create a regularly spaced grid
         
@@ -268,13 +277,14 @@ for ii = 1:length(csStats)
         ylabel(csYLabels(ii))
         zlabel(csZLabels(ii))
         
-        title(datestr(csStats(ii).csDatetime(idx_csExperiments(jj)),'yyyy-mmm-dd'))
+        title(datestr(csStats.(csBivar{ii}).csDatetime(idx_csExperiments(jj)),'yyyy-mmm-dd'))
         
         colormap(csColors(:,:,ii));
         view([40 45]);
     end
     pos=get(gca,'Position');
-    colorbar;
+    cb=colorbar;
+    cb.Label.String = csZLabels{ii};
     set(gca,'Position',pos);
     
     ax = get(gcf,'Children');
@@ -285,24 +295,23 @@ for ii = 1:length(csStats)
     
     set(ax(1),'Limits',[min([ax(2:end).CLim]) max([ax(2:end).CLim])]);
     
-    suptitle([csZLabels{ii} ' Chem Slopes'])
+    suptitle([csZLabels{ii}(1:end-4) ' Chem Slopes'])
 end
 
 
 %% Plot the Time-Series of the CS Used for Each Aliquot
 
-csToPlot = [CS{:}];
-csNames = {'\delta^{15}N CS','\delta^{18}O CS','\delta^{17}O CS','\deltaAr/N_2 CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{38}Ar CS','\delta^{40}/_{38}Ar CS'};
-slopes_36Ar = [csStats_36Ar.slope]; slopes_38Ar = [csStats_38Ar.slope];
-csDatetimes = {[csStats_15N.csDatetime] [csStats_18O.csDatetime] [csStats_17O.csDatetime] [csStats_ArN2.csDatetime] [csStats_36Ar.csDatetime] [csStats_36Ar.csDatetime] [csStats_38Ar.csDatetime] [csStats_38Ar.csDatetime]};
-csSlopes = {[csStats_15N.slope] [csStats_18O.slope] [csStats_17O.slope] [csStats_ArN2.slope] slopes_36Ar(:,1) slopes_36Ar(:,2) slopes_38Ar(:,1) slopes_38Ar(:,2)};
+csToPlot = masterSheet.correctionCoeffs.CS{:,:};
+csYLabels = {'\delta^{15}N CS','\delta^{18}O CS','\delta^{17}O CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{36}Ar CS','\delta^{40}/_{38}Ar CS','\delta^{40}/_{38}Ar CS','\deltaAr/N_2 CS'};
+csDatetimes = [csStats.d15N.csDatetime csStats.d18O.csDatetime csStats.d17O.csDatetime csStats.d4036Ar.csDatetime csStats.d4036Ar.csDatetime csStats.d4038Ar.csDatetime csStats.d4038Ar.csDatetime csStats.dArN2.csDatetime];
+csSlopes = [csStats.d15N.slope csStats.d18O.slope csStats.d17O.slope csStats.d4036Ar.slope csStats.d4038Ar.slope csStats.dArN2.slope];
 
-stackedFig(numel(csNames))
-for ii=1:numel(csNames)
+stackedFig(numel(csYLabels))
+for ii=1:numel(csYLabels)
     stackedFigAx(ii)
-    plot(datenum([csDatetimes{ii}]),[csSlopes{ii}],'ok','MarkerFaceColor',lineCol(ii))
-    plot(aliquot_metadata.msDatenum(:,1,1),csToPlot(:,ii),'.','Color',lineCol(ii)*0.7)
-    ylabel(csNames{ii})
+    plot(datenum(csDatetimes(:,ii)),csSlopes(:,ii),'ok','MarkerFaceColor',lineCol(ii))
+    plot(datenum(masterSheet.metadata.msDatetime(:,1,1)),csToPlot(:,ii),'.','Color',lineCol(ii)*0.7)
+    ylabel([csYLabels{ii} ' [' char(8240) '/' char(8240) ']'])
 end
 
 % Add Date of Filament Changes/Refocusing
@@ -314,7 +323,6 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('CS Values used for Correction')
-xlabel('Date')
 xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
 datetick('x','keeplimits')
 stackedFigReset
@@ -325,6 +333,8 @@ stackedFigReset
 % each set of LJA values. Also plot shading, indicating the standard
 % deviation of the individual aliquots from their mean and the
 % linear least-squares fit to the aliquots.
+
+ljaStats = masterSheet.correctionDiagnostics.LJA;
 
 % Loop through each delta value
 for ii = 1:numel(delta_names)
@@ -348,7 +358,7 @@ for ii = 1:numel(delta_names)
         plot(datenum(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}),ljaStats.ljaAliquotSetDeltas{idx_ljaExperiments(jj)}(:,ii),'.','Color',lineCol(jj))
         plot(datenum(ljaStats.ljaAliquotSetDates{idx_ljaExperiments(jj)}(iLjaRej,:)),ljaStats.ljaAliquotSetDeltas{idx_ljaExperiments(jj)}(iLjaRej,ii),'xk')
         
-        ylabel(['LJA' delta_labels(ii)])
+        ylabel(['LJA: ' delta_labels{ii}  ' [' delta_units{ii} ']'])
         yl = ylim;
         
         % Plot Can Data:
@@ -367,7 +377,7 @@ for ii = 1:numel(delta_names)
         plot(datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}),ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(:,ii),'.','Color',lineCol(jj))
         plot(datenum(ljaStats.canAliquotSetDates{idx_ljaExperiments(jj)}(iCanRej,:)),ljaStats.canAliquotSetDeltas{idx_ljaExperiments(jj)}(iCanRej,ii),'xk')
         
-        ylabel(['Std. Can' delta_labels(ii)])
+        ylabel(['Std. Can: ' delta_labels{ii}  ' [' delta_units{ii} ']'])
         
     end
     
@@ -384,7 +394,7 @@ for ii = 1:numel(delta_names)
     xlim(datenum([2016 2019],[01 01],[01 01]))
     datetick('x','mmm-yyyy','keeplimits')
     ylabel(delta_labels{ii});
-    title(['LJA: ' delta_names{ii}]);
+    title(['LJA: ' delta_labels{ii}]);
     
     yls = [ylim(stackedFigAx(1)) ylim(stackedFigAx(2))];
     linkaxes([stackedFigAx(1) stackedFigAx(2)],'y')
@@ -404,8 +414,8 @@ for ii=1:numel(delta_names)
         shadedErrorBar(datenum(ljaSetTimeRange),repmat(ljaStats.ljaValues(idx_ljaExperiments(jj),ii),2,1),repmat(std(ljaStats.ljaAliquotSetDeltas{idx_ljaExperiments(jj)}(~iLjaRej,ii)),2,1),{'-','Color',lineCol(ii)});
     end
     
-    plot(datenum(aliquot_metadata.msDatetime(:,1,1)),LJA(:,ii),'.','Color',lineCol(ii)*0.5)
-    ylabel(delta_labels{ii})
+    plot(datenum(masterSheet.metadata.msDatetime(:,1,1)),masterSheet.correctionCoeffs.LJA{:,ii},'.','Color',lineCol(ii)*0.5)
+    ylabel([delta_labels{ii} ' [' delta_units{ii} ']'])
 end
 
 % Add Date of Filament Changes/Refocusing/Can Swaps/MS Changes
@@ -421,7 +431,6 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('LJA Values used for Correction')
-xlabel('Date')
 xlim(datenum([2016 2019],[01 01],[01 01]))
 datetick('x','mmm-yyyy','keeplimits')
 stackedFigReset
