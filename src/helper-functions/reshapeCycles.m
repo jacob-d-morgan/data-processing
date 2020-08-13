@@ -209,7 +209,7 @@ varargout = {};
 if flagPIS
     % Find the relevant PIS blocks
     iPisAliquotPisBlocks = false(length(blockLengthsAll),1);
-    iPisAliquotPisBlocks(idxStartNewAliquots + MODE_ALIQUOT_LENGTH) = iPisAliquots; % Find where the PIS blocks are in the block_metadata array
+    iPisAliquotPisBlocks(idxStartNewAliquots + MODE_ALIQUOT_LENGTH) = iAliquotsToUse & iPisAliquots; % Find where the PIS blocks are in the block_metadata array
     
     % Find the relevant PIS cycles
     iCyclesToUsePIS = ismember(cycle_metadata.filename,block_metadata.filename(iPisAliquotPisBlocks)); % Find the cycles corresponding to the PIS blocks
@@ -219,7 +219,7 @@ if flagPIS
     % the position of the first block of the PIS aliquots and then reshape
     % as we do for the non-PIS blocks.
     iPisAliquotFirstBlocks = false(length(blockLengthsAll),1);
-    iPisAliquotFirstBlocks(idxStartNewAliquots) = iPisAliquots;
+    iPisAliquotFirstBlocks(idxStartNewAliquots) = iAliquotsToUse & iPisAliquots;
     [~,idxPisAliquotsAfterReshape] = ismember(block_metadata.filename(iPisAliquotFirstBlocks),aliquot_metadata.filename(:,1,1)); % Find where the PIS aliquots ended up after the reshape
     
     % Build the array of PIS deltas and metadata
