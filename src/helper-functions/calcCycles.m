@@ -70,10 +70,9 @@ descriptions = replace(descriptions,'4036','^{40}/_{36}');
 descriptions = replace(descriptions,'4038','^{40}/_{38}');
 descriptions = replace(descriptions,'O2N2','O_2/N_2');
 descriptions = replace(descriptions,'ArN2','Ar/N_2');
-descriptions = append(descriptions,' [',char(8240),']');
 
 cycle_deltas.Properties.VariableDescriptions = descriptions;
-cycle_deltas.Properties.VariableUnits = repmat({'per mil'},1,size(cycle_deltas,2));
+cycle_deltas.Properties.VariableUnits = repmat({char(8240)},1,size(cycle_deltas,2));
 
 
 % Extract Cycle Metadata
