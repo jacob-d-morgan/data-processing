@@ -5,20 +5,12 @@ cluk; clc;
 
 % set(0,'defaultFigureVisible','off'); disp('Run dataImport: Turning Figures Off');
 
-% %% Import Raw Data
-% % Imports the 'standard' raw dataset of aliquot delta values and their
-% % metadata. Does not include any cycles with a gas configuration different
-% % to Air+ or where the 28N2 beam is either saturated or absent, or cycles
-% % with a non-standard (different than the mode) number of cycles or blocks.
-% %
-% % Rather than reading in the files each time, it's easier to read them in
-% % once using the makeRawDataset() line and then use the clearvars -EXCEPT
-% % line to preserve the variables read in by this line for future runs.
-% % Toggle the comments on the indicated line(s) to adjust whether or not the
-% % files are re-read.
-% 
-% clearvars -EXCEPT aliquot_deltas metadata aliquot_deltas_pis aliquot_metadata_pis;
-% 
+%% Import Raw Data
+% Imports the 'standard' raw dataset of aliquot delta values and their
+% metadata. Does not include any cycles with a gas configuration different
+% to Air+ or where the 28N2 beam is either saturated or absent, or cycles
+% with a non-standard (different than the mode) number of cycles or blocks.
+
 filesToImport = [
     "XP-2018(excelExportIntensityJDM).csv"; ...
     "XP-2017(excelExportIntensityJDM).csv"; ...
@@ -27,97 +19,6 @@ filesToImport = [
 %     "XP-2014(excelExportIntensityJDM-REMAKE).csv"; ...
 %     "XP-2013(excelExportIntensityJDM-REMAKE).csv"; ...
     ];
-% 
-% % Generate 'Standard' Raw Dataset
-% % [aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true); % <-- TOGGLE MY COMMENT
-% 
-% aliquot_metadata = metadata.metadata;
-% delta_names = metadata.delta_names;
-% delta_labels = metadata.delta_labels;
-% delta_units = metadata.delta_units;
-% 
-% metadata_fields = string(fieldnames(aliquot_metadata))';
-% 
-% 
-% %% Make PIS Correction
-% % Correct the delta values in aliquot_deltas for the effect of imbalance in
-% % the total pressure of gas in the source.
-% 
-% % Calculate PIS Values
-% [calcPis,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis);
-% 
-% % Make PIS Correction
-% calcPis(pisStats.rejections) = nan;
-% [aliquot_deltas_pisCorr,PIS] = makePisCorr(aliquot_deltas,aliquot_metadata.msDatetime,aliquot_metadata.pressureImbal,calcPis);
-% 
-% %% Make Chemical Slope Correction
-% % Correct the delta values in aliquot_deltas_pisCorr for the effect of
-% % different gas ratios in the source.
-% 
-% % Identify the CS Experiment Aliquots
-% iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
-% iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
-% iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
-% 
-% % == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
-% iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
-% % ======================================================================= %
-% 
-% % Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
-% [calcCS_15N,csStats_15N] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
-% [calcCS_ArN2,csStats_ArN2] = calculateChemSlope(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
-% [calcCS_18O,csStats_18O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
-% [calcCS_17O,csStats_17O] = calculateChemSlope((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
-% 
-% % Calculate the Bivariate (Ar Isotopes) Chem Slopes
-% x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-% [calcCS_4036Ar,csStats_36Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-% [calcCS_4038Ar,csStats_38Ar] = calculateChemSlope(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-% 
-% % Make CS Corrections
-% csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_ArN2} {calcCS_4036Ar} {calcCS_4038Ar}];
-% csRegressors = [
-%     {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
-%     {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
-%     {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
-%     {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
-%     {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
-%     {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
-%     ];
-% csPredictors = [
-%     {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-%     {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-%     {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-%     {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-%     {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-%     {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-%     ];
-% 
-% csCorr = cell(size(csValues)); CS = cell(size(csValues));
-% for ii = 1:length(csValues)
-%     [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{ii},aliquot_metadata.msDatetime,csPredictors{ii},csValues{ii});
-% end
-% 
-% aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
-% aliquot_deltas_pisCorr_csCorr(:,[1 2 3 7 4 5],:,:) = [csCorr{:}];
-% 
-% 
-% %% Make the LJA Correction
-% % Correct the delta values in aliquot_deltas_pisCorr_csCorr so that they
-% % are measured relative to La Jolla Air.
-% %
-% % Identifies analyses of LJA made during identical MS conditions (i.e. same
-% % filament, std can etc.) and calculates the mean of these aliquots, after
-% % rejecting outliers. The mean of all the aliquots is used to normalize all
-% % aliquots measured under identical MS conditions, unless there is a trend
-% % in the LJA values. In this case, the extrapolated values are used.
-% 
-% % Calculate LJA Values
-% iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
-% [ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
-% 
-% % Make LJA Correction
-% [aliquot_deltas_pisCorr_csCorr_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
 
 masterSheet = makeMasterSheet(filesToImport);
 
@@ -138,7 +39,7 @@ massSpecEvents.Event = categorical(massSpecEvents.Event);
 iPIS = ~isnat(pisStats.pisDatetime);
 
 stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
-xlim(stackedFigAx,datenum(['01 Jan 2016'; '31 Dec 2018']))
+xlim(stackedFigAx,datenum(['01 Jan 2015'; '31 Dec 2018']))
 
 % Plot R-Squared of each PIS Experiment
 stackedFigAx(1)
@@ -169,7 +70,7 @@ ylim([-600 0])
 
 % Set Labels & Limits etc.
 stackedFigAx;
-xlim(datenum(['01 Jan 2016'; '31 Dec 2018']))
+xlim(datenum(['01 Jan 2015'; '31 Dec 2018']))
 datetick('x','keeplimits');
 drawnow;
 stackedFigReset
@@ -192,7 +93,7 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('PIS Values used for Correction')
-xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
+xlim(datenum(["01-Jan-2015" "01-Jan-2019"]))
 datetick('x','keeplimits')
 drawnow;
 stackedFigReset
@@ -323,7 +224,7 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('CS Values used for Correction')
-xlim(datenum(["01-Jan-2016" "01-Jan-2019"]))
+xlim(datenum(["01-Jan-2015" "01-Jan-2019"]))
 datetick('x','keeplimits')
 stackedFigReset
 
@@ -391,7 +292,7 @@ for ii = 1:numel(delta_names)
     plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),'-','Color',lineCol(10));
     text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color',lineCol(10));
     
-    xlim(datenum([2016 2019],[01 01],[01 01]))
+    xlim(datenum([2015 2019],[01 01],[01 01]))
     datetick('x','mmm-yyyy','keeplimits')
     ylabel(delta_labels{ii});
     title(['LJA: ' delta_labels{ii}]);
@@ -431,7 +332,7 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('LJA Values used for Correction')
-xlim(datenum([2016 2019],[01 01],[01 01]))
+xlim(datenum([2015 2019],[01 01],[01 01]))
 datetick('x','mmm-yyyy','keeplimits')
 stackedFigReset
 
