@@ -136,10 +136,10 @@ deltas_corr = table;
 for ii = 1:numel(delta_names)
     deltas_corr.(delta_names(ii)) = aliquot_deltas_pisCorr_csCorr_ljaCorr(:,ii,:,:);
 end
-deltas_raw.Properties.VariableUnits = delta_units;
-deltas_raw.Properties.VariableDescriptions = delta_labels;
-deltas_raw.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
-deltas_raw.Properties.Description = "Table of delta values, calculated using the measured ratio of beam voltages on sample and standard sides. Corrected for analytical effects (pressure imbalance and chemical slope) and normalized to La Jolla Air.";
+deltas_corr.Properties.VariableUnits = delta_units;
+deltas_corr.Properties.VariableDescriptions = delta_labels;
+deltas_corr.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
+deltas_corr.Properties.Description = "Table of delta values, calculated using the measured ratio of beam voltages on sample and standard sides. Corrected for analytical effects (pressure imbalance and chemical slope) and normalized to La Jolla Air.";
 
 
 % Make Tables of PIS, CS, and LJA Values Used
