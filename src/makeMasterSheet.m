@@ -48,9 +48,21 @@ calcPis(pisStats.rejections) = nan;
 % different gas ratios in the source.
 
 % Identify the CS Experiment Aliquots
-iCS = contains(aliquot_metadata.ID1(:,1,1),'CS');
-iCS_AddO2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'15','N'});
-iCS_AddN2 = iCS & contains(aliquot_metadata.ID1(:,1,1),{'18','O'});
+exp2match = '1?[5|8]?\s?(?<CS>[N|O])\s?C?S?\s(?<rep>\d+)';
+tokens = regexp(aliquot_metadata.ID1(:,1,1),exp2match,'names');
+
+iCS = ~cellfun('isempty',tokens);
+csType = strings(size(iCS));
+csType(iCS) = cellfun(@(x) x.CS,tokens(iCS));
+csRep = strings(size(iCS));
+csRep(iCS) = cellfun(@(x) x.rep,tokens(iCS));
+
+iCS_AddO2 = false(size(iCS));
+iCS_AddO2(iCS & csType=="N") = true;
+
+iCS_AddN2 = false(size(iCS));
+iCS_AddN2(iCS & csType=="O") = true;
+
 
 % == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
 iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
