@@ -31,7 +31,7 @@ function [deltas_pisCorr,PIS] = makePisCorr(deltas_raw,aliquotDates,pImbal,pisVa
 PIS = pisValues;
 
 % Flag Samples Run After Filament Change & Before First PIS Experiment
-massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+massSpecEvents = getMassSpecEvents;
 newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
 for ii = 1:height(newCorrections)
     idxStart = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii),1);

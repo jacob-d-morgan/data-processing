@@ -27,7 +27,7 @@ function [deltas_csCorr,CS] = makeCsCorr(deltas_raw,aliquotDates,csPredictor,csV
 
 CS = csValues;
 
-massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+massSpecEvents = getMassSpecEvents;
 newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
 for ii = 1:height(newCorrections)
     idxStart = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii),1);

@@ -47,7 +47,7 @@ iCanToUse = contains(aliquot_metadata.filename(:,1,1),'Aair','IgnoreCase',true);
 % (i.e. same filament, focussing, std can etc.)
 
 % Load Information about MS Conditions
-massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+massSpecEvents = getMassSpecEvents;
 
 % Only Include Changes to MS Conditions
 newCorrections = massSpecEvents(...

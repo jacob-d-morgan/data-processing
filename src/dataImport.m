@@ -33,7 +33,7 @@ delta_labels = string(masterSheet.deltas_corr.Properties.VariableDescriptions);
 delta_units = string(masterSheet.deltas_corr.Properties.VariableUnits);
 
 % Import Mass Spec Events to Annotate Figures
-massSpecEvents = readtable('spreadsheet_metadata.xlsx','Sheet',1);
+massSpecEvents = getMassSpecEvents;
 massSpecEvents.Event = categorical(massSpecEvents.Event);
 
 iPIS = ~isnat(pisStats.pisDatetime);
