@@ -1,6 +1,11 @@
 %% SPC Data Plotting
 % Plots figures from the SPC XP dataset.
+
+clearvars;
 cluk; clc
+
+%% Import Data
+% Load the relevant csv files and compile the data into the SPC dataset.
 
 filesToImport = [
     "XP-2018(excelExportIntensityJDM).csv"; ...
@@ -9,7 +14,8 @@ filesToImport = [
     ];
 
 spcMasterSheet = makeMasterSheet(filesToImport);
-spc = makeIceCoreDataset(spcMasterSheet,'SPICE');
+exp2match = '^(?<depth>\d\d\d*(\.?)\d*)\s*(?<rep>\w?)$'; % Beginning; depth: two or more numeric chars, maybe with a decimal point; maybe a space; rep: maybe a single alphanumeric (or underscore) char; End.
+spc = makeIceCoreDataset(spcMasterSheet,'SPICE',exp2match);
 
 %% Outlier Detection
 % Flag all replicates that fall far from the running median for rejection.
