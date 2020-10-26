@@ -1,18 +1,18 @@
-function [deltaValues, metadata, varargout] = makeRawDataset(filesToImport, varargin)
+function [rawDataset, varargout] = makeRawDataset(filesToImport, varargin)
 % MAKERAWDATASET generates the delta values and metadata from FILES
-%   [deltaValues, metadata] = makeRawDataset(filesToImport) imports the raw
+%   RAWDATASET = makeRawDataset(filesToImport) imports the raw
 %   cycle integrations from the .csv files in FILESTOIMPORT and performs
-%   several manipulations to output an array of delta values and a
-%   structure of arrays of metadata.
+%   several manipulations to output the raw dataset as a structure.
 %
 %   FILESTOIMPORT must be a string array of filenames or paths to files
 %   that MATLAB can access.
-%   DELTAVALUES is a 4 dimensional array of delta values arranged as
+%   
+%   RAWDATASET is a structure with two fields. The 'metadata' field is a
+%   table of metadata arranged as aliquot-by-variable-by-block-by-cycle.
+%   The 'deltas' field is a table of delta values arranged as
 %   aliquot-by-delta value-by-block-by-cycle.
-%   METADATA is a structure of 3 dimensional arrays arranged as
-%   aliquot-by-block-by-cycle.
 %
-%   The manipulations performed to produce the outputs are as follows:
+%   The manipulations performed to produce RAWDATASET are as follows:
 %       1. Import the data from the .csv files in FILESTOIMPORT using
 %       helper function csvReadIsodat.m
 %       2. Calculate cycle delta values using helper function calcCycles.m
@@ -27,25 +27,24 @@ function [deltaValues, metadata, varargout] = makeRawDataset(filesToImport, vara
 %   Optionally, additional outputs can be provided by including one or more
 %   of the following flags, and by including the appropriate number of
 %   output variabes:
-%    - [...,deltaValuesPIS, metadataPIS] = makeRawDataset(...,'includePIS')
+%    - [...,RAWDATASETPIS] = makeRawDataset(...,'includePIS')
 %      includes delta values and their metadata from the PIS experiment
 %      blocks in the same shape and structure as the primary outputs.
-%    - [...,deltaValuesAllBlocks, metadataAllBlocks] = makeRawDataset(...,'includeAllBlocks')
+%    - [...,RAWDATASETALLBLOCKS] = makeRawDataset(...,'includeAllBlocks')
 %      outputs a cell array containing the aliquots composed of the mode
 %      number of blocks of any number of cycles.
-%    - [...,deltaValuesAllAliquots, metadataAllAliquots] = makeRawDataset(...,'includeAllAliquots')
+%    - [...,RAWDATASETALLALIQUOTS] = makeRawDataset(...,'includeAllAliquots')
 %      outputs a cell array containing aliquots of any number of blocks of
 %      the mode number of cycles.
-%    - [...,deltaValuesAllAliquots, metadataAllAliquots] = makeRawDataset(...,'includeAllData')
+%    - [...,RAWDATASETALLDATA] = makeRawDataset(...,'includeAllData')
 %      outputs a cell array containing aliquots of any number of blocks of
 %      any number of cycles.
 %
 % The optional flags can be combined to output both the PIS data and the
 % variables containing all the blocks/aliquots:
-%    - [...,PISDELTAS,PISMETADATA,ALLDATADELTAS,ALLDATAMETADATA] = 
-%   makeRawDataset(...,'includePIS',includeAllData) outputs both the PIS
-%   data and a cell array containing aliquots of any number of blocks of 
-%   any number of cycles.
+%    - [...,RAWDATASAETPIS,RAWDATASETALLDATE] = makeRawDataset(...,'includePIS','includeAllData')
+%      outputs both the PIS data and a cell array containing aliquots of 
+%      any number of blocks of any number of cycles.
 %
 % -------------------------------------------------------------------------
 
@@ -65,7 +64,7 @@ addParameter(p,'includeAllAliquots',false,@(x) validateattributes(x,{'logical'},
 addParameter(p,'includeAllData',false,@(x) validateattributes(x,{'logical'},{'scalar'}));
 
 % Parse Inputs and Assign Results
-parse(p,filesToImport,varargin{:});
+     parse(p,filesToImport,varargin{:});
 
 filesToImport = p.Results.filesToImport;
 includePIS = p.Results.includePIS;
@@ -78,13 +77,13 @@ end
 
 % Check for Correct Number of Outputs
 if includePIS && (includeAllBlocks || includeAllAliquots)
-    nargoutchk(6,6);
+    nargoutchk(3,3);
 elseif includePIS && ~(includeAllBlocks || includeAllAliquots)
-    nargoutchk(4,4)
+    nargoutchk(2,2)
 elseif ~includePIS && (includeAllBlocks || includeAllAliquots)
-    nargoutchk(4,4)
+    nargoutchk(2,2)
 else
-    nargoutchk(2,2);
+    nargoutchk(1,1);
 end
 
 clear p
@@ -97,15 +96,7 @@ clear p
 
 importedData = csvReadIsodat(filesToImport);
 
-[cycle_deltas,cycle_metadata] = calcCycles(importedData,'IsRef__');
-
-delta_names = string(cycle_deltas.Properties.VariableNames);
-delta_labels = string(cycle_deltas.Properties.VariableDescriptions);
-delta_units = string(cycle_deltas.Properties.VariableUnits);
-cycle_deltas = table2array(cycle_deltas);
-
-metadata_fields = string(fieldnames(cycle_metadata))'; % Transpose it to a row vector so that it works as a loop index
-
+cycles = calcCycles(importedData,'IsRef__');
 
 %% Reject Erroneous Cycles
 % Get rid of some data that is of little use for evaluating the health of
@@ -117,11 +108,9 @@ metadata_fields = string(fieldnames(cycle_metadata))'; % Transpose it to a row v
     % N.B. This does not reject the data from the CO2 check blocks as they
     % are already misisng from the cycle deltas and metadata.
 
-iAirPlus = cycle_metadata.gasConfig == 'Air+';
-cycle_deltas(~iAirPlus,:) = [];
-for ii_field = metadata_fields
-    cycle_metadata.(ii_field)(~iAirPlus,:) = [];
-end
+iAirPlus = cycles.metadata.gasConfig == 'Air+';
+cycles.deltas(~iAirPlus,:) = [];
+cycles.metadata(~iAirPlus,:) = [];
 
 % Could do something similar here with folder names e.g. only use data from
 % the "SPICE" Folders:
@@ -136,29 +125,25 @@ end
     % the signal anyway. If the 28 beam isn't included in the gas config 
     % then its value is recorded as NaN.
 
-iBeamReject = cycle_metadata.int28SA > 9000 | cycle_metadata.int28SA < 10 | cycle_metadata.int28ST > 9000 | cycle_metadata.int28ST < 10;
-
-cycle_deltas = cycle_deltas(~iBeamReject,:);
-for ii_field = metadata_fields
-    cycle_metadata.(ii_field) = cycle_metadata.(ii_field)(~iBeamReject);
-end
-
+iBeamReject = cycles.metadata.int28SA > 9000 | cycles.metadata.int28SA < 10 | cycles.metadata.int28ST > 9000 | cycles.metadata.int28ST < 10;
+cycles.deltas(iBeamReject,:) = [];
+cycles.metadata(iBeamReject,:) = [];
 
 %% Reshape to Isotope Ratio x Delta Value x Block x Cycle
 % Reshape the cycle deltas and their metadata into a more useable format.
 
 varargout = {};
 if includePIS && (includeAllBlocks || includeAllAliquots)
-    [aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis,aliquot_deltas_all,aliquot_metadata_all] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
-    varargout = [varargout {aliquot_deltas_pis aliquot_metadata_pis aliquot_deltas_all aliquot_metadata_all}];
+    [aliquots,aliquotsPis,aliquotsAll] = reshapeCycles(cycles,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
+    varargout = [varargout {aliquotsPis aliquotsAll}];
 elseif includePIS && ~(includeAllBlocks || includeAllAliquots)
-    [aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
-    varargout = [varargout {aliquot_deltas_pis aliquot_metadata_pis}];
+    [aliquots,aliquotsPis] = reshapeCycles(cycles,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
+    varargout = [varargout {aliquotsPis}];
 elseif ~includePIS && (includeAllBlocks || includeAllAliquots)
-    [aliquot_deltas,aliquot_metadata,aliquot_deltas_all,aliquot_metadata_all] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
-    varargout = [varargout {aliquot_deltas_all aliquot_metadata_all}];
+    [aliquots,aliquotsAll] = reshapeCycles(cycles,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
+    varargout = [varargout {aliquotsAll}];
 else
-    [aliquot_deltas,aliquot_metadata] = reshapeCycles(cycle_deltas,cycle_metadata,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
+    aliquots = reshapeCycles(cycles,'includePIS',includePIS,'includeAllBlocks',includeAllBlocks,'includeAllAliquots',includeAllAliquots);
 end
 
 
@@ -181,27 +166,22 @@ y_temp = 1:length(x_temp);
 idxCO2NearestBlocks = interp1(x_temp(~iCO2),y_temp(~iCO2),x_temp(iCO2),'nearest'); % Interpolate to find the index of the nearest blocks
 datetimeCO2NearestBlocks = importedData.datetime(idxCO2NearestBlocks); % Use the index to find the datetime of those blocks
 
-[iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquot_metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
-[idxCO2Aliquots,~,~] = ind2sub(size(aliquot_metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
+[iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquots.metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
+[idxCO2Aliquots,~,~] = ind2sub(size(aliquots.metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
 
-aliquot_metadata.rCO2N2_SA = nan(size(aliquot_metadata.msDatetime,1),1);
-aliquot_metadata.rCO2N2_ST = nan(size(aliquot_metadata.msDatetime,1),1);
-aliquot_metadata.dCO2N2 = nan(size(aliquot_metadata.msDatetime,1),1);
+aliquots.metadata.rCO2N2_SA = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.metadata.rCO2N2_ST = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.metadata.dCO2N2 = nan(size(aliquots.metadata.msDatetime,1),1);
 
-aliquot_metadata.rCO2N2_SA(idxCO2Aliquots) = rCO2N2_SA(iA);
-aliquot_metadata.rCO2N2_ST(idxCO2Aliquots) = rCO2N2_ST(iA);
-aliquot_metadata.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
+aliquots.metadata.rCO2N2_SA(idxCO2Aliquots) = rCO2N2_SA(iA);
+aliquots.metadata.rCO2N2_ST(idxCO2Aliquots) = rCO2N2_ST(iA);
+aliquots.metadata.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
 
 
 %% Parse Outputs
 % Organise the manipulated data into the requested outputs.
 
-deltaValues = aliquot_deltas;
-
-metadata.delta_names = delta_names;
-metadata.delta_labels = delta_labels;
-metadata.delta_units = delta_units;
-metadata.metadata = aliquot_metadata;
+rawDataset = aliquots;
 
 
 end
