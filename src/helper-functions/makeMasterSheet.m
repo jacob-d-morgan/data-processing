@@ -24,10 +24,6 @@ narginchk(1,inf)
 
 [rawDataset,rawPisDataset] = makeRawDataset(filesToImport,'includePIS',true);
 
-delta_names = rawDataset.deltas.Properties.VariableNames;
-delta_labels = rawDataset.deltas.Properties.VariableDescriptions;
-delta_units = rawDataset.deltas.Properties.VariableUnits;
-
 
 %% Make PIS Correction
 % Correct the delta values in aliquot_deltas for the effect of imbalance in
@@ -122,28 +118,22 @@ iLja = contains(csCorrDataset.metadata.ID1(:,1,1),'LJA');
 % Unite all of the useful data and metadata into tables and then output all
 % the tables as one master table.
 
+delta_names = string(rawDataset.deltas.Properties.VariableNames);
+delta_labels = string(rawDataset.deltas.Properties.VariableDescriptions);
+
 % Make Table of Metadata
-metadata = struct2table(aliquot_metadata);
+metadata = ljaCorrDataset.metadata;
 
 % Make Table of Raw Delta Values
-deltas_raw = table;
-for ii = 1:numel(delta_names)
-    deltas_raw.(delta_names(ii)) = aliquot_deltas(:,ii,:,:);
-end
-deltas_raw.Properties.VariableUnits = delta_units;
-deltas_raw.Properties.VariableDescriptions = delta_labels;
+deltas_raw = rawDataset.deltas;
 deltas_raw.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
-deltas_raw.Properties.Description = "Table of raw delta values, calculated using the measured ratio of beam voltages on sample and standard sides. No analytical corrections performed. ";
+deltas_raw.Properties.Description = "Table of raw delta values, calculated using the measured ratio of beam voltages on sample and standard sides. No analytical corrections performed.";
 
-% Make Table fo Fully Corrected Delta Values
-deltas_corr = table;
-for ii = 1:numel(delta_names)
-    deltas_corr.(delta_names(ii)) = ljaCorrDataset(:,ii,:,:);
-end
-deltas_corr.Properties.VariableUnits = delta_units;
-deltas_corr.Properties.VariableDescriptions = delta_labels;
+
+% Make Table of Fully Corrected Delta Values
+deltas_corr = ljaCorrDataset.deltasLjaCorr;
 deltas_corr.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
-deltas_corr.Properties.Description = "Table of delta values, calculated using the measured ratio of beam voltages on sample and standard sides. Corrected for analytical effects (pressure imbalance and chemical slope) and normalized to La Jolla Air.";
+deltas_corr.Properties.Description = "Table of delta values, calculated using the measured ratio of beam voltages on sample and standard sides. The delta values are corrected for analytical effects (pressure imbalance and chemical slope) and normalized to La Jolla Air.";
 
 
 % Make Tables of PIS, CS, and LJA Values Used
