@@ -1,9 +1,9 @@
-function [ljaValues, ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLjaToUse)
+function [ljaValues, ljaStats] = calculateLjaValues(dataset,iLjaToUse)
 % CALCULATELJAVALUES Calculates the LJA Normalization values
 %   Calculates the mean of each delta value for sets of LJA aliquots
 %   analyzed in time intervals of identical Mass Spectrometer conditions.
 %
-%   CALCULATELJAVALUES(ALIQUOT_DELTAS,ALIQUOT_METADATA,iLJATOUSE) returns
+%   CALCULATELJAVALUES(DATASET,iLJATOUSE) returns
 %   the mean of each delta value, for each set of LJA anaylses. The
 %   aliquots identified in iLJATOUSE are split into different sets based on
 %   the changes to the Mass Spectrometer, documented in the Excel file
@@ -37,10 +37,10 @@ function [ljaValues, ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metad
 
 %% Parse Inputs
 
-narginchk(3,3)
+narginchk(2,2)
 nargoutchk(1,2)
 
-iCanToUse = contains(aliquot_metadata.filename(:,1,1),'Aair','IgnoreCase',true);
+iCanToUse = contains(dataset.metadata.filename(:,1,1),'Aair','IgnoreCase',true);
 
 %% Find the Different Sets of LJA Aliquots
 % Determine which LJA aliquots were measured under identical MS conditions
@@ -59,18 +59,18 @@ newCorrections = massSpecEvents(...
 
 % Make Sure The Information on MS Conditions Covers Full Span of Data
 edges = newCorrections.EndDate;
-if min(aliquot_metadata.msDatetime(:,1,1)) < edges(1)
+if min(dataset.metadata.msDatetime(:,1,1)) < edges(1)
     warning('Some samples fall earlier than the start of the information from the spreadsheets.')
-    edges = [min(aliquot_metadata.msDatetime(:,1,1)); edges];
+    edges = [min(dataset.metadata.msDatetime(:,1,1)); edges];
 end
 
-if max(aliquot_metadata.msDatetime(:,1,1)) > edges(end)
+if max(dataset.metadata.msDatetime(:,1,1)) > edges(end)
    warning('Some samples fall later than the end of the information from the spreadsheets.')
-   edges = [edges; max(aliquot_metadata.msDatetime(:,1,1))];
+   edges = [edges; max(dataset.metadata.msDatetime(:,1,1))];
 end
 
 % Split LJA into Different Groups
-corrPeriod = discretize(aliquot_metadata.msDatetime(:,1,1),edges);
+corrPeriod = discretize(dataset.metadata.msDatetime(:,1,1),edges);
 
 ljaGroup = nan(size(iLjaToUse,1),1); % Create a vector of nans
 ljaGroup(iLjaToUse) = corrPeriod(iLjaToUse);
@@ -84,26 +84,26 @@ canGroup(iCanToUse) = corrPeriod(iCanToUse);
 % conditions. Also fit a linear trend of each set of aliquots.
 
 % Pre-allocate variables to be filled in the loop
-calcLja = nan(size(aliquot_deltas,[1 2]));
+calcLja = nan(size(dataset.deltas{:,:},[1 2]));
 
 stats = struct();
-stats.ljaDatetime = NaT(size(aliquot_deltas,1),1);
-stats.ljaValues = nan(size(aliquot_deltas,[1 2]));
-stats.ljaAliquotSetDates = cell(size(aliquot_deltas,1),1);
-stats.ljaAliquotSetDeltas = cell(size(aliquot_deltas,1),1);
-stats.ljaRejections = cell(size(aliquot_deltas,1),1);
-stats.ljaSlope = nan(size(aliquot_deltas,[1 2]));
-stats.ljaIntercept = nan(size(aliquot_deltas,[1 2]));
-stats.ljaRSq = nan(size(aliquot_deltas,[1 2]));
-stats.ljaPVal = nan(size(aliquot_deltas,[1 2]));
+stats.ljaDatetime = NaT(size(dataset.deltas{:,:},1),1);
+stats.ljaValues = nan(size(dataset.deltas{:,:},[1 2]));
+stats.ljaAliquotSetDates = cell(size(dataset.deltas{:,:},1),1);
+stats.ljaAliquotSetDeltas = cell(size(dataset.deltas{:,:},1),1);
+stats.ljaRejections = cell(size(dataset.deltas{:,:},1),1);
+stats.ljaSlope = nan(size(dataset.deltas{:,:},[1 2]));
+stats.ljaIntercept = nan(size(dataset.deltas{:,:},[1 2]));
+stats.ljaRSq = nan(size(dataset.deltas{:,:},[1 2]));
+stats.ljaPVal = nan(size(dataset.deltas{:,:},[1 2]));
 
-stats.canAliquotSetDates = cell(size(aliquot_deltas,1),1);
-stats.canAliquotSetDeltas = cell(size(aliquot_deltas,1),1);
-stats.canRejections = cell(size(aliquot_deltas,1),1);
-stats.canSlope = nan(size(aliquot_deltas,[1 2]));
-stats.canIntercept = nan(size(aliquot_deltas,[1 2]));
-stats.canRSq = nan(size(aliquot_deltas,[1 2]));
-stats.canPVal = nan(size(aliquot_deltas,[1 2]));
+stats.canAliquotSetDates = cell(size(dataset.deltas{:,:},1),1);
+stats.canAliquotSetDeltas = cell(size(dataset.deltas{:,:},1),1);
+stats.canRejections = cell(size(dataset.deltas{:,:},1),1);
+stats.canSlope = nan(size(dataset.deltas{:,:},[1 2]));
+stats.canIntercept = nan(size(dataset.deltas{:,:},[1 2]));
+stats.canRSq = nan(size(dataset.deltas{:,:},[1 2]));
+stats.canPVal = nan(size(dataset.deltas{:,:},[1 2]));
 
 % Loop through different LJA Sets
 ljaGroupIdxs = unique(ljaGroup(~isnan(ljaGroup)));
@@ -111,11 +111,11 @@ for ii = 1:length(ljaGroupIdxs)
     idxToMatch = ljaGroupIdxs(ii);
     idxLastAliquot = find(ljaGroup==idxToMatch & iLjaToUse,1,'last');
     
-    ljaX_temp = aliquot_metadata.msDatetime(ljaGroup==idxToMatch,1,1);
-    ljaY_temp = mean(mean(aliquot_deltas(ljaGroup==idxToMatch,:,:,:),4),3);
+    ljaX_temp = dataset.metadata.msDatetime(ljaGroup==idxToMatch,1,1);
+    ljaY_temp = mean(dataset.deltasCsCorr{:,:}(ljaGroup==idxToMatch,:,:,:),[4 3]);
     
-    canX_temp = aliquot_metadata.msDatetime(canGroup==idxToMatch,1,1);
-    canY_temp = mean(mean(aliquot_deltas(canGroup==idxToMatch,:,:,:),4),3);
+    canX_temp = dataset.metadata.msDatetime(canGroup==idxToMatch,1,1);
+    canY_temp = mean(dataset.deltasCsCorr{:,:}(canGroup==idxToMatch,:,:,:),[4 3]);
     
     % Identify aliquots to be rejected
     iLjaRej = isoutlier(ljaY_temp,'quartiles');
@@ -158,9 +158,9 @@ for ii = 1:length(ljaGroupIdxs)
     % Assign temp variables to outputs
     calcLja(idxLastAliquot,:) = meanOfAliquots;
     
-    stats.ljaDatetime(idxLastAliquot) = aliquot_metadata.msDatetime(idxLastAliquot,1,1);
+    stats.ljaDatetime(idxLastAliquot) = dataset.metadata.msDatetime(idxLastAliquot,1,1);
     stats.ljaValues(idxLastAliquot,:) = meanOfAliquots;
-    stats.ljaAliquotSetDates{idxLastAliquot} = aliquot_metadata.msDatetime(ljaGroup==idxToMatch,1,1);
+    stats.ljaAliquotSetDates{idxLastAliquot} = dataset.metadata.msDatetime(ljaGroup==idxToMatch,1,1);
     stats.ljaAliquotSetDeltas{idxLastAliquot} = ljaY_temp;
     stats.ljaRejections{idxLastAliquot} = iLjaRej;
     stats.ljaSlope(idxLastAliquot,:) = ljaP(1,:)./ljaMu(2,:); % Convert back from centered and scaled fit parameters
@@ -168,7 +168,7 @@ for ii = 1:length(ljaGroupIdxs)
     stats.ljaRSq(idxLastAliquot,:) = ljaRSq;
     stats.ljaPVal(idxLastAliquot,:) = ljaPVal;
     
-    stats.canAliquotSetDates{idxLastAliquot} = aliquot_metadata.msDatetime(canGroup==idxToMatch,1,1);
+    stats.canAliquotSetDates{idxLastAliquot} = dataset.metadata.msDatetime(canGroup==idxToMatch,1,1);
     stats.canAliquotSetDeltas{idxLastAliquot} = canY_temp;
     stats.canRejections{idxLastAliquot} = iCanRej;
     stats.canSlope(idxLastAliquot,:) = canP(1,:)./canMu(2,:); % Convert back from centered and scaled fit parameters

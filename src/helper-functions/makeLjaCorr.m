@@ -1,11 +1,11 @@
-function [deltasLjaCorr,LJA] = makeLjaCorr(deltasRaw,aliquotDates,ljaStats,ljaValues)
+function [ljaCorrDataset,LJA] = makeLjaCorr(dataset,ljaStats,ljaValues)
 % MAKELJACORR normalizes delta values to measurements of La Jolla Air
-%   For an array of delta values, DELTAS_RAW, measured against a standard
-%   can, each delta value is normalized to La Jolla Air using measurements
-%   of LJA against the same standard can.
+%   For the array of values in the field 'deltas' of the structure DATASET,
+%   all measured against a standard can, each value is normalized to La
+%   Jolla Air using measurements of LJA against the same standard can.
 %   
-%   LJAVALUES should be an M-by-N matrix where M and N are the size of
-%   DELTAS_RAW along the first two dimensions. Missing (NaN) values are
+%   LJAVALUES should be an M-by-N matrix where M and N are the size of the
+%   'deltas' field along the first two dimensions. Missing (NaN) values are
 %   generally filled with the mean of all LJA measurements against the same
 %   standard can, using the same focussing and filament, as logged in
 %   spreadsheet_metadata.xlsx. An excpetion to this is if there is a trend
@@ -16,7 +16,7 @@ function [deltasLjaCorr,LJA] = makeLjaCorr(deltasRaw,aliquotDates,ljaStats,ljaVa
 %   correction period, the next available LJA value is used. The LJA values
 %   used for each aliquot are given in the second output, LJA.
 %
-%   e.g. [DELTAS_CSCORR,CSS] = MAKELJACORR(DELTAS_RAW,ALIQUOTDATES,LJAVALUES) 
+%   e.g. [DELTAS_CSCORR,CSS] = MAKELJACORR(DATASET,LJAVALUES) 
 %
 % -------------------------------------------------------------------------
 
@@ -52,6 +52,7 @@ for ii = 1:length(idxLjas)
     effectSize = effect./stdDetrended;
     iTemporalValues = abs(effectSize) > 1.1;
     
+    aliquotDates = dataset.metadata.msDatetime(:,:,1,1);
     LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues) = fillmissing(LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues),'nearest');
     LJA(aliquotDates > startDate & aliquotDates < endDate,iTemporalValues) = ljaAtMidpoint(iTemporalValues) + ljaStats.ljaSlope(idxLjas(ii),iTemporalValues).*(datenum(aliquotDates(aliquotDates > startDate & aliquotDates < endDate) - mean([startDate endDate])));
     
@@ -60,4 +61,7 @@ end
 LJA = fillmissing(LJA,'next');
 
 
-deltasLjaCorr = ((deltasRaw/1000+1)./(LJA/1000+1)-1)*1000;
+ljaCorrDataset = dataset;
+ljaCorrDataset.deltasLjaCorr = table;
+ljaCorrDataset.deltasLjaCorr{:,:} = ((dataset.deltasCsCorr{:,:}/1000+1)./(LJA/1000+1)-1)*1000;
+ljaCorrDataset.deltasLjaCorr.Properties = ljaCorrDataset.deltasCsCorr.Properties;

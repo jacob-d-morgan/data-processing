@@ -111,11 +111,11 @@ csCorrDataset.deltasCsCorr{:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'}}
 % in the LJA values. In this case, the extrapolated values are used.
 
 % Calculate LJA Values
-iLja = contains(aliquot_metadata.ID1(:,1,1),'LJA');
-[ljaValues,ljaStats] = calculateLjaValues(aliquot_deltas,aliquot_metadata,iLja);
+iLja = contains(csCorrDataset.metadata.ID1(:,1,1),'LJA');
+[ljaValues,ljaStats] = calculateLjaValues(csCorrDataset,iLja);
 
 % Make LJA Correction
-[aliquot_deltas_pisCorr_csCorr_ljaCorr,LJA] = makeLjaCorr(aliquot_deltas_pisCorr_csCorr,aliquot_metadata.msDatetime(:,1,1),ljaStats,ljaValues);
+[ljaCorrDataset,LJA] = makeLjaCorr(csCorrDataset,ljaStats,ljaValues);
 
 
 %% Assemble Into Final Output
@@ -138,7 +138,7 @@ deltas_raw.Properties.Description = "Table of raw delta values, calculated using
 % Make Table fo Fully Corrected Delta Values
 deltas_corr = table;
 for ii = 1:numel(delta_names)
-    deltas_corr.(delta_names(ii)) = aliquot_deltas_pisCorr_csCorr_ljaCorr(:,ii,:,:);
+    deltas_corr.(delta_names(ii)) = ljaCorrDataset(:,ii,:,:);
 end
 deltas_corr.Properties.VariableUnits = delta_units;
 deltas_corr.Properties.VariableDescriptions = delta_labels;
