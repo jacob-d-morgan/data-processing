@@ -1,16 +1,16 @@
-function [pisValues,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis)
+function [pisValues,pisStats] = calculatePisValues(rawDataset,rawPisDataset)
 % CALCULATEPISVALUES Calculate the Pressure Imbalance Sensitivities
 %   Calculates the pressure imbalance sensitivity for each delta value, for
-%   each pressure imbalance sensitivity experiment in ALIQUOT_DELTAS_PIS.
-%   The PIS is calculated by fitting a straight line to the mean delta
-%   value of each block as a function of the pressure imbalance of that
-%   block, for each aliquot run as a PIS experiment.
+%   each pressure imbalance sensitivity experiment in RAWPISDATASET. The
+%   PIS is calculated by fitting a straight line to the mean delta value of
+%   each block as a function of the pressure imbalance of that block, for
+%   each aliquot run as a PIS experiment.
 % 
-%   CALCULATEPISVALUES(ALIQUOT_DELTAS,ALIQUOT_METADATA,ALIQUOT_DELTAS_PIS,ALIQUOT_METADATA_PIS)
-%   returns the PIS for each delta value, for each PIS experiment. The
-%   delta values and pressure imbalance of the PIS blocks are passed to the
-%   function in the variables ALIQUOT_DELTAS_PIS and ALIQUOT_METADATA_PIS,
-%   and for the non-PIS blocks in ALIQUOT_DELTAS and ALIQUOT_METADATA.
+%   CALCULATEPISVALUES(RAWDATASET,RAWPISDATASET) returns the PIS for each
+%   delta value, for each PIS experiment. The delta values and pressure
+%   imbalance are passed to the function in the structure fields 'metadata'
+%   and 'deltas' of RAWPISDATASET and RAWDATASET for the PIS and non-PIS
+%   blocks respectively.
 %
 %   [PISVALUES,PISSTATS] = CALCULATEPISVALUES(...) also outputs a structure
 %   of statistics and other information for each PIS experiment, including:
@@ -38,7 +38,7 @@ function [pisValues,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metada
 %% Parse Inputs
 % Check for right number of in/outputs.
 
-narginchk(4,4);
+narginchk(2,2);
 nargoutchk(0,2)
 
 
@@ -46,7 +46,7 @@ nargoutchk(0,2)
 % Identifies the aliquots containing PIS experiments and calculates the
 % pressure imbalance sensitivity of each delta value, for each experiment.
 
-iPIS = ~isnan(aliquot_deltas_pis(:,:,1,1));
+iPIS = ~isnan(rawPisDataset.deltas{:,:}(:,:,1,1));
 
 % Check that all delta values were measured in each PIS experiment
 if sum(any(iPIS,2)) ~= sum(all(iPIS,2))
@@ -57,41 +57,41 @@ iPIS = any(iPIS,2); % ...but calculate a PIS for these experiments anyway
 
 
 % Calculate the PIS for each experiment, for each of the delta values
-calcPis = nan(size(aliquot_deltas,[1 2]));
+calcPis = nan(size(rawDataset.deltas{:,:},[1 2]));
 
 % Pre-allocate variables to be filled in the loop
 stats = struct();
-stats.pisDatetime = NaT(size(aliquot_deltas,1),1);
-stats.pressureImbal = nan(size(aliquot_metadata.pressureImbal) + [0 1 0]);
-stats.deltas = nan(size(aliquot_deltas) + [0 0 1 0]);
-stats.slope = nan(size(aliquot_deltas,[1 2]));
-stats.intercept = nan(size(aliquot_deltas,[1 2]));
-stats.rSq = nan(size(aliquot_deltas,[1 2]));
-stats.pVal = nan(size(aliquot_deltas,[1 2]));
-stats.pisImbal = nan(size(aliquot_deltas,1),1);
+stats.pisDatetime = NaT(size(rawDataset.deltas{:,:},1),1);
+stats.pressureImbal = nan(size(rawDataset.metadata.pressureImbal) + [0 0 1 0]);
+stats.deltas = nan(size(rawDataset.deltas{:,:}) + [0 0 1 0]);
+stats.slope = nan(size(rawDataset.deltas{:,:},[1 2]));
+stats.intercept = nan(size(rawDataset.deltas{:,:},[1 2]));
+stats.rSq = nan(size(rawDataset.deltas{:,:},[1 2]));
+stats.pVal = nan(size(rawDataset.deltas{:,:},[1 2]));
+stats.pisImbal = nan(size(rawDataset.deltas{:,:},1),1);
 
 % Loop Through the Indices of the PIS Aliquots
 for ii=find(iPIS)'
     
     % Find the Pressure Imbalances for the PIS Experiment
-    imbal = cat(2,aliquot_metadata.pressureImbal(ii,:,:),aliquot_metadata_pis.pressureImbal(ii,:,:));
-    x_temp = mean(imbal,3)'; % predictor variable = block mean pressure imbalance
+    imbal = cat(3,rawDataset.metadata.pressureImbal(ii,:,:,:),rawPisDataset.metadata.pressureImbal(ii,:,:,:));
+    x_temp = squeeze(mean(imbal,4)); % predictor variable = block mean pressure imbalance
     
     % Warn if the Largest Imbalance is NOT the PIS Block
     [pImbal, idx] = max(abs(x_temp));
     if idx ~= 5
-        warning(['For the PIS experiment on ' datestr(aliquot_metadata.msDatenum(ii,1,1),'dd-mmm-yyyy HH:MM') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
+        warning(['For the PIS experiment on ' datestr(rawDataset.metadata.msDatenum(ii,1,1),'dd-mmm-yyyy HH:MM') ' the block with the largest imbalance is block ' num2str(idx) ', not block 5.'])
     end
     
     % Place Pressure Imbalance Data in Final Output
-    stats.pisDatetime(ii) = aliquot_metadata.msDatetime(ii);
-    stats.pressureImbal(ii,:,:) = imbal;
+    stats.pisDatetime(ii) = rawDataset.metadata.msDatetime(ii);
+    stats.pressureImbal(ii,:,:,:) = imbal;
     stats.pisImbal(ii) = pImbal * sign(x_temp(idx));
     
     % Loop Through the Delta Values
-    for jj=1:size(aliquot_deltas,2)
+    for jj=1:size(rawDataset.deltas{:,:},2)
         
-        delta = cat(3,aliquot_deltas(ii,jj,:,:),aliquot_deltas_pis(ii,jj,1,:));
+        delta = cat(3,rawDataset.deltas{:,:}(ii,jj,:,:),rawPisDataset.deltas{:,:}(ii,jj,1,:));
         y_temp = squeeze(mean(delta,4)); % response variable = block mean delta value
         
         m_temp = [x_temp ones(size(x_temp))]\y_temp; % calculate the PIS and Intercept
@@ -125,8 +125,8 @@ stats.rejections(abs(stats.pisImbal)<100,:) = true;
 % Reject PIS values with Largest Deviations from Running Median
 movWindow=49; % Moving median window = 7 weeks
 
-for ii = 1:size(aliquot_deltas,2) % loop through the delta values
-    x_temp = aliquot_metadata.msDatenum(iPIS,1,1);
+for ii = 1:size(rawDataset.deltas{:,:},2) % loop through the delta values
+    x_temp = rawDataset.metadata.msDatenum(iPIS,1,1);
     y_temp = calcPis(iPIS,ii,1,1);
 
     % Calculate Deviations from Running Median

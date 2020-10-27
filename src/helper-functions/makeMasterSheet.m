@@ -22,14 +22,12 @@ narginchk(1,inf)
 % to Air+ or where the 28N2 beam is either saturated or absent, or cycles
 % with a non-standard (different than the mode) number of cycles or blocks.
 
-[aliquot_deltas,metadata,aliquot_deltas_pis,aliquot_metadata_pis] = makeRawDataset(filesToImport,'includePIS',true);
+[rawDataset,rawPisDataset] = makeRawDataset(filesToImport,'includePIS',true);
 
-aliquot_metadata = metadata.metadata;
-delta_names = metadata.delta_names;
-delta_labels = metadata.delta_labels;
-delta_units = metadata.delta_units;
-
-metadata_fields = string(fieldnames(aliquot_metadata))';
+aliquot_metadata = rawDataset.metadata;
+delta_names = rawDataset.deltas.Properties.VariableNames;
+delta_labels = rawDataset.deltas.Properties.VariableDescriptions;
+delta_units = rawDataset.deltas.Properties.VariableUnits;
 
 
 %% Make PIS Correction
@@ -37,11 +35,11 @@ metadata_fields = string(fieldnames(aliquot_metadata))';
 % the total pressure of gas in the source.
 
 % Calculate PIS Values
-[calcPis,pisStats] = calculatePisValues(aliquot_deltas,aliquot_metadata,aliquot_deltas_pis,aliquot_metadata_pis);
+[calcPis,pisStats] = calculatePisValues(rawDataset,rawPisDataset);
 
 % Make PIS Correction
 calcPis(pisStats.rejections) = nan;
-[aliquot_deltas_pisCorr,PIS] = makePisCorr(aliquot_deltas,aliquot_metadata.msDatetime,aliquot_metadata.pressureImbal,calcPis);
+[pisCorrDataset,PIS] = makePisCorr(rawDataset,calcPis);
 
 %% Make Chemical Slope Correction
 % Correct the delta values in aliquot_deltas_pisCorr for the effect of
