@@ -24,7 +24,6 @@ narginchk(1,inf)
 
 [rawDataset,rawPisDataset] = makeRawDataset(filesToImport,'includePIS',true);
 
-aliquot_metadata = rawDataset.metadata;
 delta_names = rawDataset.deltas.Properties.VariableNames;
 delta_labels = rawDataset.deltas.Properties.VariableDescriptions;
 delta_units = rawDataset.deltas.Properties.VariableUnits;
@@ -47,7 +46,7 @@ calcPis(pisStats.rejections) = nan;
 
 % Identify the CS Experiment Aliquots
 exp2match = '1?[5|8]?\s?(?<CS>[N|O])\s?C?S?\s(?<rep>\d+)';
-tokens = regexp(aliquot_metadata.ID1(:,1,1),exp2match,'names');
+tokens = regexp(pisCorrDataset.metadata.ID1(:,1,1),exp2match,'names');
 
 iCS = ~cellfun('isempty',tokens);
 csType = strings(size(iCS));
@@ -63,47 +62,42 @@ iCS_AddN2(iCS & csType=="O") = true;
 
 
 % == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
-iCS_AddN2(aliquot_metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
+iCS_AddN2(pisCorrDataset.metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
 % ======================================================================= %
 
 % Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
-[calcCS_15N,csStats_15N] = calculateCsValues(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,1,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_ArN2,csStats_ArN2] = calculateCsValues(aliquot_deltas_pisCorr(:,6,:,:),aliquot_deltas_pisCorr(:,7,:,:),aliquot_metadata,iCS_AddO2);
-[calcCS_18O,csStats_18O] = calculateCsValues((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,2,:,:),aliquot_metadata,iCS_AddN2);
-[calcCS_17O,csStats_17O] = calculateCsValues((1/(aliquot_deltas_pisCorr(:,6,:,:)/1000+1)-1)*1000,aliquot_deltas_pisCorr(:,3,:,:),aliquot_metadata,iCS_AddN2);
+[calcCS_15N,csStats_15N] = calculateCsValues(pisCorrDataset.deltasPisCorr.dO2N2,pisCorrDataset.deltasPisCorr.d15N,pisCorrDataset.metadata,iCS_AddO2);
+[calcCS_ArN2,csStats_ArN2] = calculateCsValues(pisCorrDataset.deltasPisCorr.dO2N2,pisCorrDataset.deltasPisCorr.dO2N2,pisCorrDataset.metadata,iCS_AddO2);
+[calcCS_18O,csStats_18O] = calculateCsValues((1/(pisCorrDataset.deltasPisCorr.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltasPisCorr.d18O,pisCorrDataset.metadata,iCS_AddN2);
+[calcCS_17O,csStats_17O] = calculateCsValues((1/(pisCorrDataset.deltasPisCorr.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltasPisCorr.d17O,pisCorrDataset.metadata,iCS_AddN2);
 
 % Calculate the Bivariate (Ar Isotopes) Chem Slopes
-x_temp = [((aliquot_deltas_pisCorr(:,7,:,:)./1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,6,:,:)/1000+1)./(aliquot_deltas_pisCorr(:,7,:,:)./1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-[calcCS_4036Ar,csStats_36Ar] = calculateCsValues(x_temp,aliquot_deltas_pisCorr(:,4,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
-[calcCS_4038Ar,csStats_38Ar] = calculateCsValues(x_temp,aliquot_deltas_pisCorr(:,5,:,:),aliquot_metadata,iCS_AddN2 | iCS_AddO2,true);
+x_temp = [((pisCorrDataset.deltasPisCorr.dArN2/1000+1).^-1 - 1)*1000 ((pisCorrDataset.deltasPisCorr.dO2N2/1000+1)./(pisCorrDataset.deltasPisCorr.dArN2/1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+[calcCS_4036Ar,csStats_36Ar] = calculateCsValues(x_temp,pisCorrDataset.deltasPisCorr.d4036Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4038Ar,csStats_38Ar] = calculateCsValues(x_temp,pisCorrDataset.deltasPisCorr.d4038Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
 
 % Make CS Corrections
 csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_4036Ar} {calcCS_4038Ar} {calcCS_ArN2} ];
-csRegressors = [
-    {aliquot_deltas_pisCorr(:,delta_names=='d15N',:,:);}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d18O',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d17O',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d4036Ar',:,:)}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='d4038Ar',:,:);}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:);}, ...
-    ];
+csRegressors = pisCorrDataset.deltasPisCorr(:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'});
 csPredictors = [
-    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
-    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-    {((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1).^-1-1)*1000}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-    {[((aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1).^-1-1)*1000 ((aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:)/1000+1)./(aliquot_deltas_pisCorr(:,delta_names=='dArN2',:,:)/1000+1)-1)*1000]}, ...
-    {aliquot_deltas_pisCorr(:,delta_names=='dO2N2',:,:);}, ...
+    {pisCorrDataset.deltasPisCorr.dO2N2}, ...
+    {((pisCorrDataset.deltasPisCorr.dO2N2/1000+1).^-1-1)*1000}, ...
+    {((pisCorrDataset.deltasPisCorr.dO2N2/1000+1).^-1-1)*1000}, ...
+    {[((pisCorrDataset.deltasPisCorr.dArN2/1000+1).^-1-1)*1000 ((pisCorrDataset.deltasPisCorr.dO2N2/1000+1)./(pisCorrDataset.deltasPisCorr.dArN2/1000+1)-1)*1000]}, ...
+    {[((pisCorrDataset.deltasPisCorr.dArN2/1000+1).^-1-1)*1000 ((pisCorrDataset.deltasPisCorr.dO2N2/1000+1)./(pisCorrDataset.deltasPisCorr.dArN2/1000+1)-1)*1000]}, ...
+    {pisCorrDataset.deltasPisCorr.dO2N2}, ...
     ];
 
 csCorr = cell(size(csValues));
 CS = cell(size(csValues));
 for ii = 1:length(csValues)
-    [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{ii},aliquot_metadata.msDatetime,csPredictors{ii},csValues{ii});
+    [csCorr{ii},CS{ii}] = makeCsCorr(csRegressors{:,ii},pisCorrDataset.metadata.msDatetime,csPredictors{ii},csValues{ii});
 end
 
-aliquot_deltas_pisCorr_csCorr = aliquot_deltas_pisCorr;
-aliquot_deltas_pisCorr_csCorr(:,[1:5 7],:,:) = [csCorr{:}];
+csCorrDataset = pisCorrDataset;
+csCorrDataset.deltasCsCorr = table;
+csCorrDataset.deltasCsCorr = csCorrDataset.deltasPisCorr;
+csCorrDataset.deltasCsCorr{:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'}}(:,:,:,:) = [csCorr{:}];
 
 
 %% Make the LJA Correction
