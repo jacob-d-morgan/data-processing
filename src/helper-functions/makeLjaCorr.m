@@ -1,4 +1,4 @@
-function [ljaCorrDataset,LJA] = makeLjaCorr(dataset,ljaStats,ljaValues)
+function [ljaCorrDataset,LJA] = makeLjaCorr(rawDataset,ljaStats,ljaValues)
 % MAKELJACORR normalizes delta values to measurements of La Jolla Air
 %   For the array of values in the field 'deltas' of the structure DATASET,
 %   all measured against a standard can, each value is normalized to La
@@ -52,7 +52,7 @@ for ii = 1:length(idxLjas)
     effectSize = effect./stdDetrended;
     iTemporalValues = abs(effectSize) > 1.1;
     
-    aliquotDates = dataset.metadata.msDatetime(:,:,1,1);
+    aliquotDates = rawDataset.metadata.msDatetime(:,:,1,1);
     LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues) = fillmissing(LJA(aliquotDates > startDate & aliquotDates < endDate,~iTemporalValues),'nearest');
     LJA(aliquotDates > startDate & aliquotDates < endDate,iTemporalValues) = ljaAtMidpoint(iTemporalValues) + ljaStats.ljaSlope(idxLjas(ii),iTemporalValues).*(datenum(aliquotDates(aliquotDates > startDate & aliquotDates < endDate) - mean([startDate endDate])));
     
@@ -61,7 +61,5 @@ end
 LJA = fillmissing(LJA,'next');
 
 
-ljaCorrDataset = dataset;
-ljaCorrDataset.deltasLjaCorr = table;
-ljaCorrDataset.deltasLjaCorr{:,:} = ((dataset.deltasCsCorr{:,:}/1000+1)./(LJA/1000+1)-1)*1000;
-ljaCorrDataset.deltasLjaCorr.Properties = ljaCorrDataset.deltasCsCorr.Properties;
+ljaCorrDataset = rawDataset;
+ljaCorrDataset.deltas{:,:} = ((rawDataset.deltas{:,:}/1000+1)./(LJA/1000+1)-1)*1000;

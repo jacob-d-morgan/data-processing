@@ -43,6 +43,4 @@ PIS = fillmissing(PIS,'next');
 
 % Make PIS Correction
 pisCorrDataset = rawDataset;
-pisCorrDataset.deltasPisCorr = table;
-pisCorrDataset.deltasPisCorr{:,:} = rawDataset.deltas{:,:} - rawDataset.metadata.pressureImbal.*PIS;
-pisCorrDataset.deltasPisCorr.Properties = pisCorrDataset.deltas.Properties;
+pisCorrDataset.deltas{:,:} = rawDataset.deltas{:,:} - rawDataset.metadata.pressureImbal.*PIS;

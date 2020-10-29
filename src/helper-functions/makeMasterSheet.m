@@ -62,26 +62,26 @@ iCS_AddN2(pisCorrDataset.metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = 
 % ======================================================================= %
 
 % Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
-[calcCS_15N,csStats_15N] = calculateCsValues(pisCorrDataset.deltasPisCorr.dO2N2,pisCorrDataset.deltasPisCorr.d15N,pisCorrDataset.metadata,iCS_AddO2);
-[calcCS_ArN2,csStats_ArN2] = calculateCsValues(pisCorrDataset.deltasPisCorr.dO2N2,pisCorrDataset.deltasPisCorr.dO2N2,pisCorrDataset.metadata,iCS_AddO2);
-[calcCS_18O,csStats_18O] = calculateCsValues((1/(pisCorrDataset.deltasPisCorr.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltasPisCorr.d18O,pisCorrDataset.metadata,iCS_AddN2);
-[calcCS_17O,csStats_17O] = calculateCsValues((1/(pisCorrDataset.deltasPisCorr.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltasPisCorr.d17O,pisCorrDataset.metadata,iCS_AddN2);
+[calcCS_15N,csStats_15N] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.d15N,pisCorrDataset.metadata,iCS_AddO2);
+[calcCS_ArN2,csStats_ArN2] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.dO2N2,pisCorrDataset.metadata,iCS_AddO2);
+[calcCS_18O,csStats_18O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d18O,pisCorrDataset.metadata,iCS_AddN2);
+[calcCS_17O,csStats_17O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d17O,pisCorrDataset.metadata,iCS_AddN2);
 
 % Calculate the Bivariate (Ar Isotopes) Chem Slopes
-x_temp = [((pisCorrDataset.deltasPisCorr.dArN2/1000+1).^-1 - 1)*1000 ((pisCorrDataset.deltasPisCorr.dO2N2/1000+1)./(pisCorrDataset.deltasPisCorr.dArN2/1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-[calcCS_4036Ar,csStats_36Ar] = calculateCsValues(x_temp,pisCorrDataset.deltasPisCorr.d4036Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
-[calcCS_4038Ar,csStats_38Ar] = calculateCsValues(x_temp,pisCorrDataset.deltasPisCorr.d4038Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
+x_temp = [((pisCorrDataset.deltas.dArN2/1000+1).^-1 - 1)*1000 ((pisCorrDataset.deltas.dO2N2/1000+1)./(pisCorrDataset.deltas.dArN2/1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
+[calcCS_4036Ar,csStats_36Ar] = calculateCsValues(x_temp,pisCorrDataset.deltas.d4036Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4038Ar,csStats_38Ar] = calculateCsValues(x_temp,pisCorrDataset.deltas.d4038Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
 
 % Make CS Corrections
 csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_4036Ar} {calcCS_4038Ar} {calcCS_ArN2} ];
-csRegressors = pisCorrDataset.deltasPisCorr(:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'});
+csRegressors = pisCorrDataset.deltas(:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'});
 csPredictors = [
-    {pisCorrDataset.deltasPisCorr.dO2N2}, ...
-    {((pisCorrDataset.deltasPisCorr.dO2N2/1000+1).^-1-1)*1000}, ...
-    {((pisCorrDataset.deltasPisCorr.dO2N2/1000+1).^-1-1)*1000}, ...
-    {[((pisCorrDataset.deltasPisCorr.dArN2/1000+1).^-1-1)*1000 ((pisCorrDataset.deltasPisCorr.dO2N2/1000+1)./(pisCorrDataset.deltasPisCorr.dArN2/1000+1)-1)*1000]}, ...
-    {[((pisCorrDataset.deltasPisCorr.dArN2/1000+1).^-1-1)*1000 ((pisCorrDataset.deltasPisCorr.dO2N2/1000+1)./(pisCorrDataset.deltasPisCorr.dArN2/1000+1)-1)*1000]}, ...
-    {pisCorrDataset.deltasPisCorr.dO2N2}, ...
+    {pisCorrDataset.deltas.dO2N2}, ...
+    {((pisCorrDataset.deltas.dO2N2/1000+1).^-1-1)*1000}, ...
+    {((pisCorrDataset.deltas.dO2N2/1000+1).^-1-1)*1000}, ...
+    {[((pisCorrDataset.deltas.dArN2/1000+1).^-1-1)*1000 ((pisCorrDataset.deltas.dO2N2/1000+1)./(pisCorrDataset.deltas.dArN2/1000+1)-1)*1000]}, ...
+    {[((pisCorrDataset.deltas.dArN2/1000+1).^-1-1)*1000 ((pisCorrDataset.deltas.dO2N2/1000+1)./(pisCorrDataset.deltas.dArN2/1000+1)-1)*1000]}, ...
+    {pisCorrDataset.deltas.dO2N2}, ...
     ];
 
 csCorr = cell(size(csValues));
@@ -91,9 +91,7 @@ for ii = 1:length(csValues)
 end
 
 csCorrDataset = pisCorrDataset;
-csCorrDataset.deltasCsCorr = table;
-csCorrDataset.deltasCsCorr = csCorrDataset.deltasPisCorr;
-csCorrDataset.deltasCsCorr{:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'}}(:,:,:,:) = [csCorr{:}];
+csCorrDataset.deltas{:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'}}(:,:,:,:) = [csCorr{:}];
 
 
 %% Make the LJA Correction
@@ -131,7 +129,7 @@ deltas_raw.Properties.Description = "Table of raw delta values, calculated using
 
 
 % Make Table of Fully Corrected Delta Values
-deltas_corr = ljaCorrDataset.deltasLjaCorr;
+deltas_corr = ljaCorrDataset.deltas;
 deltas_corr.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
 deltas_corr.Properties.Description = "Table of delta values, calculated using the measured ratio of beam voltages on sample and standard sides. The delta values are corrected for analytical effects (pressure imbalance and chemical slope) and normalized to La Jolla Air.";
 

@@ -112,10 +112,10 @@ for ii = 1:length(ljaGroupIdxs)
     idxLastAliquot = find(ljaGroup==idxToMatch & iLjaToUse,1,'last');
     
     ljaX_temp = dataset.metadata.msDatetime(ljaGroup==idxToMatch,1,1);
-    ljaY_temp = mean(dataset.deltasCsCorr{:,:}(ljaGroup==idxToMatch,:,:,:),[4 3]);
+    ljaY_temp = mean(dataset.deltas{:,:}(ljaGroup==idxToMatch,:,:,:),[4 3]);
     
     canX_temp = dataset.metadata.msDatetime(canGroup==idxToMatch,1,1);
-    canY_temp = mean(dataset.deltasCsCorr{:,:}(canGroup==idxToMatch,:,:,:),[4 3]);
+    canY_temp = mean(dataset.deltas{:,:}(canGroup==idxToMatch,:,:,:),[4 3]);
     
     % Identify aliquots to be rejected
     iLjaRej = isoutlier(ljaY_temp,'quartiles');
