@@ -63,3 +63,5 @@ LJA = fillmissing(LJA,'next');
 
 ljaCorrDataset = rawDataset;
 ljaCorrDataset.deltas{:,:} = ((rawDataset.deltas{:,:}/1000+1)./(LJA/1000+1)-1)*1000;
+ljaCorrDataset.deltas.Properties.Description = join([ljaCorrDataset.deltas.Properties.Description ...
+    "Delta values are normalised to the composition of the contemporary atmosphere (La Jolla Air)."]);

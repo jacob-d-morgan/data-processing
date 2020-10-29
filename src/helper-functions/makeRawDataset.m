@@ -129,6 +129,11 @@ iBeamReject = cycles.metadata.int28SA > 9000 | cycles.metadata.int28SA < 10 | cy
 cycles.deltas(iBeamReject,:) = [];
 cycles.metadata(iBeamReject,:) = [];
 
+cycles.deltas.Properties.Description = join([cycles.deltas.Properties.Description ...
+    "Cycles where the mass/charge 28 beam is either absent or saturated are omitted, as are samples measured in a gas configuration other than ""Air+""."]);
+cycles.metadata.Properties.Description = join([cycles.metadata.Properties.Description ...
+    "Cycles where the mass/charge 28 beam is either absent or saturated are omitted, as are samples measured in a gas configuration other than ""Air+""."]);
+
 %% Reshape to Isotope Ratio x Delta Value x Block x Cycle
 % Reshape the cycle deltas and their metadata into a more useable format.
 
@@ -177,6 +182,12 @@ aliquots.metadata.rCO2N2_SA(idxCO2Aliquots) = rCO2N2_SA(iA);
 aliquots.metadata.rCO2N2_ST(idxCO2Aliquots) = rCO2N2_ST(iA);
 aliquots.metadata.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
 
+aliquots.metadata.Properties.VariableDescriptions(end-2:end) = {
+    'Sample CO2/N2 ratio for the aliquot', ...
+    'Standard CO2/N2 ratio for the aliquot', ...
+    'dCO2/N2 measured via manually peak jumping using the high voltage'};
+aliquots.metadata.Properties.VariableUnits(end-2:end) = {'','',char(8240)};
+    
 
 %% Parse Outputs
 % Organise the manipulated data into the requested outputs.

@@ -44,3 +44,5 @@ PIS = fillmissing(PIS,'next');
 % Make PIS Correction
 pisCorrDataset = rawDataset;
 pisCorrDataset.deltas{:,:} = rawDataset.deltas{:,:} - rawDataset.metadata.pressureImbal.*PIS;
+pisCorrDataset.deltas.Properties.Description = join([pisCorrDataset.deltas.Properties.Description ...
+    "Delta values are corrected for the effects of source pressure imbalance between the sample and standard using an empirically measured pressure imbalance sensitivity."]);

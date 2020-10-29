@@ -63,7 +63,7 @@ iCS_AddN2(pisCorrDataset.metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = 
 
 % Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
 [calcCS_15N,csStats_15N] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.d15N,pisCorrDataset.metadata,iCS_AddO2);
-[calcCS_ArN2,csStats_ArN2] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.dO2N2,pisCorrDataset.metadata,iCS_AddO2);
+[calcCS_ArN2,csStats_ArN2] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.dArN2,pisCorrDataset.metadata,iCS_AddO2);
 [calcCS_18O,csStats_18O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d18O,pisCorrDataset.metadata,iCS_AddN2);
 [calcCS_17O,csStats_17O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d17O,pisCorrDataset.metadata,iCS_AddN2);
 
@@ -92,7 +92,8 @@ end
 
 csCorrDataset = pisCorrDataset;
 csCorrDataset.deltas{:,{'d15N','d18O','d17O','d4036Ar','d4038Ar','dArN2'}}(:,:,:,:) = [csCorr{:}];
-
+csCorrDataset.deltas.Properties.Description = join([csCorrDataset.deltas.Properties.Description ...
+    "Delta values are corrected for the effect of differences in elemental ratios between the sample and standard using an empirically measured chemical slope."]);
 
 %% Make the LJA Correction
 % Correct the delta values in aliquot_deltas_pisCorr_csCorr so that they
@@ -125,13 +126,11 @@ metadata = ljaCorrDataset.metadata;
 % Make Table of Raw Delta Values
 deltas_raw = rawDataset.deltas;
 deltas_raw.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
-deltas_raw.Properties.Description = "Table of raw delta values, calculated using the measured ratio of beam voltages on sample and standard sides. No analytical corrections performed.";
 
 
 % Make Table of Fully Corrected Delta Values
 deltas_corr = ljaCorrDataset.deltas;
 deltas_corr.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
-deltas_corr.Properties.Description = "Table of delta values, calculated using the measured ratio of beam voltages on sample and standard sides. The delta values are corrected for analytical effects (pressure imbalance and chemical slope) and normalized to La Jolla Air.";
 
 
 % Make Tables of PIS, CS, and LJA Values Used

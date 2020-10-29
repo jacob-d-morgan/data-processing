@@ -200,11 +200,17 @@ iCyclesToUse = ismember(cycles.metadata.filename,blockMetadata.filename(idxBlock
 aliquot_deltas = table();
 aliquot_deltas{:,:} = permute(reshape(cycles.deltas{iCyclesToUse,:},MODE_BLOCK_LENGTH,MODE_ALIQUOT_LENGTH,[],size(cycles.deltas,2)),[3 4 2 1]);
 aliquot_deltas.Properties = cycles.deltas.Properties;
+aliquot_deltas.Properties.Description = join([aliquot_deltas.Properties.Description, ...
+    "Delta values are structured as aliquot-by-delta value-by-block-by-cycle. Only aliquots with the mode number of blocks of the mode number of cycles are included here."]);
+    
 
 aliquot_metadata = table();
 for ii_var = string(cycles.metadata.Properties.VariableNames)
     aliquot_metadata.(ii_var) = permute(reshape(cycles.metadata.(ii_var)(iCyclesToUse,:),MODE_BLOCK_LENGTH,MODE_ALIQUOT_LENGTH,[],size(cycles.metadata.(ii_var),2)),[3 4 2 1]);
 end
+aliquot_metadata.Properties = cycles.metadata.Properties;
+aliquot_metadata.Properties.Description = join([aliquot_metadata.Properties.Description, ...
+    "Metadata are structured as aliquot-by-delta value-by-block-by-cycle. Only aliquots with the mode number of blocks of the mode number of cycles are included here."]);
 
 aliquots = struct('metadata',aliquot_metadata,'deltas',aliquot_deltas);
 
@@ -229,12 +235,7 @@ if flagPIS
     pis_aliquot_deltas = table;
     pis_aliquot_deltas{idxPisAliquotsAfterReshape,:} = permute(reshape(cycles.deltas{iCyclesToUsePIS,:},MODE_BLOCK_LENGTH,1,[],size(cycles.deltas,2)),[3 4 2 1]);
     pis_aliquot_deltas = standardizeMissing(pis_aliquot_deltas,0);
-    pis_aliquot_deltas.Properties = cycles.deltas.Properties;    
-    
-    aliquot_metadata = table();
-    for ii_var = string(cycles.metadata.Properties.VariableNames)
-        aliquot_metadata.(ii_var) = permute(reshape(cycles.metadata.(ii_var)(iCyclesToUse,:),MODE_BLOCK_LENGTH,MODE_ALIQUOT_LENGTH,[],size(cycles.metadata.(ii_var),2)),[3 4 2 1]);
-    end
+    pis_aliquot_deltas.Properties = cycles.deltas.Properties;
     
     pis_aliquot_metadata = aliquot_metadata;
     for ii_var = string(cycles.metadata.Properties.VariableNames)
@@ -243,7 +244,6 @@ if flagPIS
         pis_aliquot_metadata.(ii_var) = pis_aliquot_metadata.(ii_var)(:,:,1,:);
     end
     
-    aliquots = struct('metadata',aliquot_metadata,'deltas',aliquot_deltas);
     aliquotsPis = struct('metadata',pis_aliquot_metadata,'deltas',pis_aliquot_deltas);
     
     varargout = {aliquotsPis};
@@ -331,9 +331,16 @@ aliquotsAll.deltas = table;
 for ii_var = string(cycles.metadata.Properties.VariableNames)
         aliquotsAll.metadata.(ii_var){NUM_ALIQUOTS,LONGEST_ALIQUOT} = [];
 end
+aliquotsAll.metadata.Properties = cycles.metadata.Properties;
+aliquotsAll.metadata.Properties.Description = join([aliquotsAll.metadata.Properties.Description, ...
+    "Metadata are structured as aliquot-by-delta value-by-block-by-cycle. Aliquots are included regardless of the number of blocks or the number of cycles."]);
+
 for ii_var = string(cycles.deltas.Properties.VariableNames)
     aliquotsAll.deltas.(ii_var){NUM_ALIQUOTS,LONGEST_ALIQUOT} = [];
 end
+aliquotsAll.deltas.Properties = cycles.deltas.Properties;
+aliquotsAll.deltas.Properties.Description = join([aliquotsAll.deltas.Properties.Description, ...
+    "Delta values are structured as aliquot-by-delta value-by-block-by-cycle. Aliquots are included regardless of the number of blocks or the number of cycles."]);
     
 %aliquot_deltas_all = cell(NUM_ALIQUOTS,LONGEST_ALIQUOT);
 for ii = 1:length(idxStartNewBlocksToUse)
