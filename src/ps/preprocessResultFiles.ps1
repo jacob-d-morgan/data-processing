@@ -44,9 +44,6 @@ If ($filesFound.Count -gt 0)
     # Print Number of Files Found
     Write-Host ("Found " + $filesFound.Count + " result files in " + $workingDir + " and its subfolders.")
 
-    # Make a New Directory for the Files
-    New-Item -Path ($workingDir + "\..\PowerShell-Processed-Files-from-" + $workingFolder) -ItemType Directory
-
     # Loop through them
     $idx = 1
     foreach ($resultFile in $filesFound)
@@ -54,7 +51,7 @@ If ($filesFound.Count -gt 0)
         # Get the Creation Date
         $creationDate = $resultFile.CreationTime | Get-Date -f "yyyy-MM-dd_HHmm"
         $creationDateUtc = $resultFile.CreationTimeUtc | Get-Date -f "yyyy-MM-dd_HHmm"
-        $creationYear = $resultFile.CreationTime.Year.ToString()
+        $writeDateUtc = $resultFile.LasTWriteTimeUtc | Get-Date -f "yyyy-MM-dd_HHmm"
 
         # Get the Relative Path from the Working Directory
         $absPath = $resultFile.DirectoryName
@@ -70,23 +67,38 @@ If ($filesFound.Count -gt 0)
         $relPathStr = $relPathStr.Replace("\","_")
         $relPathStr = $relPathStr
 
+
+        # Set the New File Name
+        if (($resultFile.CreationTime) -gt (get-date 2013-05-17))
+            {
+            $newFileName = $creationDate + "c_" + $creationDateUtc + "c-utc_" + $writeDateUtc + "w-utc_" + $relPathStr + "_" + $resultFile.Name
+            $creationYear = $resultFile.CreationTime.Year.ToString()
+        }else {
+            $newFileName = $writeDateUtc + "wdate-utc_" + $relPathStr + "_" + $resultFile.Name
+            $creationYear = $resultFile.LastWriteTime.Year.ToString()
+        }
+
         # Set the Target Directory
-        $targetDir = ($workingDir + "\..\PowerShell-Processed-Files-from-" + $workingFolder +"\" + $creationYear)
+        $targetDir = ($workingDir + "\..\" + $workingFolder +"_PS\" + $creationYear)
         if (!(Test-Path $targetDir))
         {
             New-Item $targetDir -type Directory
         }
 
-        # Set the New File Name
-        $newFileName = $creationDate + "_" + $creationDateUtc + "utc_" + $relPathStr + "_" + $resultFile.Name
 
-        # Copy and Rename the File
-        Copy-Item $resultFile -Destination ($targetDir + "\" + $newFileName)
+        # Robocopy the Item
+        $sourceDir = $resultFile.DirectoryName
+        $destDir = $targetDir
+
         Write-Host -Object ("Copying file '" + $resultFile.Name + "' from '" + $workingFolder + "\" + $relPath + "' (File " + $idx + " of " + $filesFound.Count + ")")
+        robocopy $resultFile.DirectoryName $targetDir $resultFile.Name /COPY:DAT | Out-Null
+
+        $newFile = $targetDir + "\" + $resultFile.Name
+        Rename-Item -Path $newFile -NewName $newFileName
 
         $idx = $idx + 1;
 
-    } # foreach resultFile
+    } # end foreach resultFile
 }else {
     Write-Host -Object ("No result files found in " + $workingDir + ".`n")
-} # if filesFound
+} # end if filesFound
