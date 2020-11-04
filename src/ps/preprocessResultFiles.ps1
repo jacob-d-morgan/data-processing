@@ -69,7 +69,7 @@ If ($filesFound.Count -gt 0)
 
 
         # Set the New File Name
-        if (($resultFile.CreationTime) -gt (get-date 2013-05-17))
+        if (($resultFile.CreationTime.Date) -ne (get-date 2013-05-16))
             {
             $newFileName = $creationDate + "c_" + $creationDateUtc + "c-utc_" + $writeDateUtc + "w-utc_" + $relPathStr + "_" + $resultFile.Name
             $creationYear = $resultFile.CreationTime.Year.ToString()
@@ -79,7 +79,7 @@ If ($filesFound.Count -gt 0)
         }
 
         # Set the Target Directory
-        $targetDir = ($workingDir + "\..\" + $workingFolder +"_PS\" + $creationYear)
+        $targetDir = ($workingDir + "\..\" + $workingFolder +"_PS2\" + $creationYear)
         if (!(Test-Path $targetDir))
         {
             New-Item $targetDir -type Directory
