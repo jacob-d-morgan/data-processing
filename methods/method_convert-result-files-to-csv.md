@@ -16,6 +16,7 @@ This document describes the workflow for converting ISODAT result files to a '.c
 ## ISODAT Reprocess the Files
 #### Use ISODAT to convert the files to '.csv' for importing to MATLAB.
 
+ - Ensure that the configurator settings in ISODAT will report intensities to an appropriate number of decimal places.
  - Open ISODAT Workspace and navigate to the directory containing the PowerShell-processed files.
  - In each sub-directory:
      - Sort the files by size and inspect files with small or unusual file sizes to make sure they contain at least one cycle.
