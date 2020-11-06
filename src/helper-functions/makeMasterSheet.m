@@ -124,14 +124,28 @@ delta_labels = string(rawDataset.deltas.Properties.VariableDescriptions);
 metadata = ljaCorrDataset.metadata;
 
 % Make Table of Raw Delta Values
-deltas_raw = rawDataset.deltas;
-deltas_raw.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
-
+rawDeltas = rawDataset.deltas;
+rawDeltas.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
 
 % Make Table of Fully Corrected Delta Values
-deltas_corr = ljaCorrDataset.deltas;
-deltas_corr.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
+corrDeltas = ljaCorrDataset.deltas;
+corrDeltas.Properties.DimensionNames = {'Sample Aliquot','Isotope Ratio'};
 
+% Make a Table of Correction Differences
+deltaCorrections.PIS = table;
+deltaCorrections.PIS{:,:} = pisCorrDataset.deltas{:,:} - rawDataset.deltas{:,:};
+deltaCorrections.PIS.Properties = pisCorrDataset.deltas.Properties;
+deltaCorrections.PIS.Properties.Description = "Table of PIS correction amplitudes, the difference between the PIS corrected and raw delta values. Add the values in deltaCorrections.PIS to the raw delta values to get the PIS corrected delta values.";
+
+deltaCorrections.CS = table;
+deltaCorrections.CS{:,:} = csCorrDataset.deltas{:,:} - pisCorrDataset.deltas{:,:};
+deltaCorrections.CS.Properties = csCorrDataset.deltas.Properties;
+deltaCorrections.CS.Properties.Description = "Table of CS correction amplitudes, the difference between the CS corrected and PIS corrected delta values. Add the values in deltaCorrections.CS to the PIS corrected delta values to get the PIS and CS corrected delta values. N.B. Adding the values in deltaCorrections to the raw delta values will not give the same result as making the CS correction to the raw delta values as the amplitude of the CS correction will be different if non-PIS corrected delta values are used to calculate the chemical slope and the CS correction.";
+
+deltaCorrections.LJA = table;
+deltaCorrections.LJA{:,:} = ljaCorrDataset.deltas{:,:} - csCorrDataset.deltas{:,:};
+deltaCorrections.LJA.Properties = ljaCorrDataset.deltas.Properties;
+deltaCorrections.LJA.Properties.Description = "Table of LJA correction amplitudes, the difference between the LJA corrected and CS corrected delta values. Add the values in deltaCorrections.LJA to the PIS and CS corrected delta values to get the PIS, CS, and LJA corrected delta values.  N.B. Adding the values in deltaCorrections to the raw delta values will not give the same result as making the LJA correction to the raw delta values as the amplitude of the LJA correction will be different if non-PIS and/or non-CS corrected values are used to calculate the LJA correction.";
 
 % Make Tables of PIS, CS, and LJA Values Used
 pisLog = array2table(PIS);
@@ -178,8 +192,9 @@ correctionDiagnostics = struct('PIS',pisDiagnostics,'CS',csDiagnostics,'LJA',lja
 % Make the Master Data Structure
 masterSheet = struct( ...
     'metadata',metadata, ...
-    'deltas_raw',deltas_raw, ...
-    'deltas_corr',deltas_corr, ...
+    'rawDeltas',rawDeltas, ...
+    'corrDeltas',corrDeltas, ...
+    'deltaCorrections',deltaCorrections, ...
     'correctionCoeffs',correctionCoeffs, ...
     'correctionDiagnostics', correctionDiagnostics);
 
