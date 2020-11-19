@@ -94,7 +94,9 @@ If ($filesFound.Count -gt 0)
 
         Write-Host -Object ("Copying file '" + $resultFile.Name + "' from '" + $workingFolder + "\" + $relPath + "' (File " + $idx + " of " + $filesFound.Count + ")")
         robocopy $resultFile.DirectoryName $targetDir $resultFile.Name /COPY:DAT | Out-Null
+        $idx = $idx + 1;
 
+        # Generate and Check New File Name
         $newFile = $targetDir + "\" + $resultFile.Name
         if ($targetDir.Length + $newFileName.Length +1 -gt 260)
         {
@@ -102,10 +104,35 @@ If ($filesFound.Count -gt 0)
             Exit
         }
 
-        Rename-Item -Path $newFile -NewName $newFileName
+        # Rename the Item
+        Try
+        {
+            # Try to Rename, Throw a Terminating Error if the Command Fails
+            Rename-Item -Path $newFile -NewName $newFileName -ErrorAction Stop
+        }
+        Catch
+        {
+            if (-Not (Test-Path ($targetDir + "\..\ps-error-log.txt")))
+            {
+                $errLogPath = $targetDir + "\..\"
+                $errLog = New-Item -Path $errLogPath -Name ps-error-log.txt
+            }
 
+            # Write the Rename-Item Error Message to a Log File
+            # The error typically occurs if the file doesn't exist because robocopy failed to copy it.
+            $_ | Out-File $errLog -Append
 
-        $idx = $idx + 1;
+            # Try to Robocopy Again
+            # Robocopy fails if the file name begins with a hyphen. Prepend an asterisk wildcard to the filename as a workaround.
+            # N.B. this likely only solves this one particular case. It will probably not work if robocopy failed to copy for a different reason.
+            # It may even cause other problems if the name of a file is reproduced in full at the end of a different file name.
+            $fileToCopy = "*" + $resultFile.Name
+            robocopy $resultFile.DirectoryName $targetDir $fileToCopy /COPY:DAT | Out-Null
+            Rename-Item -Path $newFile -NewName $newFileName -ErrorAction Stop
+
+            # Continue with the Next Loop Index
+            Continue
+        }
 
     } # end foreach resultFile
 }else {
