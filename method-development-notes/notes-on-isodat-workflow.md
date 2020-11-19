@@ -1,4 +1,8 @@
 # ISODAT Workflow
+
+## Preparation
+Before reprocessing files in ISODAT it is necessary to check that ISODAT will output the correct number of decimal places. Close all ISODAT programs and open Configurator. From the options tab, open the global settings window and set the number of digits for each of the value formats to the maximum number and click OK. This ensures that the intensities that the ISODAT reprocessing reports are precise enough for delta calculations.
+
 ## Reprocessing Files
 This step is relatively simple. Once the '.did' and '.caf' result files are sorted chronologically and grouped by year they can be ISODAT Reprocessed. The catch is that ISODAT trips up if one of the result files contains no cycles. If there was an error in the peak center or pressure balance that caused the method to never perform any integrations then the file will not be reprocessed and the program will crash and likely close.
 
