@@ -1,4 +1,4 @@
-## First Attempt
+﻿## First Attempt
 I tried to install ISODAT 3.0 first. The installer would not run and gave me the error “This program requires a minimum resolution of 1024*768”. An internet search suggested changing the display scaling (display settings) from 150% to 125%. This fixed the problem.
 
 The ISODAT installer can only install one of either Workspace (Office Installation) or Instrument Control and Acquisition (Instrument Installation). I had to install both in order to get Workspace to open. Prior to the instrument installation, Workspace would open and then immediately close itself.
@@ -14,4 +14,7 @@ Unfortunately, ISODAT 2.0 doesn’t seem to be able to open the .caf files from 
 ## Isodat 3.0
 The install has similar quirks to the 2.0 install. It is necessary to end the version control task in Task Manager after it trips up the installer. It is necessary to install instrument control/acquisition and workspace separately. In order to get workspace to function, it is necessary to open configurator once. It doesn’t seem to matter which options are selected, just that some options are set.
 
-ISODAT 3.0 is able to open the files that were seemingly corrupted in 2.0. The version of 3.0 on the lab laptop opens the files without the permissions error, but does not display properly. There are weird tabs in strange places in the window, and portions of it are transparent, back to the desktop screen behind. The version of 3.0 I am able to install on my laptop (without the service pack) opens and displays the files normally as far as I can tell.
+ISODAT 3.0 is able to open the files that were seemingly corrupted in 2.0. The version of 3.0 on the lab laptop opens the files without the permissions error, but does not display properly. There are weird tabs in strange places in the window, and portions of it are transparent, back to the desktop screen behind. The version of 3.0 I am able to install on my laptop (3.0.0.54, i.e. without the .64 service pack) opens and displays the files normally as far as I can tell.
+
+### Update
+After reprocessing all of the ISODAT 2.0 ‘.caf’ files using the ISODAT 3.0.0.54 installation, I found that it was unable to reprocess any of the ‘.did’ files. I then installed the 3.0.0.64 Service Pack, which seemed to fix the problem.
