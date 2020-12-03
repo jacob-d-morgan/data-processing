@@ -28,9 +28,9 @@ masterSheet = makeMasterSheet(filesToImport);
 % of the PIS. These cases can be filtered out below.
 
 pisStats = masterSheet.correctionDiagnostics.PIS;
-delta_names = string(masterSheet.deltas_corr.Properties.VariableNames);
-delta_labels = string(masterSheet.deltas_corr.Properties.VariableDescriptions);
-delta_units = string(masterSheet.deltas_corr.Properties.VariableUnits);
+delta_names = string(masterSheet.corrDeltas.Properties.VariableNames);
+delta_labels = string(masterSheet.corrDeltas.Properties.VariableDescriptions);
+delta_units = string(masterSheet.corrDeltas.Properties.VariableUnits);
 
 % Import Mass Spec Events to Annotate Figures
 massSpecEvents = getMassSpecEvents;
