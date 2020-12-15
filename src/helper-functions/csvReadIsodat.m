@@ -55,16 +55,31 @@ end
 
 % Set My Default Import Options (Based off Auto-detected Options)
 optsToUse = opts{1};
-optsToUse = setvartype(optsToUse,contains(optsToUse.VariableNames,'rIntensity'),'double'); % Import all the intensities as doubles, even if they are all NaN
-optsToUse = setvartype(optsToUse,string(optsToUse.VariableTypes)=='char','string'); % Import all text as string arrays
-optsToUse = setvartype(optsToUse,'TimeCode','datetime');
-optsToUse = setvaropts(optsToUse,'TimeCode','InputFormat','yyyy/MM/dd HH:mm:ss','DatetimeFormat','yyyy-MM-dd HH:mm:ss');
-optsToUse = setvartype(optsToUse,'Date','datetime');
-optsToUse = setvaropts(optsToUse,'Date','InputFormat','MM/dd/yy','DatetimeFormat','yyyy-MM-dd HH:mm:ss');
+
+% Import all the intensities as doubles, even if missing
+optsToUse = setvartype(optsToUse,contains(optsToUse.VariableNames,'rIntensity'),'double');
+
+% Import all text as string arrays, even if missing
+optsToUse = setvartype(optsToUse,string(optsToUse.VariableTypes)=='char','string');
+
+% Import Identifiers as Strings, even if missing
 optsToUse = setvartype(optsToUse,{'Identifier1','Identifier2'},'string');
 
+% Import Sequence Row as Double, even if missing
 optsToUse.VariableNames(string(optsToUse.VariableNames)=='Row')={'SequenceRow'}; % Otherwise this inteferes with table.Row, which is already a built-in MATLAB command
+optsToUse = setvartype(optsToUse,{'SequenceRow'},'double');
+
+% Import Date and Time Codes as Datetime
 optsToUse.VariableNames(string(optsToUse.VariableNames)=='TimeCode')={'datetime'};
+optsToUse = setvartype(optsToUse,'datetime','datetime');
+optsToUse = setvaropts(optsToUse,'datetime','InputFormat','yyyy/MM/dd HH:mm:ss','DatetimeFormat','yyyy-MM-dd HH:mm:ss');
+
+optsToUse = setvartype(optsToUse,'Date','datetime');
+optsToUse = setvaropts(optsToUse,'Date','InputFormat','MM/dd/yy','DatetimeFormat','yyyy-MM-dd HH:mm:ss');
+
+
+
+
 
 % Read In Files
 importedData = table;
@@ -85,5 +100,18 @@ end
 importedData = sortrows(importedData,'datetime');
 importedData.datenum = datenum(importedData.datetime);
 importedData.IsRef__ = logical(importedData.IsRef__);
+
+importedData.fileCreated = extractBefore(importedData.FileHeader_Filename,"_cd_");
+importedData.fileCreatedUTC = extractBefore(extractAfter(importedData.FileHeader_Filename,"_cd_"),"_cd-utc_");
+importedData.fileModifiedUTC = extractBefore(importedData.FileHeader_Filename,"_wd-utc_");
+importedData.fileModifiedUTC(strlength(importedData.fileModifiedUTC)>15) = extractAfter(importedData.fileModifiedUTC(strlength(importedData.fileModifiedUTC)>15),"_cd-utc_");
+importedData.fileRelPath = extractBefore(extractAfter(importedData.FileHeader_Filename,"_wd-utc_"),"_rp_");
+importedData.fileNameIsodat = extractAfter(extractBefore(importedData.FileHeader_Filename,strlength(importedData.FileHeader_Filename)-3),"_rp_");
+importedData.fileType = extractAfter(importedData.FileHeader_Filename,strlength(importedData.FileHeader_Filename)-4);
+
+idxEnd = regexp(importedData.fileNameIsodat,"^\d{0,3}_",'end','once');
+trimStart = zeros(height(importedData),1);
+trimStart( ~cellfun('isempty',idxEnd)) = cell2mat(idxEnd);
+importedData.fileNameUser = extractBetween(importedData.fileNameIsodat,trimStart+1,strlength(importedData.fileNameIsodat)-5);
 
 end
