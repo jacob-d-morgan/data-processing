@@ -134,24 +134,27 @@ end % end main
 function [idxStartNewBlocks,idxStartNewAliquots] = detectBlocksAliquots(cycles)
 
 % Identify the New Blocks
-% Each block has a unique filename: find their indices.
-[~,idxStartNewBlocks,~] = unique(cycles.metadata.filename,'stable');
+% Each block has a unique time stamp: find their indices.
+[~,idxStartNewBlocks,~] = unique(cycles.metadata.msDatetime,'stable');
 
 % Generate Block Metadata
 blockMetadata = cycles.metadata(idxStartNewBlocks,:);
 
 % Identify the New Aliquots
-% Define Methods that Are Run at the Start of Each New Sample
-SAMPLE_START_METHODS = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
-
 % Identify aliquots that were run with one of the three methods
-iWorking = false(length(blockMetadata.method(:,1)),1); iWorking(1) = true;
+SAMPLE_START_METHODS = ["can_v_can"; "Automation_SA_Delay"; "Automation_SA"];
+iStartMethods = false(length(blockMetadata.method(:,1)),1); iStartMethods(1) = true;
 for ii=1:length(SAMPLE_START_METHODS)
-    iWorking = iWorking | blockMetadata.method(:,1)==SAMPLE_START_METHODS(ii);
+    iStartMethods = iStartMethods | blockMetadata.method(:,1)==SAMPLE_START_METHODS(ii);
 end
 
+% Identify Changes in the User-Entered File Name
+iNameChange = [1; ~strcmp(blockMetadata.fileNameUser(1:end-1),blockMetadata.fileNameUser(2:end))] & ...
+              ~(contains(blockMetadata.fileNameUser,'PIS','IgnoreCase',true) | ...
+                contains(blockMetadata.ID1,'PIS','IgnoreCase',true));
+
 % Identify aliquots also by finding the start of a new sequence (value of sequence row decreases).
-idxStartNewAliquots = find(iWorking | ([0; diff(blockMetadata.sequenceRow(:,1))]<0));
+idxStartNewAliquots = find(iStartMethods | iNameChange | ([0; diff(blockMetadata.sequenceRow(:,1))]<0));
 
 end
 
@@ -191,7 +194,7 @@ iBlocksToUse(idxStartNewAliquots) = iAliquotsToUse;
 idxBlocksToUse = find(iBlocksToUse) + (0:MODE_ALIQUOT_LENGTH-1); % Include only the four measurement blocks, not the PIS block at the end
 
 % Find the relevant cycles
-iCyclesToUse = ismember(cycles.metadata.filename,blockMetadata.filename(idxBlocksToUse)); 
+iCyclesToUse = ismember(cycles.metadata.fileFullName,blockMetadata.fileFullName(idxBlocksToUse));
 
 % Build the Array of Deltas and Metadata
 % Simply reshape the relevant rows of cycle deltas into an array of the
@@ -221,7 +224,7 @@ if flagPIS
     iPisAliquotPisBlocks(idxStartNewAliquots + MODE_ALIQUOT_LENGTH) = iAliquotsToUse & iPisAliquots; % Find where the PIS blocks are in the block_metadata array
     
     % Find the relevant PIS cycles
-    iCyclesToUsePIS = ismember(cycles.metadata.filename,blockMetadata.filename(iPisAliquotPisBlocks)); % Find the cycles corresponding to the PIS blocks
+    iCyclesToUsePIS = ismember(cycles.metadata.fileFullName,blockMetadata.fileFullName(iPisAliquotPisBlocks)); % Find the cycles corresponding to the PIS blocks
     
     % Find where the PIS aliquots should go
     % Alternative approach is to make a NaN array and put the PIS blocks in
@@ -229,7 +232,7 @@ if flagPIS
     % as we do for the non-PIS blocks.
     iPisAliquotFirstBlocks = false(length(blockLengthsAll),1);
     iPisAliquotFirstBlocks(idxStartNewAliquots) = iAliquotsToUse & iPisAliquots;
-    [~,idxPisAliquotsAfterReshape] = ismember(blockMetadata.filename(iPisAliquotFirstBlocks),aliquot_metadata.filename(:,1,1)); % Find where the PIS aliquots ended up after the reshape
+    [~,idxPisAliquotsAfterReshape] = ismember(blockMetadata.fileFullName(iPisAliquotFirstBlocks),aliquot_metadata.fileFullName(:,1,1)); % Find where the PIS aliquots ended up after the reshape
     
     % Build the array of PIS deltas and metadata
     pis_aliquot_deltas = table;
