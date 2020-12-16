@@ -179,7 +179,7 @@ MODE_BLOCK_LENGTH = mode(blockLengthsAll);
 MODE_ALIQUOT_LENGTH = mode(aliquotLengthsAll);
 iModeCycles = blockLengthsAll==MODE_BLOCK_LENGTH;
 iModeBlocks = aliquotLengthsAll==MODE_ALIQUOT_LENGTH;
-iPisAliquots = aliquotLengthsAll==MODE_ALIQUOT_LENGTH + 1 & blockMetadata.ID1(idxStartNewAliquots+aliquotLengthsAll-1)=='PIS'; % Is the last block in each aliquot have an ID1 equal to 'PIS'
+iPisAliquots = aliquotLengthsAll==MODE_ALIQUOT_LENGTH + 1 & (blockMetadata.ID1(idxStartNewAliquots+aliquotLengthsAll-1)=='PIS' | contains(blockMetadata.fileNameUser(idxStartNewAliquots+aliquotLengthsAll-1),'PIS','IgnoreCase',true)); % Is the last block in each aliquot have an ID1 equal to 'PIS'
 % Is this a valid way to ID PIS blocks? It will miss blocks that were maybe not explicitly tagged as PIS. Could see if looking at the actual P Imbalance improves this?
 
 % Find the relevant aliquots
