@@ -235,7 +235,11 @@ if flagPIS
     [~,idxPisAliquotsAfterReshape] = ismember(blockMetadata.fileFullName(iPisAliquotFirstBlocks),aliquot_metadata.fileFullName(:,1,1)); % Find where the PIS aliquots ended up after the reshape
     
     % Build the array of PIS deltas and metadata
-    pis_aliquot_deltas = table;
+    pis_aliquot_deltas = aliquots.deltas;
+    pis_aliquot_deltas{:,:}(:) = 0;
+    for ii_var = string(pis_aliquot_deltas.Properties.VariableNames)
+        pis_aliquot_deltas.(ii_var)(:,:,2:end,:) = [];
+    end
     pis_aliquot_deltas{idxPisAliquotsAfterReshape,:} = permute(reshape(cycles.deltas{iCyclesToUsePIS,:},MODE_BLOCK_LENGTH,1,[],size(cycles.deltas,2)),[3 4 2 1]);
     pis_aliquot_deltas = standardizeMissing(pis_aliquot_deltas,0);
     pis_aliquot_deltas.Properties = cycles.deltas.Properties;
