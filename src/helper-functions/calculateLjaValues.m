@@ -40,7 +40,7 @@ function [ljaValues, ljaStats] = calculateLjaValues(dataset,iLjaToUse)
 narginchk(2,2)
 nargoutchk(1,2)
 
-iCanToUse = contains(dataset.metadata.filename(:,1,1),'Aair','IgnoreCase',true);
+iCanToUse = contains(dataset.metadata.fileNameUser(:,1,1),'Aair','IgnoreCase',true);
 
 %% Find the Different Sets of LJA Aliquots
 % Determine which LJA aliquots were measured under identical MS conditions
