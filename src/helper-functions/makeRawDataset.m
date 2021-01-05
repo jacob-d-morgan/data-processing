@@ -163,79 +163,86 @@ end
 
 %% Add the Data from the CO2 and H2O Check Blocks
 % Calculate the relevant check parameters and attribute them to the
-% appropriate aliquots.
-
-% Calculate Block Averages for H2O and B-Jump CO2 Checks
-[~,idxStartNewCheckBlocks,idxCheckBlockGroups] = unique(checkCycles.metadata.msDatetime);
-checkBlocks.metadata = checkCycles.metadata(idxStartNewCheckBlocks,:);
-h2oBlocks.metadata = checkBlocks.metadata(checkBlocks.metadata.gasConfig=="H2O",:);
-co2Blocks.metadata = checkBlocks.metadata(checkBlocks.metadata.gasConfig=="CO2_O2",:);
-
-h2oBlocks.h2oCheck = table;
-for ii_var = string(checkCycles.h2oCheck.Properties.VariableNames)
-    temp = splitapply(@mean,checkCycles.h2oCheck.(ii_var),idxCheckBlockGroups);
-    h2oBlocks.h2oCheck.(ii_var) = temp(checkBlocks.metadata.gasConfig=="H2O",:);
-end
-
-co2Blocks.co2Check = table;
-for ii_var = string(checkCycles.co2Check.Properties.VariableNames)
-    temp = splitapply(@mean,checkCycles.co2Check.(ii_var),idxCheckBlockGroups);
-    co2Blocks.co2Check.(ii_var) = temp(checkBlocks.metadata.gasConfig=="CO2_O2",:);
-end
-
-% Attribute H2O and B-Jump CO2 Checks
-x_temp = importedData.datenum + (1:length(importedData.datenum))'.*importedData.datenum*eps; % Generate an x-variable with unique points by adding a quasi-infinitesimal increment (eps) to each row
-y_temp = 1:length(x_temp);
-
-iH2O = importedData.GasConfiguration == "H2O";
-iCO2_B = importedData.GasConfiguration== "CO2_O2";
-idxH2OPreviousBlocks = interp1(x_temp(~iH2O & ~iCO2_B),y_temp(~iH2O & ~iCO2_B),h2oBlocks.metadata.msDatenum,'previous','extrap'); % Interpolate to find the previous cycle, use extrap in case last check block falls after last air block
-idxCO2_BPreviousBlocks = interp1(x_temp(~iH2O & ~iCO2_B),y_temp(~iH2O & ~iCO2_B),co2Blocks.metadata.msDatenum,'previous','extrap'); % Interpolate to find the previous cycle, use extrap in case last check block falls after last air block
-
-[idxH2OPreviousBlocks,idxUniqueH2OPreviousBlocks,~] = unique(idxH2OPreviousBlocks,'stable'); % Make sure only one check block is attributed to each previous cycle. Subsequent check blocks are presumably not associated with any specific sample.
-[idxCO2_BPreviousBlocks,idxUniqueCO2PreviousBlocks,~] = unique(idxCO2_BPreviousBlocks,'stable'); % Make sure only one check block is attributed to each previous cycle. Subsequent check blocks are presumably not associated with any specific sample.
-
-datetimeH2OPreviousBlocks = importedData.datetime(idxH2OPreviousBlocks); % Use the index to find the datetime of those blocks
-datetimeCO2_BPreviousBlocks = importedData.datetime(idxCO2_BPreviousBlocks); % Use the index to find the datetime of those blocks
-
-[iA,idxB]=ismember(datetimeH2OPreviousBlocks,aliquots.metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
-[idxH2OAliquots,~,~] = ind2sub(size(aliquots.metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
-
-aliquots.h2oCheck = table;
-aliquots.h2oCheck.int18SA = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.h2oCheck.int18ST = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.h2oCheck.rH2OSA = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.h2oCheck.rH2OST = nan(size(aliquots.metadata.msDatetime,1),1);
-
-aliquots.h2oCheck{idxH2OAliquots,:} = h2oBlocks.h2oCheck{idxUniqueH2OPreviousBlocks,:}(iA,:);
-aliquots.h2oCheck.Properties = allCycles.h2oCheck.Properties;
-
-[iA,idxB]=ismember(datetimeCO2_BPreviousBlocks,aliquots.metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
-[idxCO2Aliquots,~,~] = ind2sub(size(aliquots.metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
-
-aliquots.co2Check = table;
-aliquots.co2Check.int44SA = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.co2Check.int44ST = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.co2Check.rCO2O2SA = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.co2Check.rCO2O2ST = nan(size(aliquots.metadata.msDatetime,1),1);
-
-aliquots.co2Check{idxCO2Aliquots,:} = co2Blocks.co2Check{idxUniqueCO2PreviousBlocks,:}(iA,:);
-aliquots.co2Check.Properties = allCycles.co2Check.Properties;
-
-
-% Find the Timestamp for the CO2 Check Blocks
-% I do this by interpolating to find the index/cycle number (y) of the
-% block nearest to the CO2 blocks in datetime (x). I then use this index to
-% find the datetime of these blocks.
+% appropriate aliquots. I do this by interpolating to find the index/cycle
+% number (y) of the air block nearest to the check blocks in datetime (x).
 % I have to use the index as the interpolant as the 'nearest' neighbour is
 % calculated in the x variable and I want to interpolate to the nearest
-% neightbour in datetime, not in cycle number.
+% neighbour in datetime, not in cycle number. I then use this index to find
+% the datetime of these air blocks, which I then use to find them in the
+% array of aliquots.
 
+nH2OVars = 4; % Number of variables in the H2O checks, the rest are assumed to be CO2 check variables
+
+% Pre-allocate Table to Fill
+aliquots.checks = table;
+aliquots.checks.int18SA = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.int18ST = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.rH2O_SA = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.rH2O_ST = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.int44SA = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.int44ST = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.rCO2O2_SA = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.rCO2O2_ST = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.Properties = allCycles.checks.Properties;
+
+% Start with the ISODAT 2 Checks
+if height(checkCycles.metadata) > 0
+    
+    % Split Checks into H2O and CO2 Variables
+    [~,idxStartNewCheckBlocks,idxCheckBlockGroups] = unique(checkCycles.metadata.msDatetime);
+    checkBlocks.metadata = checkCycles.metadata(idxStartNewCheckBlocks,:);
+    h2oBlocks.metadata = checkBlocks.metadata(checkBlocks.metadata.gasConfig=="H2O",:);
+    co2Blocks.metadata = checkBlocks.metadata(checkBlocks.metadata.gasConfig=="CO2_O2",:);
+    
+    % Calculate Block Averages for H2O and B-Jump CO2 Checks
+    h2oBlocks.h2oCheck = table;
+    for ii_var = string(checkCycles.checks.Properties.VariableNames(1:nH2OVars))
+        temp = splitapply(@mean,checkCycles.checks.(ii_var),idxCheckBlockGroups);
+        h2oBlocks.h2oCheck.(ii_var) = temp(checkBlocks.metadata.gasConfig=="H2O",:);
+    end
+    
+    co2Blocks.co2Check = table;
+    for ii_var = string(checkCycles.checks.Properties.VariableNames(nH2OVars+1:end))
+        temp = splitapply(@mean,checkCycles.checks.(ii_var),idxCheckBlockGroups);
+        co2Blocks.co2Check.(ii_var) = temp(checkBlocks.metadata.gasConfig=="CO2_O2",:);
+    end
+    
+    % Attribute H2O and B-Jump CO2 Checks to the Relevent Aliquots
+    x_temp = importedData.datenum + (1:length(importedData.datenum))'.*importedData.datenum*eps; % Generate an x-variable with unique points by adding a quasi-infinitesimal increment (eps) to each row
+    y_temp = 1:length(x_temp);
+    
+    iH2O = importedData.GasConfiguration == "H2O";
+    iCO2_B = importedData.GasConfiguration== "CO2_O2";
+    idxH2OPreviousBlocks = interp1(x_temp(~iH2O & ~iCO2_B),y_temp(~iH2O & ~iCO2_B),h2oBlocks.metadata.msDatenum,'previous','extrap'); % Interpolate to find the previous cycle, use extrap in case last check block falls after last air block
+    idxCO2_BPreviousBlocks = interp1(x_temp(~iH2O & ~iCO2_B),y_temp(~iH2O & ~iCO2_B),co2Blocks.metadata.msDatenum,'previous','extrap'); % Interpolate to find the previous cycle, use extrap in case last check block falls after last air block
+    
+    [idxH2OPreviousBlocks,idxUniqueH2OPreviousBlocks,~] = unique(idxH2OPreviousBlocks,'stable'); % Make sure only one check block is attributed to each previous cycle. Subsequent check blocks are presumably not associated with any specific sample.
+    [idxCO2_BPreviousBlocks,idxUniqueCO2PreviousBlocks,~] = unique(idxCO2_BPreviousBlocks,'stable'); % Make sure only one check block is attributed to each previous cycle. Subsequent check blocks are presumably not associated with any specific sample.
+    
+    datetimeH2OPreviousBlocks = importedData.datetime(idxH2OPreviousBlocks); % Use the index to find the datetime of those blocks
+    datetimeCO2_BPreviousBlocks = importedData.datetime(idxCO2_BPreviousBlocks); % Use the index to find the datetime of those blocks
+    
+    [iA,idxB]=ismember(datetimeH2OPreviousBlocks,aliquots.metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
+    [idxH2OAliquots,~,~] = ind2sub(size(aliquots.metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
+        
+    aliquots.checks{idxH2OAliquots,1:nH2OVars} = h2oBlocks.h2oCheck{idxUniqueH2OPreviousBlocks,:}(iA,:);
+    
+    [iA,idxB]=ismember(datetimeCO2_BPreviousBlocks,aliquots.metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
+    [idxCO2Aliquots,~,~] = ind2sub(size(aliquots.metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
+
+    aliquots.checks{idxCO2Aliquots,nH2OVars+1:end} = co2Blocks.co2Check{idxUniqueCO2PreviousBlocks,:}(iA,:);
+    
+end
+
+% Repeat for the ISODAT 3 CO2 Check
 iCO2 = importedData.Method=="CO2nonB" | importedData.Method=="CO2_non_B"; % Identify the CO2 blocks using the method name
-rCO2N2_SA = importedData.x1_CycleInt_Samp_40(iCO2)./importedData.x1_CycleInt_Samp_29(iCO2);
-rCO2N2_ST = importedData.x1_CycleInt_Ref_40(iCO2)./importedData.x1_CycleInt_Ref_29(iCO2);
+int44SA = importedData.x1_CycleInt_Samp_40(iCO2);
+int44ST = importedData.x1_CycleInt_Ref_40(iCO2);
+rCO2O2_SA = importedData.x1_CycleInt_Samp_40(iCO2)./importedData.x1_CycleInt_Samp_29(iCO2);
+rCO2O2_ST = importedData.x1_CycleInt_Ref_40(iCO2)./importedData.x1_CycleInt_Ref_29(iCO2);
 
-
+x_temp = importedData.datenum + (1:length(importedData.datenum))'.*importedData.datenum*eps; % Generate an x-variable with unique points by adding a quasi-infinitesimal increment (eps) to each row
+y_temp = 1:length(x_temp);
 
 idxCO2NearestBlocks = interp1(x_temp(~iCO2),y_temp(~iCO2),x_temp(iCO2),'nearest'); % Interpolate to find the index of the nearest cycle
 datetimeCO2NearestBlocks = importedData.datetime(idxCO2NearestBlocks); % Use the index to find the datetime of those blocks
@@ -243,20 +250,11 @@ datetimeCO2NearestBlocks = importedData.datetime(idxCO2NearestBlocks); % Use the
 [iA,idxB]=ismember(datetimeCO2NearestBlocks,aliquots.metadata.msDatetime); % Find the linear index of these blocks in the aliquot_metadata structure, not all will be present as some have <16 cycles or 6 < blocks < 4
 [idxCO2Aliquots,~,~] = ind2sub(size(aliquots.metadata.msDatetime),idxB(iA)); % Convert to a subscript so that I know which aliquot they correspond to
 
-aliquots.co2Check.rCO2N2_SA = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.co2Check.rCO2N2_ST = nan(size(aliquots.metadata.msDatetime,1),1);
-aliquots.co2Check.dCO2N2 = nan(size(aliquots.metadata.msDatetime,1),1);
+aliquots.checks.int44SA(idxCO2Aliquots) = int44SA(iA);
+aliquots.checks.int44ST(idxCO2Aliquots) = int44ST(iA);
+aliquots.checks.rCO2O2_SA(idxCO2Aliquots) = rCO2O2_SA(iA);
+aliquots.checks.rCO2O2_ST(idxCO2Aliquots) = rCO2O2_ST(iA);
 
-aliquots.co2Check.rCO2N2_SA(idxCO2Aliquots) = rCO2N2_SA(iA);
-aliquots.co2Check.rCO2N2_ST(idxCO2Aliquots) = rCO2N2_ST(iA);
-aliquots.co2Check.dCO2N2(idxCO2Aliquots) = (rCO2N2_SA(iA)./rCO2N2_ST(iA)-1)*1000;
-
-aliquots.co2Check.Properties.VariableDescriptions(end-2:end) = {
-    'Sample CO2/N2 ratio for the aliquot', ...
-    'Standard CO2/N2 ratio for the aliquot', ...
-    'dCO2/N2 measured via manually peak jumping using the high voltage'};
-aliquots.co2Check.Properties.VariableUnits(end-2:end) = {'','',char(8240)};
-    
 
 %% Parse Outputs
 % Organise the manipulated data into the requested outputs.

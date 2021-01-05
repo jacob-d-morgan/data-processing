@@ -90,37 +90,34 @@ deltas.Properties.Description = ...
 % Calculate the raw ratios for water and carbon dioxide using the
 % interpolated voltages.
 
-h2oCheck = table;
-h2oCheck.int18SA = intSA.rIntensity18;
-h2oCheck.int18ST = intST.rIntensity18;
-h2oCheck.rH2O_SA = intSA.rIntensity20./intSA.rIntensity18;
-h2oCheck.rH2O_ST = intST.rIntensity20./intST.rIntensity18;
+checks = table;
+checks.int18SA = intSA.rIntensity18;
+checks.int18ST = intST.rIntensity18;
+checks.rH2O_SA = intSA.rIntensity20./intSA.rIntensity18;
+checks.rH2O_ST = intST.rIntensity20./intST.rIntensity18;
 
-co2Check = table;
-co2Check.int44SA = intSA.rIntensity44;
-co2Check.int44ST = intST.rIntensity44;
-co2Check.rCO2O2_SA = intSA.rIntensity44./intSA.rIntensity32;
-co2Check.rCO2O2_ST = intST.rIntensity44./intST.rIntensity32;
+checks.int44SA = intSA.rIntensity44;
+checks.int44ST = intST.rIntensity44;
+checks.rCO2O2_SA = intSA.rIntensity44./intSA.rIntensity32;
+checks.rCO2O2_ST = intST.rIntensity44./intST.rIntensity32;
 
-h2oCheck.Properties.VariableDescriptions = [
+checks.Properties.VariableDescriptions = [
     "Integrated mass/charge 18 sample beam", ...
     "Integrated mass/charge 18 standard beam", ...
     "Mass charge 20/18 sample raw ratio", ...
     "Mass charge 20/18 standard raw ratio", ...
-    ];
-h2oCheck.Properties.VariableUnits = {'mV','mV','',''};
-h2oCheck.Properties.Description = ...
-    "Raw water vapour intensities and ratios of the sample and standard gas for each sample analyzed on the XP, calculated using the integrated intensities reported by ISODAT reprocessing.";
-
-co2Check.Properties.VariableDescriptions = [
     "Integrated mass/charge 44 sample beam", ...
     "Integrated mass/charge 44 standard beam", ...
     "Mass charge 44/32 sample raw ratio", ...
     "Mass charge 44/32 standard raw ratio" ...
     ];
-co2Check.Properties.VariableUnits = {'mV','mV','',''};
-co2Check.Properties.Description = ...
-    "Raw carbon dioxide intensities and ratios of the sample and standard gas for each sample analyzed on the XP, calculated using the integrated intensities reported by ISODAT reprocessing.";
+
+checks.Properties.VariableUnits = [
+    "mV", "mV", "", "", "mV", "mV", "", ""
+    ];
+
+checks.Properties.Description = ...
+    "Raw water vapour and carbon dioxide intensities and ratios of the sample and standard gas for each sample analyzed on the XP, calculated using the integrated intensities reported by ISODAT reprocessing.";
 
 %% Extract Cycle Metadata
 % Create a table of metadata for each cycle.
@@ -178,7 +175,7 @@ metadata.Properties.Description = ...
 %% Assemble Output
 % Combine both tables into one structure.
 
-cycles = struct('metadata',metadata,'h2oCheck',h2oCheck,'co2Check',co2Check,'deltas',deltas);
+cycles = struct('metadata',metadata,'checks',checks,'deltas',deltas);
 
 
 end
