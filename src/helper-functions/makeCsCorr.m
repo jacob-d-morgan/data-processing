@@ -30,9 +30,13 @@ CS = csValues;
 massSpecEvents = getMassSpecEvents;
 newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
 for ii = 1:height(newCorrections)
-    idxStart = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii),1);
-    idxEnd = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,size(CS,2)); CS(idxStart:end,:)]),2),1) - 1;
-    CS(idxStart:idxEnd,:) = -99;
+    if max(aliquotDates(:,1,1,1) > newCorrections.StartDate(ii))
+        idxStart = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii),1); % Idx of first aliquot after a filament change/refocus
+        idxEnd = find(aliquotDates(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,size(CS,2)); CS(idxStart:end,:)]),2),1) - 1; % Idx of last aliquot after a filament change/refocus AND before a CS
+        CS(idxStart:idxEnd,:) = -99;
+    else
+        break
+    end
 end
 
 CS = fillmissing(CS,'previous');

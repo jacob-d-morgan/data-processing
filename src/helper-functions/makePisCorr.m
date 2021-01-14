@@ -29,9 +29,13 @@ PIS = pisValues;
 massSpecEvents = getMassSpecEvents;
 newCorrections = massSpecEvents(massSpecEvents.Event == "New Filament" | massSpecEvents.Event == "Refocus",:);
 for ii = 1:height(newCorrections)
-    idxStart = find(rawDataset.metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii),1);
-    idxEnd = find(rawDataset.metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,size(PIS,2)); PIS(idxStart:end,:)]),2),1) - 1;
-    PIS(idxStart:idxEnd,:) = -99;
+    if max(rawDataset.metadata.msDatetime(:,1,1) > newCorrections.StartDate(ii))
+        idxStart = find(rawDataset.metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii),1); % Idx of first aliquot after a filament change/refocus
+        idxEnd = find(rawDataset.metadata.msDatetime(:,1,1) >= newCorrections.StartDate(ii) & any(~isnan([nan(idxStart-1,size(PIS,2)); PIS(idxStart:end,:)]),2),1) - 1; % Idx of last aliquot after filament change/refocus AND before a PIS
+        PIS(idxStart:idxEnd,:) = -99;
+    else
+        break
+    end
 end
 
 % Fill Most Samples with Previous PIS Value

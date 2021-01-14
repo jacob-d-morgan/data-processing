@@ -32,9 +32,11 @@ newCorrections = massSpecEvents(...
 
 idxLjas = find(~isnat(ljaStats.ljaDatetime));
 for ii = 1:length(idxLjas)
+    % Find the Start and End of the Corrections Period
     ljaDate = ljaStats.ljaDatetime(idxLjas(ii));
-    startDate = newCorrections.EndDate(find(newCorrections.EndDate < ljaDate,1,'last'));
-    endDate = newCorrections.StartDate(find(newCorrections.EndDate > ljaDate,1,'first'));
+    startDate = newCorrections.EndDate(find(newCorrections.EndDate < ljaDate,1,'last')); % The last filament change/refocus before the LJA
+    endDate = min([max(rawDataset.metadata.msDatetime(:)); newCorrections.StartDate(find(newCorrections.EndDate > ljaDate,1,'first'))]); % Either the first filament change/refocus after the LJA or the date of the last measured aliquot, whichever comes first
+    
     firstLjaDate = min(ljaStats.ljaAliquotSetDates{idxLjas(ii)});
     lastLjaDate = max(ljaStats.ljaAliquotSetDates{idxLjas(ii)});
     
