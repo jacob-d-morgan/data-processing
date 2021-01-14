@@ -41,36 +41,24 @@ calcPis(pisStats.rejections) = nan;
 % different gas ratios in the source.
 
 % Identify the CS Experiment Aliquots
-exp2match = '1?[5|8]?\s?(?<CS>[N|O])\s?C?S?\s(?<rep>\d+)';
+exp2match = '^1?[5|8]?\s?(?<CS>[N|n|O|o])\s?C?S?\s(?<rep>\d+)';
 tokens = regexp(pisCorrDataset.metadata.ID1(:,1,1),exp2match,'names');
 
-iCS = ~cellfun('isempty',tokens);
-csType = strings(size(iCS));
-csType(iCS) = cellfun(@(x) x.CS,tokens(iCS));
-csRep = strings(size(iCS));
-csRep(iCS) = cellfun(@(x) x.rep,tokens(iCS));
+iCSbyID = ~cellfun('isempty',tokens);
+iCSbyFN = contains(pisCorrDataset.metadata.fileNameUser(:,1,1,1),"slope",'IgnoreCase',true);
 
-iCS_AddO2 = false(size(iCS));
-iCS_AddO2(iCS & csType=="N") = true;
-
-iCS_AddN2 = false(size(iCS));
-iCS_AddN2(iCS & csType=="O") = true;
-
-
-% == MANUALLY INCLUDE THE ONLY 2016-02-09 REP-0 IN BOTH CS EXPERIMENTS == %
-iCS_AddN2(pisCorrDataset.metadata.msDatetime(:,1,1)=={'2016-02-08 13:27:59'}) = true;
-% ======================================================================= %
+iCS = (iCSbyID | iCSbyFN) & ~contains(pisCorrDataset.metadata.fileNameUser(:,1,1,1),'neon','IgnoreCase',true);
 
 % Calculate the Univariate (N2 & O2 Isotopes, Ar/N2 Ratio) Chem Slopes
-[calcCS_15N,csStats_15N] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.d15N,pisCorrDataset.metadata,iCS_AddO2);
-[calcCS_ArN2,csStats_ArN2] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.dArN2,pisCorrDataset.metadata,iCS_AddO2);
-[calcCS_18O,csStats_18O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d18O,pisCorrDataset.metadata,iCS_AddN2);
-[calcCS_17O,csStats_17O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d17O,pisCorrDataset.metadata,iCS_AddN2);
+[calcCS_15N,csStats_15N] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.d15N,pisCorrDataset.metadata,iCS);
+[calcCS_ArN2,csStats_ArN2] = calculateCsValues(pisCorrDataset.deltas.dO2N2,pisCorrDataset.deltas.dArN2,pisCorrDataset.metadata,iCS);
+[calcCS_18O,csStats_18O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d18O,pisCorrDataset.metadata,iCS);
+[calcCS_17O,csStats_17O] = calculateCsValues((1/(pisCorrDataset.deltas.dO2N2/1000+1)-1)*1000,pisCorrDataset.deltas.d17O,pisCorrDataset.metadata,iCS);
 
 % Calculate the Bivariate (Ar Isotopes) Chem Slopes
 x_temp = [((pisCorrDataset.deltas.dArN2/1000+1).^-1 - 1)*1000 ((pisCorrDataset.deltas.dO2N2/1000+1)./(pisCorrDataset.deltas.dArN2/1000+1)-1)*1000]; % predictor variables = dN2/Ar AND dO2Ar (= [q_o2n2/q_arn2 -1]*1000)
-[calcCS_4036Ar,csStats_36Ar] = calculateCsValues(x_temp,pisCorrDataset.deltas.d4036Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
-[calcCS_4038Ar,csStats_38Ar] = calculateCsValues(x_temp,pisCorrDataset.deltas.d4038Ar,pisCorrDataset.metadata,iCS_AddN2 | iCS_AddO2,true);
+[calcCS_4036Ar,csStats_36Ar] = calculateCsValues(x_temp,pisCorrDataset.deltas.d4036Ar,pisCorrDataset.metadata,iCS);
+[calcCS_4038Ar,csStats_38Ar] = calculateCsValues(x_temp,pisCorrDataset.deltas.d4038Ar,pisCorrDataset.metadata,iCS);
 
 % Make CS Corrections
 csValues = [{calcCS_15N} {calcCS_18O} {calcCS_17O} {calcCS_4036Ar} {calcCS_4038Ar} {calcCS_ArN2} ];

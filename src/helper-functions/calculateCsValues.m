@@ -1,4 +1,4 @@
-function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCStoUse,flagAr)
+function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCS)
 % CALCULATECHEMSLOPE Calculates the Chemical Slope for a set of experiments
 %   Calculates the chemical slope for a given delta value, for each
 %   chemical slope experiment in iCSTOUSE. The Chem Slope is calculated by
@@ -38,11 +38,8 @@ function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCStoUse,
 
 %% Parse Inputs
 nargoutchk(2,2);
-narginchk(4,5);
+narginchk(4,4);
 
-if nargin==4
-    flagAr = false;
-end
 
 %% Find the Different CS Experiments
 % Finding the CS aliquots separated by more than 10 hours or with a
@@ -52,25 +49,21 @@ end
 % was run the morning after the previous attempt was run in the afternoon
 % w/ diff=15 hr.
 csAliquotSeparation = duration(nan(size(aliquot_metadata.msDatetime,1),3));
-csAliquotSeparation(iCStoUse) = [diff(aliquot_metadata.msDatetime(iCStoUse,1,1)); hours(999)+minutes(59)+seconds(59)];
+csAliquotSeparation(iCS) = [diff(aliquot_metadata.msDatetime(iCS,1,1)); hours(999)+minutes(59)+seconds(59)];
 
-if ~flagAr
-    isLastAliquot = csAliquotSeparation > 10/24; % Separated by more than 10 hours
-else
-    isLastAliquot = csAliquotSeparation > 24; % Unless its an Ar chem slope, in which case 24 hours is used instead
-end
+isLastAliquot = hours(csAliquotSeparation) > 24; % Separated by more than 24 hrs.
 idxLastAliquot = find(isLastAliquot);
 
 % Increment an index by one for each new CS experiment
-csCount = nan(size(iCStoUse,1),1);
+csCount = nan(size(iCS,1),1);
 csCount(isLastAliquot) = cumsum(isLastAliquot(isLastAliquot));
 
 % Make the grouping variable
 % Assign the same index to all the aliquots from each experiment
-csGroup = zeros(size(iCStoUse,1),1); % Create a vector of zeros
-csGroup(iCStoUse) = nan; % Assign NaN to the values I want to replace
+csGroup = zeros(size(iCS,1),1); % Create a vector of zeros
+csGroup(iCS) = nan; % Assign NaN to the values I want to replace
 csGroup(isLastAliquot) = csCount(isLastAliquot); % Fill in the indices of the end of each CS experiment
-csGroup(iCStoUse) = fillmissing(csGroup(iCStoUse),'next'); % Replace the nans for each aliquot with the next index - must fill only the (iCS_15N) subset otherwise it fills some indices with interspersed zeros that are then reassigned to NaN in the next line
+csGroup(iCS) = fillmissing(csGroup(iCS),'next'); % Replace the nans for each aliquot with the next index - must fill only the (iCS_15N) subset otherwise it fills some indices with interspersed zeros that are then reassigned to NaN in the next line
 csGroup = standardizeMissing(csGroup,0); % Change the zeros to nans to properly represent the fact that they are missing values
 
 %% Calculate the Chem Slope
@@ -96,19 +89,28 @@ for ii = min(csGroup):max(csGroup)
     x_temp = mean(mean(x(csGroup==ii,:,:,:),4),3);
     y_temp = mean(mean(y(csGroup==ii,:,:,:),4),3);
     
-    csFit = [x_temp ones(length(x_temp),1)]\y_temp;
-    if size(x,2)==1
-        [r,pVal] = corrcoef(x_temp,y_temp);
-    else
-        r = nan(2); pVal = nan(2);
+    x_toUse = x_temp(all(x_temp > -5,2),:);
+    y_toUse = y_temp(all(x_temp > -5,2));
+    
+    if size(x_toUse,1) > 1 % check there is enough data to do a fit
+        
+        csFit = [x_toUse ones(length(x_toUse),1)]\y_toUse;
+        if size(x,2)==1
+            [r,pVal] = corrcoef(x_toUse,y_toUse);
+        else
+            r = nan(2); pVal = nan(2);
+        end
+        
+    else % otherwise, everything is nan
+        csFit = nan(2,1); r = nan(2); pVal = nan(2);
     end
     
     calcCS(idxLastAliquot(ii),:) = csFit(1:end-1,:);
     
     stats.csDatetime(idxLastAliquot(ii)) = aliquot_metadata.msDatetime(idxLastAliquot(ii));
-    stats.xData{idxLastAliquot(ii)} = x(csGroup==ii,:,:,:);
-    stats.yData{idxLastAliquot(ii)} = y(csGroup==ii,:,:,:);
-    stats.rejections{idxLastAliquot(ii)} = false(size(x_temp));
+    stats.xData{idxLastAliquot(ii)} = x_toUse;
+    stats.yData{idxLastAliquot(ii)} = y_toUse;
+    stats.rejections{idxLastAliquot(ii)} = false(size(x_toUse));
     stats.slope(idxLastAliquot(ii),:) = csFit(1:end-1,:);
     stats.intercept(idxLastAliquot(ii)) = csFit(end,:);
     stats.rSq(idxLastAliquot(ii)) = r(1,2).^2;
@@ -125,7 +127,7 @@ end
 % slope, r-squared, and p-value.
 
 % Identify any Chem Slope Experiments with a 'Bad' r-squared Value
-idxBadCs = find(stats.rSq < 0.99);
+idxBadCs = find(stats.rSq < 0.95);
 
 % Loop through the 'Bad' CS Experiments
 for ii=1:length(idxBadCs)
@@ -134,26 +136,30 @@ for ii=1:length(idxBadCs)
     
     x_temp = mean(mean(x_full,4),3);
     y_temp = mean(mean(y_full,4),3);
-    rSqBootstrapped = nan(size(x_temp));
+    
+    x_toUse = x_temp(x_temp > -5);
+    y_toUse = y_temp(x_temp > -5);
+    
+    rSqBootstrapped = nan(size(x_toUse));
     
     % Remove each aliquot one by one and recalculate r-squared
-    for jj = 1:length(x_temp)
-        iToUse = true(size(x_temp));
-        iToUse(jj) = false;
+    for jj = 1:length(x_toUse)
+        iBoostrap = true(size(x_toUse));
+        iBoostrap(jj) = false;
         
-        r = corrcoef(x_temp(iToUse),y_temp(iToUse));
+        r = corrcoef(x_toUse(iBoostrap),y_toUse(iBoostrap));
         rSqBootstrapped(jj) = r(1,2).^2;
     end
     
     % Recalculate the slope and intercept...
     [bestRsq,idxBestRsq] = max(rSqBootstrapped);
-    if bestRsq > 0.95 && bestRsq > stats.rSq(idxBadCs(ii)) % ...but only if the best r-squared is better than the original and better than 0.95
-        iRej = false(size(x_temp));
+    if bestRsq > 0.80 && bestRsq > stats.rSq(idxBadCs(ii)) % ...but only if the best r-squared is better than the original and better than 0.8
+        iRej = false(size(x_toUse));
         iRej(idxBestRsq) = true;
         
         % Recalculate Slope and Intercept
-        m_afterRej = [x_temp(~iRej) ones(size(x_temp(~iRej)))]\y_temp(~iRej);
-        [r_afterRej,pVal_afterRej] = corrcoef(x_temp(~iRej),y_temp(~iRej));
+        m_afterRej = [x_toUse(~iRej) ones(size(x_toUse(~iRej)))]\y_toUse(~iRej);
+        [r_afterRej,pVal_afterRej] = corrcoef(x_toUse(~iRej),y_toUse(~iRej));
         
         % Reassign to Relevant Output Variables
         calcCS(idxBadCs(ii)) = m_afterRej(1:end-1,:);
