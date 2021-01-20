@@ -34,7 +34,7 @@ idxLjas = find(~isnat(ljaStats.ljaDatetime));
 for ii = 1:length(idxLjas)
     % Find the Start and End of the Corrections Period
     ljaDate = ljaStats.ljaDatetime(idxLjas(ii));
-    startDate = newCorrections.EndDate(find(newCorrections.EndDate < ljaDate,1,'last')); % The last filament change/refocus before the LJA
+    startDate = max([min(rawDataset.metadata.msDatetime(:)); newCorrections.EndDate(find(newCorrections.EndDate < ljaDate,1,'last'))]); % Either the last filament change/refocus before the LJA or the date of the first measured aliquot, whichever comes last
     endDate = min([max(rawDataset.metadata.msDatetime(:)); newCorrections.StartDate(find(newCorrections.EndDate > ljaDate,1,'first'))]); % Either the first filament change/refocus after the LJA or the date of the last measured aliquot, whichever comes first
     
     firstLjaDate = min(ljaStats.ljaAliquotSetDates{idxLjas(ii)});
