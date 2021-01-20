@@ -1,18 +1,17 @@
 function [csValues, csStats] = calculateChemSlope(x,y,aliquot_metadata,iCS)
 % CALCULATECHEMSLOPE Calculates the Chemical Slope for a set of experiments
 %   Calculates the chemical slope for a given delta value, for each
-%   chemical slope experiment in iCSTOUSE. The Chem Slope is calculated by
+%   chemical slope experiment in iCS. The Chem Slope is calculated by
 %   fitting a straight line to the mean delta value of each aliquot in Y as
 %   a function of the mean delta value in X, for each of the sets of
-%   aliquots in X and Y identified by iCSTOUSE.
+%   aliquots in X and Y identified by iCSTOUSE. Only the data in X(X > -5)
+%   and Y(X > -5) are used for the fit.
 %
-%   CALCULATECSVALUES(X,Y,ALIQUOT_METADATA,iCSTOUSE,FLAGAR) returns the
-%   Chemical Slope, i.e. the dependence of Y on X, for each CS experiment.
-%   The aliquots identified in iCSTOUSE are split into the different
-%   experiments based on their separation in time. A separation of 10 or
-%   more hours indicates a different chem slope experiment unless the
-%   optional input, FLAGAR, is set to TRUE, in which case a separation of
-%   24 hours is used instead.
+%   CALCULATECSVALUES(X,Y,ALIQUOT_METADATA,iCS) returns the Chemical Slope,
+%   i.e. the dependence of Y on X, for each CS experiment. The aliquots
+%   identified in iCSTOUSE are split into the different experiments based
+%   on their separation in time. A separation of 24 or more hours indicates
+%   a different chem slope experiment.
 %
 %   [CSVALUES,CSSTATS] = CALCULATECSVALUES(...) also outputs statistics
 %   other useful information relating to each PIS experiment, including:
@@ -42,12 +41,11 @@ narginchk(4,4);
 
 
 %% Find the Different CS Experiments
-% Finding the CS aliquots separated by more than 10 hours or with a
-% decrease in the replicate identifier (assumes CS 0 - CS 30 are measured
-% in that order). N.B. It's important to not use too big a number here.
-% Using 24 hours fails to resolve a re-do of the 18O CS in Feb-2016 as it
-% was run the morning after the previous attempt was run in the afternoon
-% w/ diff=15 hr.
+% Finding the CS aliquots separated by more than 24 hours.
+% N.B. It's very difficult to get this arbitrary number correct for all the
+% different CS experiments. For example, using 24 hours fails to resolve
+% a re-do of the 18O CS in Feb-2016 as it was run the morning after the
+% previous attempt was run in the afternoon w/ diff=15 hr.
 csAliquotSeparation = duration(nan(size(aliquot_metadata.msDatetime,1),3));
 csAliquotSeparation(iCS) = [diff(aliquot_metadata.msDatetime(iCS,1,1)); hours(999)+minutes(59)+seconds(59)];
 
@@ -86,13 +84,15 @@ stats.pVal = nan(size(x,[1 2]));
 
 % Loop through the different CS experiments
 for ii = min(csGroup):max(csGroup)
+    % Take the aliquot average of the cycles and blocks
     x_temp = mean(mean(x(csGroup==ii,:,:,:),4),3);
     y_temp = mean(mean(y(csGroup==ii,:,:,:),4),3);
     
+    % Only use data where X > -5 per mil (added gas is in the numerator of X)
     x_toUse = x_temp(all(x_temp > -5,2),:);
     y_toUse = y_temp(all(x_temp > -5,2));
     
-    if size(x_toUse,1) > 1 % check there is enough data to do a fit
+    if size(x_toUse,1) > 1 % check there is enough data left to do a fit
         
         csFit = [x_toUse ones(length(x_toUse),1)]\y_toUse;
         if size(x,2)==1
@@ -105,6 +105,7 @@ for ii = min(csGroup):max(csGroup)
         csFit = nan(2,1); r = nan(2); pVal = nan(2);
     end
     
+    % Assign outputs
     calcCS(idxLastAliquot(ii),:) = csFit(1:end-1,:);
     
     stats.csDatetime(idxLastAliquot(ii)) = aliquot_metadata.msDatetime(idxLastAliquot(ii));
@@ -120,10 +121,10 @@ end
 
 
 %% Identify Anomalous CS Values
-% For CS experiments with an r-squared value less than 0.99, reject each of
+% For CS experiments with an r-squared value less than 0.95, reject each of
 % the aliquots, one by one, and recalculate the r-squared. If this results
 % in an r-squared value that is better than the original value, and is
-% greater than 0.95, reject the problem aliquot and recalculate the chem
+% greater than 0.8, reject the problem aliquot and recalculate the chem
 % slope, r-squared, and p-value.
 
 % Identify any Chem Slope Experiments with a 'Bad' r-squared Value
@@ -136,10 +137,10 @@ for ii=1:length(idxBadCs)
     
     x_temp = mean(mean(x_full,4),3);
     y_temp = mean(mean(y_full,4),3);
-    
+
     x_toUse = x_temp(x_temp > -5);
     y_toUse = y_temp(x_temp > -5);
-    
+
     rSqBootstrapped = nan(size(x_toUse));
     
     % Remove each aliquot one by one and recalculate r-squared
