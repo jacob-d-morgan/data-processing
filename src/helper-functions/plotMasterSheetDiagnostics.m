@@ -20,7 +20,7 @@ massSpecEvents.Event = categorical(massSpecEvents.Event);
 iPIS = ~isnat(pisStats.pisDatetime);
 
 stackedFig(3,'RelSize',[0.4 1.7 0.9],'Overlap',[-10 -10]);
-xlim(stackedFigAx,datenum([2013 2019],[01 01],[01 01]));
+xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
 
 % Plot R-Squared of each PIS Experiment
 stackedFigAx(1)
@@ -51,7 +51,7 @@ ylim([-600 0])
 
 % Set Labels & Limits etc.
 stackedFigAx;
-xlim(stackedFigAx,datenum([2013 2019],[01 01],[01 01]));
+xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
 datetick('x','keeplimits');
 drawnow;
 stackedFigReset
@@ -74,7 +74,7 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('PIS Values used for Correction')
-xlim(stackedFigAx,datenum([2013 2019],[01 01],[01 01]));
+xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
 datetick('x','keeplimits')
 drawnow;
 stackedFigReset
@@ -205,7 +205,7 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('CS Values used for Correction')
-xlim(stackedFigAx,datenum([2013 2019],[01 01],[01 01]));
+xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
 datetick('x','keeplimits')
 stackedFigReset
 
@@ -273,7 +273,7 @@ for ii = 1:numel(delta_names)
     plot(datenum([massSpecEvents.StartDate(iPlot)'; massSpecEvents.EndDate(iPlot)']),repmat(get(gca,'YLim')',1,sum(iPlot)),'-','Color',lineCol(10));
     text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlot),1),massSpecEvents.Event(iPlot),'Rotation',90,'HorizontalAlignment','right','VerticalAlignment','top','Color',lineCol(10));
     
-    xlim(datenum([2013 2019],[01 01],[01 01]))
+    xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
     datetick('x','mmm-yyyy','keeplimits')
     ylabel(delta_labels{ii});
     title(['LJA: ' delta_labels{ii}]);
@@ -313,6 +313,6 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 
 % Set Labels & Limits etc.
 title('LJA Values used for Correction')
-xlim(datenum([2013 2019],[01 01],[01 01]))
+xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
 datetick('x','mmm-yyyy','keeplimits')
 stackedFigReset
