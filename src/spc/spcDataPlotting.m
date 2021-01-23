@@ -1,21 +1,34 @@
 %% SPC Data Plotting
-% Plots figures from the SPC XP dataset.
+% Plots figures from the SPC (South Pole Core) XP dataset.
 
 clearvars;
 cluk; clc
 
 %% Import Data
-% Load the relevant csv files and compile the data into the SPC dataset.
+% Load the relevant csv files and compile the data into the SPC master
+% sheet and ice core dataset.
 
+% Generate Master Sheet
 filesToImport = [
-    "XP-2018(excelExportIntensityJDM).csv"; ...
-    "XP-2017(excelExportIntensityJDM).csv"; ...
-    "XP-2016(excelExportIntensityJDM).csv"; ...
+    "XP-2016(exportJDM).csv";...
+    "XP-2017(exportJDM).csv";...
+    "XP-2018(exportJDM).csv";...
     ];
 
 spcMasterSheet = makeMasterSheet(filesToImport);
-exp2match = '^(?<depth>\d\d\d*(\.?)\d*)\s*(?<rep>\w?)$'; % Beginning; depth: two or more numeric chars, maybe with a decimal point; maybe a space; rep: maybe a single alphanumeric (or underscore) char; End.
-spc = makeIceCoreDataset(spcMasterSheet,'SPICE',exp2match);
+
+%%
+% Generate Ice Core Dataset
+iceCoreID = 'SPICE';
+exp2match = '^(?<depth>\d{3,}(\.?)\d*)\s*(?<rep>\w?)$'; % Beginning; depth: two or more numeric chars, maybe with a decimal point; maybe a space; rep: maybe a single alphanumeric (or underscore) char; End.
+tokens = regexp(spcMasterSheet.metadata.ID1(:,1,1),exp2match,'tokens');
+
+iSPC = contains(spcMasterSheet.metadata.fileRelPath(:,1,1),iceCoreID) & ...
+   ~cellfun(@isempty,tokens);
+bottomDepth = double(cellfun(@(x) x{1}(1),tokens(iSPC)));
+rep = cellfun(@(x) x{1}(2),tokens(iSPC));
+
+spc = makeIceCoreDataset(spcMasterSheet,iSPC,bottomDepth);
 
 %% Outlier Detection
 % Flag all replicates that fall far from the running median for rejection.
