@@ -17,17 +17,25 @@ filesToImport = [
 
 spcMasterSheet = makeMasterSheet(filesToImport);
 
-%%
-% Generate Ice Core Dataset
-iceCoreID = 'SPICE';
+%% Generate Ice Core Dataset
+% Identify the ice samples within the relevant folder and extract the
+% bottom depth from the metadata to use as an input to makeIceCoreDataset.
+
+% Extract Bottom Depths from Metadata
 exp2match = '^(?<depth>\d{3,}(\.?)\d*)\s*(?<rep>\w?)$'; % Beginning; depth: two or more numeric chars, maybe with a decimal point; maybe a space; rep: maybe a single alphanumeric (or underscore) char; End.
 tokens = regexp(spcMasterSheet.metadata.ID1(:,1,1),exp2match,'tokens');
+% This expression captures all samples that have a ID1 with at least three
+% digits and that possibly contain a decimal point followed by more digits
+% and possibly a replicate letter after a space. This includes some samples
+% from the WDC folders, which are filtered out below.
 
-iSPC = contains(spcMasterSheet.metadata.fileRelPath(:,1,1),iceCoreID) & ...
-   ~cellfun(@isempty,tokens);
+% Identify SPC Ice Samples
+iSPC = contains(spcMasterSheet.metadata.fileRelPath(:,1,1),'SPICE') & ~cellfun(@isempty,tokens);
+
+% Calculate Bottom Depth
 bottomDepth = double(cellfun(@(x) x{1}(1),tokens(iSPC)));
-rep = cellfun(@(x) x{1}(2),tokens(iSPC));
 
+% Generate Ice Core Dataset
 spc = makeIceCoreDataset(spcMasterSheet,iSPC,bottomDepth);
 
 %% Outlier Detection
