@@ -52,7 +52,7 @@ ylim([-600 0])
 % Set Labels & Limits etc.
 stackedFigAx;
 xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
-datetick('x','keeplimits');
+datetick('x','mmm-yyyy','keeplimits');
 drawnow;
 stackedFigReset
 
@@ -75,7 +75,7 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 % Set Labels & Limits etc.
 title('PIS Values used for Correction')
 xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
-datetick('x','keeplimits')
+datetick('x','mmm-yyyy','keeplimits');
 drawnow;
 stackedFigReset
 
@@ -206,7 +206,7 @@ text(datenum(massSpecEvents.EndDate(iPlot)),repmat(max(get(gca,'YLim')),sum(iPlo
 % Set Labels & Limits etc.
 title('CS Values used for Correction')
 xlim(stackedFigAx,[min(masterSheet.metadata.msDatenum(:,1)) max(masterSheet.metadata.msDatenum(:,1))]);
-datetick('x','keeplimits')
+datetick('x','mmm-yyyy','keeplimits')
 stackedFigReset
 
 
