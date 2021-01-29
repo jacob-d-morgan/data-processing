@@ -98,7 +98,7 @@ csColors = [lineCol(1:3); lineCol(7)];
 % Loop Through Different Isotope Ratio Chem Slopes 
 for ii = 1:length(csUnivar)
     figure
-    idx_csExperiments = find(~isnat(csStats.(csUnivar{ii}).csDatetime));
+    idx_csExperiments = find(~isnan(csStats.(csUnivar{ii}).intercept));
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
         
@@ -139,7 +139,7 @@ csColors = flipud(cat(3,cbrewer('seq','Purples',20),cbrewer('seq','Oranges',20))
 % Loop Through Different Isotope Ratio Chem Slopes
 for ii = 1:length(csBivar)
     figure
-    idx_csExperiments = find(~isnat(csStats.(csBivar{ii}).csDatetime));
+    idx_csExperiments = find(~isnan(csStats.(csBivar{ii}).intercept));
     for jj=1:length(idx_csExperiments)
         subplot(1,length(idx_csExperiments),jj); hold on
         
