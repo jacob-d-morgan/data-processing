@@ -29,7 +29,7 @@ tokens = regexpi(neemMasterSheet.metadata.fileNameUser(:,1,1),exp2match,'tokens'
 % The expression also captures a few BYRD samples, which are filtered out
 % below using the fileRelPath.
 
-exp2match = '(?<bagNum>T\s\d{1,4})\s(?<bagDepths>\d{1,2}-\d{1,2})';
+exp2match = '(?<bagNum>T\s\d{1,4})(\s(?<bagDepths>\d{1,2}-\d{1,2}))?';
 tokensT = regexp(neemMasterSheet.metadata.fileNameUser(:,1,1),exp2match,'tokens');
 % This expression captures the samples from the Bolling Transition, which
 % have a different bag number convention and also include the depths of the
@@ -52,8 +52,9 @@ bagNum = str2double(erase(bagNum,{'x','X','T',' '}));
 
 bagDepthRange = repmat("",size(tokensT));
 bagDepthRange(iTransition) = cellfun(@(x) x{1}(2),tokensT(iTransition));
-bagDepths = str2double(split(bagDepthRange(bagDepthRange~=""),'-'));
-
+bagTopDepths = nan(size(tokensT));
+bagTopDepths(iTransition) = str2double(extractBefore(bagDepthRange(iTransition),'-'));
+bagTopDepths(isnan(bagTopDepths) & iTransition) = 0;
 
 % Assign Depths
 % N.B. The Danes report Top Depths for NEEM that are just the sum of the
@@ -63,7 +64,7 @@ bagDepths = str2double(split(bagDepthRange(bagDepthRange~=""),'-'));
 % starting from bag 2580, which has a top depth of 1418.85 m.
 topDepth = nan(size(bagNum));
 topDepth(iRegular) = (bagNum(iRegular)-1)*0.55;
-topDepth(iTransition) = 1418.45 + (bagNum(iTransition)-1)*0.55 + bagDepths(:,1)/100;
+topDepth(iTransition) = 1418.45 + (bagNum(iTransition)-1)*0.55 + bagTopDepths(iTransition)/100;
 topDepth = topDepth(iNEEM);
 
 
