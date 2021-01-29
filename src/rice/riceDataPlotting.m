@@ -55,8 +55,10 @@ bD_temp(~cellfun(@isempty,tokensRepB)) = bD_temp(find(~cellfun(@isempty,tokensRe
 bottomDepth = str2double(replace(bD_temp,"_","."));
 
 % Generate Ice Core Dataset
-rice = makeIceCoreDataset(riceMasterSheet,iRICE & ~isnan(bottomDepth),bottomDepth(iRICE & ~isnan(bottomDepth)));
 % Including the isnan clause filters out one problematic NaN value that
 % arises from assigning a NaN depth to a Rep B that has no corresponding
 % Rep A (so the bottom depth is NaN). The Rep A is NaN because it has two
 % decimal places/underscores so is not captured by the regexp.
+rice = makeIceCoreDataset(riceMasterSheet,iRICE & ~isnan(bottomDepth),bottomDepth(iRICE & ~isnan(bottomDepth)));
+rice.metadata.Properties.VariableNames{string(rice.metadata.Properties.VariableNames)=='depth'} = 'bottomDepth';
+

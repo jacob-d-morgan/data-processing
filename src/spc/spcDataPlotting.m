@@ -37,6 +37,7 @@ bottomDepth = double(cellfun(@(x) x{1}(1),tokens(iSPC)));
 
 % Generate Ice Core Dataset
 spc = makeIceCoreDataset(spcMasterSheet,iSPC,bottomDepth);
+spc.metadata.Properties.VariableNames{string(spc.metadata.Properties.VariableNames)=='depth'} = 'bottomDepth';
 
 %% Outlier Detection
 % Flag all replicates that fall far from the running median for rejection.

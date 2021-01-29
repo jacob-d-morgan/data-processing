@@ -81,3 +81,5 @@ topDepth(iTransition) = 1418.45 + (bagNum(iTransition)-1)*0.55 + bagTopDepths(iT
 
 % Generate Ice Core Dataset
 neem = makeIceCoreDataset(neemMasterSheet,iNEEM,topDepth(iNEEM));
+neem.metadata.Properties.VariableNames{string(neem.metadata.Properties.VariableNames)=='depth'} = 'topDepth';
+
